@@ -1,0 +1,2948 @@
+/* ===== MirraCloud Showcase — design-system tokens + components ===== */
+
+.sc-root {
+    flex-grow: 1;
+    background-color: #18181C;
+    color: #C9C9CF;
+    /* project default runtime font renders as solid boxes — pin an explicit one */
+    -unity-font: url("Fonts/LiberationSans.ttf");
+    -unity-font-definition: initial;
+}
+
+/* ---- gallery scaffold ---- */
+.sc-gallery {
+    padding-top: 22px;
+    padding-right: 22px;
+    padding-bottom: 22px;
+    padding-left: 22px;
+}
+.sc-gallery__title {
+    color: #FFFFFF;
+    font-size: 22px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    margin-bottom: 18px;
+}
+.sc-gallery__group {
+    margin-bottom: 26px;
+}
+.sc-gallery__row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+.sc-gallery__row > * {
+    margin-right: 12px;
+    margin-bottom: 12px;
+}
+
+/* ---- section header ---- */
+.sc-section-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.sc-section-header__title {
+    color: #FFFFFF;
+    font-size: 15px;
+    -unity-font-style: bold;
+}
+.sc-section-header__count {
+    color: #8A8A92;
+    font-size: 12px;
+    -unity-font-style: bold;
+    background-color: #1C1C20;
+    border-radius: 8px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    padding-left: 8px;
+    padding-right: 8px;
+    margin-left: 10px;
+}
+
+/* ---- avatar ---- */
+.sc-avatar {
+    border-radius: 50%;
+    overflow: hidden;
+    align-items: center;
+    justify-content: center;
+    background-color: #3A3A44;
+}
+.sc-avatar__img {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+.sc-avatar__initials {
+    color: #FFFFFF;
+    font-size: 15px;
+    -unity-font-style: bold;
+}
+.sc-avatar__presence {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background-color: #2FCFA0;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-left-width: 2px;
+    border-top-color: #18181C;
+    border-right-color: #18181C;
+    border-bottom-color: #18181C;
+    border-left-color: #18181C;
+}
+
+/* ---- chips ---- */
+.sc-chip {
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: 10px;
+    padding-right: 10px;
+    background-color: #26262C;
+}
+.sc-chip__label {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #C9C9CF;
+}
+.sc-chip--neutral { background-color: #26262C; }
+.sc-chip--accent { background-color: rgba(37, 99, 235, 0.16); }
+.sc-chip--accent .sc-chip__label { color: #4D8DFF; }
+.sc-chip--ok { background-color: rgba(47, 207, 160, 0.16); }
+.sc-chip--ok .sc-chip__label { color: #2FCFA0; }
+.sc-chip--warn { background-color: rgba(232, 155, 61, 0.16); }
+.sc-chip--warn .sc-chip__label { color: #E89B3D; }
+.sc-chip--bad { background-color: rgba(240, 128, 138, 0.14); }
+.sc-chip--bad .sc-chip__label { color: #F0808A; }
+.sc-chip--info { background-color: rgba(90, 182, 240, 0.16); }
+.sc-chip--info .sc-chip__label { color: #5AB6F0; }
+
+.sc-reward-chip {
+    flex-direction: row;
+    align-items: center;
+    background-color: #1C1C20;
+    border-radius: 9px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: 8px;
+    padding-right: 10px;
+}
+.sc-reward-chip__glyph {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #E6C76A;
+    margin-right: 5px;
+}
+.sc-reward-chip__count {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #D6D6DC;
+}
+
+/* ---- stat tile ---- */
+.sc-stat-tile {
+    background-color: #18181B;
+    border-radius: 12px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #2A2A2F;
+    border-right-color: #2A2A2F;
+    border-bottom-color: #2A2A2F;
+    border-left-color: #2A2A2F;
+    padding-top: 12px;
+    padding-right: 16px;
+    padding-bottom: 12px;
+    padding-left: 16px;
+    min-width: 96px;
+}
+.sc-stat-tile__glyph { color: #8A8A92; font-size: 13px; -unity-font-style: bold; margin-bottom: 2px; }
+.sc-stat-tile__value { color: #FFFFFF; font-size: 22px; -unity-font-style: bold; }
+.sc-stat-tile__caption { color: #8A8A92; font-size: 11px; margin-top: 2px; }
+.sc-stat-tile--hi {
+    border-top-color: #2FCFA0;
+    border-right-color: #2FCFA0;
+    border-bottom-color: #2FCFA0;
+    border-left-color: #2FCFA0;
+    background-color: rgba(47, 207, 160, 0.08);
+}
+.sc-stat-tile--hi .sc-stat-tile__value { color: #2FCFA0; }
+
+/* ---- progress bar ---- */
+.sc-pbar { margin-bottom: 10px; }
+.sc-pbar__track {
+    height: 10px;
+    background-color: #0E0E10;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.sc-pbar__fill {
+    height: 10px;
+    width: 0;
+    background-color: #2563EB;
+    border-radius: 5px;
+}
+.sc-pbar__label { color: #9A9AA2; font-size: 11px; margin-top: 4px; }
+
+/* ---- list row ---- */
+.sc-list-row {
+    flex-direction: row;
+    align-items: center;
+    background-color: #18181B;
+    border-radius: 12px;
+    padding-top: 9px;
+    padding-right: 12px;
+    padding-bottom: 9px;
+    padding-left: 12px;
+    margin-bottom: 7px;
+}
+.sc-list-row__lead { margin-right: 12px; }
+.sc-list-row__texts { flex-grow: 1; }
+.sc-list-row__title { color: #E6E6EA; font-size: 14px; -unity-font-style: bold; }
+.sc-list-row__subtitle { color: #7A7A82; font-size: 12px; margin-top: 1px; }
+.sc-list-row__trailing { flex-direction: row; align-items: center; }
+
+/* ---- table ---- */
+.sc-table {
+    background-color: #0E0E10;
+    border-radius: 14px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #2A2A30;
+    border-right-color: #2A2A30;
+    border-bottom-color: #2A2A30;
+    border-left-color: #2A2A30;
+    overflow: hidden;
+}
+.sc-table__header {
+    flex-direction: row;
+    background-color: #141417;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+.sc-table__hcell { color: #8A8A92; font-size: 11px; -unity-font-style: bold; }
+.sc-table__body { max-height: 320px; }
+.sc-table__row {
+    flex-direction: row;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 12px;
+    padding-right: 12px;
+    border-bottom-width: 1px;
+    border-bottom-color: #1C1C20;
+}
+.sc-table__row--hi { background-color: rgba(37, 99, 235, 0.12); }
+.sc-table__cell { justify-content: center; }
+.sc-table__cell Label { color: #C9C9CF; font-size: 13px; }
+.sc-cell-right { align-items: flex-end; }
+.sc-cell-center { align-items: center; }
+
+/* ---- card ---- */
+.sc-card {
+    background-color: #18181B;
+    border-radius: 16px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #2A2A2F;
+    border-right-color: #2A2A2F;
+    border-bottom-color: #2A2A2F;
+    border-left-color: #2A2A2F;
+    overflow: hidden;
+}
+.sc-card__header {
+    padding-top: 12px;
+    padding-right: 16px;
+    padding-bottom: 12px;
+    padding-left: 16px;
+}
+.sc-card__title { color: #FFFFFF; font-size: 16px; -unity-font-style: bold; }
+.sc-card__body {
+    padding-top: 14px;
+    padding-right: 16px;
+    padding-bottom: 16px;
+    padding-left: 16px;
+}
+
+/* ---- states ---- */
+.sc-state {
+    align-items: center;
+    justify-content: center;
+    padding-top: 28px;
+    padding-bottom: 28px;
+}
+.sc-state__glyph { font-size: 26px; -unity-font-style: bold; margin-bottom: 8px; }
+.sc-state__msg { font-size: 13px; white-space: normal; }
+.sc-state--empty .sc-state__glyph { color: #4A4A52; }
+.sc-state--empty .sc-state__msg { color: #6E6E77; }
+.sc-state--error .sc-state__glyph { color: #F0808A; }
+.sc-state--error .sc-state__msg { color: #E0A0A4; }
+
+/* ---- skeleton ---- */
+.sc-skeleton { padding-top: 4px; padding-bottom: 4px; }
+.sc-skeleton__row {
+    height: 14px;
+    background-color: #222229;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+/* ---- toasts ---- */
+.sc-toast {
+    color: #FFFFFF;
+    font-size: 13px;
+    -unity-font-style: bold;
+    background-color: #2A2A31;
+    border-radius: 10px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    padding-left: 14px;
+    padding-right: 14px;
+    margin-top: 8px;
+}
+.sc-toast--ok { background-color: #1F6B53; }
+.sc-toast--bad { background-color: #9C3A41; }
+.sc-toast--info { background-color: #2A4D6B; }
+
+/* ===== M1: app shell, auth, nav, services ===== */
+
+/* hosts */
+.sc-nav-host { flex-grow: 1; }
+.sc-overlay { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.sc-toast-host2 { position: absolute; right: 24px; bottom: 24px; align-items: flex-end; }
+
+/* buttons */
+.sc-btn {
+    color: #FFFFFF;
+    font-size: 14px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    background-color: #2A2A31;
+    border-radius: 10px;
+    border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;
+    padding-top: 10px; padding-bottom: 10px; padding-left: 16px; padding-right: 16px;
+}
+.sc-btn:hover { background-color: #34343C; }
+.sc-btn:disabled { opacity: 0.5; }
+.sc-btn--primary { background-color: #2563EB; }
+.sc-btn--primary:hover { background-color: #1D4ED8; }
+.sc-btn--block { margin-bottom: 10px; }
+
+/* modal popup */
+.sc-scrim {
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+    align-items: center;
+    justify-content: center;
+}
+.sc-dialog {
+    width: 92%;
+    max-width: 420px;
+    background-color: #18181C;
+    border-radius: 16px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #2A2A30; border-right-color: #2A2A30; border-bottom-color: #2A2A30; border-left-color: #2A2A30;
+}
+.sc-dialog__head {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 14px; padding-right: 14px; padding-bottom: 10px; padding-left: 18px;
+    border-bottom-width: 1px; border-bottom-color: #222229;
+}
+.sc-dialog__title { color: #FFFFFF; font-size: 15px; -unity-font-style: bold; }
+.sc-dialog__close {
+    width: 28px; height: 28px; border-radius: 14px;
+    background-color: #26262C; color: #C9C9CF; font-size: 14px;
+    border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;
+    padding-top: 0; padding-bottom: 0; padding-left: 0; padding-right: 0;
+}
+.sc-dialog__close:hover { background-color: #34343C; }
+.sc-dialog__body { padding-top: 16px; padding-right: 18px; padding-bottom: 18px; padding-left: 18px; }
+
+/* form / fields */
+.sc-form { }
+.sc-field { margin-bottom: 12px; }
+.sc-field .unity-base-field__label { color: #8A8A92; font-size: 12px; min-width: 70px; }
+.sc-field .unity-base-text-field__input {
+    background-color: #0A0A0C;
+    border-radius: 8px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #2A2A30; border-right-color: #2A2A30; border-bottom-color: #2A2A30; border-left-color: #2A2A30;
+    color: #E6E6EA;
+    padding-top: 7px; padding-bottom: 7px; padding-left: 9px; padding-right: 9px;
+}
+.sc-field .unity-base-text-field__input:focus {
+    border-top-color: #3B82F6; border-right-color: #3B82F6; border-bottom-color: #3B82F6; border-left-color: #3B82F6;
+}
+
+/* auth screen */
+.sc-auth { flex-grow: 1; align-items: center; justify-content: center; padding-top: 24px; padding-bottom: 24px; }
+.sc-auth__inner { width: 100%; max-width: 420px; align-items: stretch; }
+.sc-auth__brand { color: #FFFFFF; font-size: 30px; -unity-font-style: bold; letter-spacing: 1px; -unity-text-align: middle-center; }
+.sc-auth__subtitle { color: #8A8A92; font-size: 14px; -unity-text-align: middle-center; margin-top: 4px; margin-bottom: 22px; }
+.sc-auth__card {
+    background-color: #121215;
+    border-radius: 18px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #26262C; border-right-color: #26262C; border-bottom-color: #26262C; border-left-color: #26262C;
+    padding-top: 20px; padding-right: 20px; padding-bottom: 12px; padding-left: 20px;
+}
+.sc-auth__divider { flex-direction: row; align-items: center; justify-content: center; margin-top: 6px; margin-bottom: 14px; }
+.sc-auth__divider-label { color: #6E6E77; font-size: 12px; }
+.sc-auth__footer { flex-direction: row; flex-wrap: wrap; justify-content: center; margin-top: 18px; }
+
+.sc-config-chip {
+    flex-direction: row; align-items: center;
+    background-color: #1C1C20; border-radius: 8px;
+    padding-top: 4px; padding-bottom: 4px; padding-left: 9px; padding-right: 9px;
+    margin-left: 5px; margin-right: 5px; margin-bottom: 6px;
+}
+.sc-config-chip__key { color: #6E6E77; font-size: 11px; -unity-font-style: bold; margin-right: 6px; }
+.sc-config-chip__val { color: #C9C9CF; font-size: 12px; }
+.sc-config-chip__val--missing { color: #F0808A; }
+
+/* provider tiles */
+.sc-provider-grid { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+.sc-provider {
+    align-items: center;
+    width: 92px;
+    background-color: #1A1A1E;
+    border-radius: 12px;
+    padding-top: 12px; padding-bottom: 12px; padding-left: 8px; padding-right: 8px;
+    margin-left: 5px; margin-right: 5px; margin-bottom: 10px;
+}
+.sc-provider:hover { background-color: #222228; }
+.sc-provider__badge { width: 38px; height: 38px; border-radius: 19px; align-items: center; justify-content: center; margin-bottom: 8px; }
+.sc-provider__glyph { font-size: 17px; -unity-font-style: bold; }
+.sc-provider__label { color: #C9C9CF; font-size: 12px; }
+
+/* services screen */
+.sc-services { flex-grow: 1; width: 100%; max-width: 1120px; align-self: center; padding-top: 18px; padding-right: 22px; padding-bottom: 18px; padding-left: 22px; }
+.sc-svc-topbar { flex-direction: row; align-items: center; margin-bottom: 18px; }
+.sc-svc-topbar__texts { margin-left: 12px; }
+.sc-svc-topbar__name { color: #FFFFFF; font-size: 16px; -unity-font-style: bold; }
+.sc-svc-topbar__handle { color: #7A7A82; font-size: 12px; margin-top: 1px; }
+.sc-svc-scroll { flex-grow: 1; }
+.sc-svc-grid { flex-direction: row; flex-wrap: wrap; }
+.sc-svc-card {
+    width: 31.6%;
+    height: 124px;
+    margin-right: 1.5%; margin-bottom: 16px;
+    background-color: #18181B;
+    border-radius: 16px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #2A2A2F; border-right-color: #2A2A2F; border-bottom-color: #2A2A2F; border-left-color: #2A2A2F;
+    padding-top: 18px; padding-right: 18px; padding-bottom: 18px; padding-left: 18px;
+    justify-content: space-between;
+}
+.sc-svc-card:hover { background-color: #1C1C20; }
+.sc-svc-card__icon { width: 42px; height: 42px; border-radius: 12px; align-items: center; justify-content: center; }
+.sc-svc-card__glyph { font-size: 18px; -unity-font-style: bold; }
+.sc-svc-card__title { font-size: 19px; -unity-font-style: bold; }
+
+/* detail / coming soon */
+.sc-detail { flex-grow: 1; width: 100%; max-width: 1120px; align-self: center; padding-top: 18px; padding-right: 22px; padding-bottom: 18px; padding-left: 22px; }
+.sc-detail__header { flex-direction: row; align-items: center; margin-bottom: 16px; }
+.sc-back-btn {
+    width: 38px; height: 38px; border-radius: 19px; background-color: #26262C; color: #FFFFFF;
+    font-size: 20px; -unity-font-style: bold; margin-right: 14px;
+    border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;
+    padding-top: 0; padding-bottom: 0; padding-left: 0; padding-right: 0;
+}
+.sc-back-btn:hover { background-color: #34343C; }
+.sc-detail__title { font-size: 26px; -unity-font-style: bold; }
+.sc-detail__body { flex-grow: 1; align-items: center; justify-content: center; }
+.sc-coming__glyph { font-size: 44px; -unity-font-style: bold; margin-bottom: 12px; }
+.sc-coming__msg { color: #8A8A92; font-size: 14px; white-space: normal; -unity-text-align: middle-center; }
+
+/* ===== M2: per-service detail content ===== */
+
+/* scrollable content column (overrides the centered coming-soon body) */
+.sc-svc-content { flex-grow: 1; }
+
+/* shared chip / stat rows */
+.sc-chip-row { flex-direction: row; flex-wrap: wrap; }
+.sc-chip-row > * { margin-right: 7px; margin-bottom: 7px; }
+.sc-stat-grid { flex-direction: row; flex-wrap: wrap; }
+.sc-stat-grid > * { margin-right: 10px; margin-bottom: 10px; flex-grow: 1; }
+
+/* key/value meta list */
+.sc-kv-list { margin-top: 16px; }
+.sc-kv {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-top: 7px; padding-bottom: 7px;
+    border-bottom-width: 1px; border-bottom-color: #222229;
+}
+.sc-kv__k { color: #8A8A92; font-size: 12px; }
+.sc-kv__v { color: #D6D6DC; font-size: 12px; -unity-font-style: bold; -unity-text-align: middle-right; white-space: normal; flex-shrink: 1; max-width: 64%; }
+
+/* player account hero */
+.sc-hero__top { flex-direction: row; align-items: center; }
+.sc-hero__id { margin-left: 16px; flex-grow: 1; flex-shrink: 1; }
+.sc-hero__name { color: #FFFFFF; font-size: 24px; -unity-font-style: bold; }
+.sc-hero__handle { color: #7A7A82; font-size: 13px; margin-top: 2px; }
+
+/* leaderboard tabs */
+.sc-tabs { flex-direction: row; flex-wrap: wrap; }
+.sc-tab {
+    color: #C9C9CF; font-size: 13px; -unity-font-style: bold;
+    background-color: #1C1C20; border-radius: 10px;
+    border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;
+    padding-top: 8px; padding-bottom: 8px; padding-left: 14px; padding-right: 14px;
+    margin-right: 8px; margin-bottom: 8px;
+}
+.sc-tab:hover { background-color: #26262C; }
+.sc-tab--active { background-color: #2563EB; color: #FFFFFF; }
+.sc-tab--active:hover { background-color: #1D4ED8; }
+
+/* leaderboard table cells */
+.sc-rank { -unity-font-style: bold; font-size: 14px; }
+.sc-score { -unity-font-style: bold; font-size: 14px; color: #FFFFFF; }
+
+/* economy energies */
+.sc-energy__head { flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.sc-energy__name { color: #E6E6EA; font-size: 14px; -unity-font-style: bold; }
+.sc-energy__val { color: #9A9AA2; font-size: 13px; -unity-font-style: bold; }
+
+/* economy item grid */
+.sc-item-grid { flex-direction: row; flex-wrap: wrap; }
+.sc-item {
+    width: 96px; align-items: center;
+    margin-right: 12px; margin-bottom: 14px;
+}
+.sc-item__icon {
+    width: 72px; height: 72px;
+    background-color: #18181B; border-radius: 16px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #2A2A2F; border-right-color: #2A2A2F; border-bottom-color: #2A2A2F; border-left-color: #2A2A2F;
+    align-items: center; justify-content: center;
+}
+.sc-item__glyph { font-size: 26px; -unity-font-style: bold; }
+.sc-item__qty {
+    position: absolute; right: 4px; bottom: 4px;
+    color: #FFFFFF; font-size: 11px; -unity-font-style: bold;
+    background-color: rgba(0, 0, 0, 0.62); border-radius: 7px;
+    padding-top: 1px; padding-bottom: 1px; padding-left: 6px; padding-right: 6px;
+}
+.sc-item__name { color: #D6D6DC; font-size: 12px; -unity-font-style: bold; margin-top: 7px; -unity-text-align: middle-center; white-space: normal; }
+.sc-item__sub { color: #6E6E77; font-size: 10px; margin-top: 1px; -unity-text-align: middle-center; }
+
+/* ===== M3: chats lookup bar ===== */
+.sc-chat-lookup { flex-direction: row; align-items: center; }
+.sc-chat-lookup__input { flex-grow: 1; flex-shrink: 1; margin-bottom: 0; }
+/* A labelled BaseField sizes itself from its content and does not shrink by default, so without
+   this an id field in this row pushes its button off the panel and the page scrolls sideways. */
+.sc-chat-lookup .sc-field { flex-grow: 1; flex-shrink: 1; margin-bottom: 0; }
+.sc-chat-lookup .sc-btn { margin-left: 8px; margin-bottom: 0; }
+.sc-chat-hint { color: #6E6E77; font-size: 12px; white-space: normal; margin-top: 10px; margin-bottom: 16px; }
+.sc-chat-topic { color: #C9C9CF; font-size: 13px; white-space: normal; margin-bottom: 10px; }
+
+/* ===== M4: daily-rewards day track ===== */
+.sc-day-track { flex-direction: row; flex-wrap: wrap; margin-top: 4px; }
+.sc-day-tile {
+    background-color: #15151A; border-radius: 12px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #26262C; border-right-color: #26262C; border-bottom-color: #26262C; border-left-color: #26262C;
+    padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px;
+    margin-right: 10px; margin-bottom: 10px; min-width: 92px; align-items: flex-start;
+}
+.sc-day-tile--current {
+    border-top-color: #2563EB; border-right-color: #2563EB; border-bottom-color: #2563EB; border-left-color: #2563EB;
+    background-color: rgba(37, 99, 235, 0.08);
+}
+
+/* ===== assets storage: image card grid ===== */
+.sc-asset-grid { flex-direction: row; flex-wrap: wrap; }
+.sc-asset-card {
+    width: 168px; margin-right: 14px; margin-bottom: 14px;
+    background-color: #18181B; border-radius: 14px; overflow: hidden;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #2A2A2F; border-right-color: #2A2A2F; border-bottom-color: #2A2A2F; border-left-color: #2A2A2F;
+}
+.sc-asset-card:hover { background-color: #1C1C20; }
+.sc-asset-card__preview {
+    height: 120px; background-color: #0E0E10;
+    align-items: center; justify-content: center; overflow: hidden;
+}
+.sc-asset-card__img { width: 100%; height: 100%; }
+.sc-asset-card__glyph { font-size: 22px; -unity-font-style: bold; }
+.sc-asset-card__body { padding-top: 10px; padding-right: 12px; padding-bottom: 12px; padding-left: 12px; }
+.sc-asset-card__name { color: #E6E6EA; font-size: 13px; -unity-font-style: bold; white-space: normal; }
+
+/* ===== tabs strip (Components/Tabs.cs) ===== */
+
+/* the strip is a horizontal ScrollView; min-height keeps the row visible even when the
+   ScrollView resolves its auto height late (first layout pass) */
+.sc-tabs__strip {
+    flex-shrink: 0;
+    min-height: 36px;
+    margin-bottom: 12px;
+}
+/* the ScrollView's content row reuses .sc-tabs — but wrapping there would defeat the
+   horizontal scrolling, so it is pinned to a single line (2 classes beat the base rule) */
+.sc-tabs__strip .sc-tabs {
+    flex-wrap: nowrap;
+    flex-grow: 0;
+}
+.sc-tabs__strip .sc-tab {
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0;
+    margin-left: 0;
+    margin-bottom: 0;
+}
+.sc-tab__glyph {
+    font-size: 13px;
+    margin-right: 7px;
+}
+.sc-tabs__content {
+    flex-grow: 1;
+}
+
+/* ===== toolbar (Components/Toolbar.cs) ===== */
+.sc-toolbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 12px;
+}
+/* no gap in USS — spacing lives on the direct children */
+.sc-toolbar > * {
+    margin-top: 0;
+    margin-left: 0;
+    margin-right: 8px;
+    margin-bottom: 6px;
+}
+.sc-toolbar--busy .sc-toolbar__search {
+    opacity: 0.7;
+}
+.sc-toolbar__spacer {
+    flex-grow: 1;
+    margin-right: 0;
+}
+
+/* ---- toolbar search ---- */
+.sc-toolbar__search {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 170px;
+    max-width: 340px;
+    height: 36px;
+    background-color: #0E1116;
+    border-radius: 10px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+.sc-toolbar__search--focus {
+    border-top-color: #3B82F6;
+    border-right-color: #3B82F6;
+    border-bottom-color: #3B82F6;
+    border-left-color: #3B82F6;
+}
+.sc-toolbar__search-glyph {
+    color: #6B7488;
+    font-size: 13px;
+    margin-right: 8px;
+}
+/* Row, not the default column: as a column the input's flex-grow:1 resolves against a height
+   that is itself derived from the input — Yoga settles that circle at ~120px tall. */
+.sc-toolbar__search-wrap {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    flex-shrink: 1;
+    height: 100%;
+}
+.sc-toolbar__search-input {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: 0;
+    margin-left: 0;
+}
+.sc-toolbar__search-input .unity-base-text-field__input {
+    background-color: rgba(0, 0, 0, 0);
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+    border-radius: 0;
+    color: #E6EAF2;
+    font-size: 13px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 0;
+    padding-right: 0;
+}
+/* the box draws the focus ring, the inner input must not draw a second one */
+.sc-toolbar__search-input .unity-base-text-field__input:focus {
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+}
+.sc-toolbar__placeholder {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    color: #6B7488;
+    font-size: 13px;
+    -unity-text-align: middle-left;
+}
+
+/* ---- toolbar filter dropdown ---- */
+/* Width is pinned: a BaseField sizes its input from content, and DropdownField measures against
+   its widest choice — left to itself one filter eats the whole toolbar line. */
+.sc-toolbar__filter {
+    width: 210px;
+    flex-grow: 0;
+    flex-shrink: 0;
+    height: 36px;
+    align-items: center;
+}
+.sc-toolbar__filter .unity-base-field__label {
+    color: #9AA4B8;
+    font-size: 12px;
+    min-width: 0;
+    margin-right: 8px;
+    -unity-text-align: middle-left;
+}
+.sc-toolbar__filter .unity-base-popup-field__input {
+    background-color: #0E1116;
+    border-radius: 10px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    min-height: 36px;
+    padding-left: 10px;
+    padding-right: 8px;
+}
+.sc-toolbar__filter .unity-base-popup-field__input:hover {
+    border-top-color: #2E3746;
+    border-right-color: #2E3746;
+    border-bottom-color: #2E3746;
+    border-left-color: #2E3746;
+}
+.sc-toolbar__filter .unity-base-popup-field__text {
+    color: #E6EAF2;
+    font-size: 13px;
+}
+
+/* ---- toolbar buttons ---- */
+.sc-toolbar__icon-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+    border-radius: 10px;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+.sc-toolbar__btn {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+.sc-toolbar__btn-glyph {
+    font-size: 13px;
+    margin-right: 7px;
+}
+
+/* ===== table: sortable header, zebra, clickable rows, ghosts (DataTable.cs) =====
+   .sc-table__hcell is intentionally extended here instead of edited above: the header
+   cell became a container (caption + sort arrow), and these properties are disjoint
+   from the color/font-size set in the original rule, so both still apply. */
+.sc-table__hcell {
+    flex-direction: row;
+    align-items: center;
+}
+.sc-table__hcell.sc-cell-right {
+    align-items: center;
+    justify-content: flex-end;
+}
+.sc-table__hcell.sc-cell-center {
+    align-items: center;
+    justify-content: center;
+}
+.sc-table__hlabel {
+    flex-shrink: 1;
+    overflow: hidden;
+}
+.sc-table__hcell--sortable {
+    cursor: link;
+}
+.sc-table__hcell--sortable:hover {
+    color: #E6EAF2;
+}
+.sc-table__sort {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: #4D8DFF;
+    margin-left: 4px;
+}
+
+/* zebra — the highlight modifier must still win, hence the compound selectors */
+.sc-table__row--odd {
+    background-color: #161A22;
+}
+.sc-table__row--odd.sc-table__row--hi {
+    background-color: rgba(37, 99, 235, 0.12);
+}
+
+/* clickable rows */
+.sc-table__row--clickable {
+    cursor: link;
+}
+.sc-table__row--clickable:hover {
+    background-color: #1B2029;
+}
+.sc-table__row--clickable.sc-table__row--odd:hover {
+    background-color: #1B2029;
+}
+.sc-table__row--clickable.sc-table__row--hi:hover {
+    background-color: rgba(37, 99, 235, 0.22);
+}
+
+/* placeholder rows for BindEmpty */
+.sc-table__row--ghost {
+    border-bottom-color: #161A22;
+}
+.sc-table__ghost {
+    height: 10px;
+    border-radius: 5px;
+    background-color: #232A36;
+}
+.sc-table__note {
+    color: #6B7488;
+    font-size: 12px;
+    -unity-text-align: middle-center;
+    padding-top: 12px;
+    padding-bottom: 14px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+/* ===== pager (Components/Pager.cs) ===== */
+.sc-pager {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+}
+.sc-pager__btn {
+    width: 30px;
+    height: 30px;
+    -unity-text-align: middle-center;
+    font-size: 13px;
+    color: #9AA4B8;
+    background-color: #1B2029;
+    border-radius: 8px;
+    border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;
+    padding-top: 0; padding-bottom: 0; padding-left: 0; padding-right: 0;
+    margin-top: 0; margin-bottom: 0; margin-left: 3px; margin-right: 3px;
+}
+.sc-pager__btn:hover {
+    background-color: #2E3746;
+    color: #E6EAF2;
+}
+.sc-pager__btn:disabled {
+    opacity: 0.35;
+}
+.sc-pager__label {
+    color: #9AA4B8;
+    font-size: 12px;
+    -unity-text-align: middle-center;
+    min-width: 96px;
+    margin-left: 8px;
+    margin-right: 8px;
+}
+
+/* ===== forms: fields, hints, inline validation, form/confirm dialogs ===== */
+
+/* ---- one field: control + hint + error, stacked ---- */
+.sc-form-field {
+    margin-bottom: 14px;
+}
+/* the control keeps .sc-field for the shared input skin, but the wrapper owns the spacing */
+.sc-form-field .sc-field {
+    margin-bottom: 0;
+}
+/* hint/error are NOT indented to the label column: .unity-base-field__label only has a
+   min-width, so a long label would push the input and break any fixed indent. */
+.sc-form-field__hint {
+    color: #6B7488;
+    font-size: 11px;
+    white-space: normal;
+    margin-top: 5px;
+}
+.sc-form-field__error {
+    flex-direction: row;
+    align-items: flex-start;
+    margin-top: 5px;
+}
+.sc-form-field__error-glyph {
+    color: #EF4444;
+    font-size: 12px;
+    margin-right: 5px;
+}
+.sc-form-field__error-msg {
+    color: #EF4444;
+    font-size: 11px;
+    -unity-font-style: bold;
+    white-space: normal;
+    flex-shrink: 1;
+}
+
+/* invalid outline — 3 classes so it beats the plain .sc-field input rule */
+.sc-form-field--invalid .sc-field .unity-base-text-field__input {
+    border-top-color: #EF4444;
+    border-right-color: #EF4444;
+    border-bottom-color: #EF4444;
+    border-left-color: #EF4444;
+}
+.sc-form-field--invalid .sc-field .unity-base-popup-field__input {
+    border-top-color: #EF4444;
+    border-right-color: #EF4444;
+    border-bottom-color: #EF4444;
+    border-left-color: #EF4444;
+}
+
+/* ---- multiline + json ("code") inputs ---- */
+.sc-field.sc-field--multiline .unity-base-text-field__input {
+    min-height: 84px;
+    white-space: normal;
+    -unity-text-align: upper-left;
+}
+.sc-field.sc-field--code .unity-base-text-field__input {
+    min-height: 112px;
+    background-color: #0E1116;
+    color: #E6EAF2;
+    font-size: 12px;
+    letter-spacing: 0.6px;
+    border-top-color: #2E3746;
+    border-right-color: #2E3746;
+    border-bottom-color: #2E3746;
+    border-left-color: #2E3746;
+}
+
+/* ---- dropdown, skinned to match the text inputs above ---- */
+.sc-field .unity-base-popup-field__input {
+    background-color: #0A0A0C;
+    border-radius: 8px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #2A2A30;
+    border-right-color: #2A2A30;
+    border-bottom-color: #2A2A30;
+    border-left-color: #2A2A30;
+    padding-top: 7px;
+    padding-bottom: 7px;
+    padding-left: 9px;
+    padding-right: 9px;
+}
+.sc-field .unity-base-popup-field__input:hover {
+    border-top-color: #2E3746;
+    border-right-color: #2E3746;
+    border-bottom-color: #2E3746;
+    border-left-color: #2E3746;
+}
+.sc-field .unity-base-popup-field__input:focus {
+    border-top-color: #3B82F6;
+    border-right-color: #3B82F6;
+    border-bottom-color: #3B82F6;
+    border-left-color: #3B82F6;
+}
+.sc-field .unity-base-popup-field__text {
+    color: #E6EAF2;
+    font-size: 12px;
+}
+
+/* ---- toggle row ---- */
+.sc-field--toggle {
+    flex-direction: row;
+    align-items: center;
+}
+
+/* ---- dialog body: scrollable field column + right-aligned actions ---- */
+.sc-form-dialog {
+    flex-shrink: 1;
+}
+.sc-form-dialog__scroll {
+    max-height: 340px;
+    min-height: 44px;
+    flex-shrink: 1;
+    margin-bottom: 4px;
+}
+.sc-form__actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 8px;
+}
+.sc-form__actions > * {
+    margin-left: 8px;
+    margin-bottom: 0;
+}
+
+/* destructive button (deletes, resets) */
+.sc-btn--danger {
+    background-color: #EF4444;
+    color: #FFFFFF;
+}
+.sc-btn--danger:hover {
+    background-color: rgba(239, 68, 68, 0.82);
+}
+
+/* ---- confirm dialog ---- */
+.sc-confirm__msg {
+    color: #9AA4B8;
+    font-size: 13px;
+    white-space: normal;
+    margin-bottom: 14px;
+}
+.sc-confirm__gate {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.sc-confirm__gate-text {
+    color: #6B7488;
+    font-size: 12px;
+}
+.sc-confirm__gate-code {
+    color: #E6EAF2;
+    font-size: 12px;
+    -unity-font-style: bold;
+    background-color: #0E1116;
+    border-radius: 6px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    padding-left: 7px;
+    padding-right: 7px;
+    margin-left: 6px;
+    margin-right: 6px;
+}
+.sc-confirm__input {
+    margin-bottom: 4px;
+}
+
+/* ===== charts: sparkline / bar chart / donut (Components/Charts.cs) =====
+   The plots themselves are painted with Painter2D; everything here is chrome:
+   the "no data" overlay, the flex columns that keep labels aligned with the
+   painted slots, and the donut legend. */
+.sc-chart__overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+.sc-chart__empty {
+    color: #6B7488;
+    font-size: 12px;
+    -unity-text-align: middle-center;
+}
+/* one column per data point — equal widths mirror the painter's slot math */
+.sc-chart__col {
+    flex-grow: 1;
+    flex-basis: 0;
+    flex-shrink: 1;
+    overflow: hidden;
+    -unity-text-align: middle-center;
+}
+
+/* ---- sparkline ---- */
+.sc-spark {
+    width: 100%;
+    overflow: hidden;
+}
+
+/* ---- bar chart ---- */
+.sc-bars {
+    width: 100%;
+}
+.sc-bars__plot {
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+.sc-bars__row {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+}
+.sc-bars__values { margin-bottom: 4px; }
+.sc-bars__labels { margin-top: 6px; }
+.sc-bars__vlabel {
+    color: #9AA4B8;
+    font-size: 11px;
+    -unity-font-style: bold;
+}
+.sc-bars__xlabel {
+    color: #6B7488;
+    font-size: 10px;
+}
+
+/* ---- donut ---- */
+.sc-donut {
+    flex-direction: row;
+    align-items: center;
+}
+.sc-donut__canvas {
+    flex-shrink: 0;
+}
+.sc-donut__center {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+.sc-donut__value {
+    color: #E6EAF2;
+    font-size: 20px;
+    -unity-font-style: bold;
+}
+.sc-donut__caption {
+    color: #9AA4B8;
+    font-size: 11px;
+    margin-top: 2px;
+}
+.sc-donut__legend {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-left: 18px;
+}
+.sc-donut__legend-row {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    border-bottom-width: 1px;
+    border-bottom-color: #232A36;
+}
+.sc-donut__dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 9px;
+    flex-shrink: 0;
+}
+.sc-donut__legend-name {
+    color: #E6EAF2;
+    font-size: 12px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+.sc-donut__legend-val {
+    color: #9AA4B8;
+    font-size: 12px;
+    -unity-font-style: bold;
+    margin-left: 10px;
+    flex-shrink: 0;
+}
+
+/* ===== zero states (Components/ZeroState.cs) ===== */
+.sc-zero {
+    align-items: stretch;
+}
+.sc-zero__msg {
+    color: #9AA4B8;
+    font-size: 13px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin-top: 14px;
+}
+.sc-zero__cta {
+    align-self: center;
+    margin-top: 12px;
+}
+
+/* pale placeholder bar, stands in for a value that does not exist yet */
+.sc-zero__bar {
+    height: 9px;
+    border-radius: 5px;
+    background-color: #2E3746;
+}
+.sc-zero__bar--thin {
+    height: 7px;
+    background-color: #232A36;
+}
+
+/* ZeroState.Table has no rules of its own: it reuses DataTable.BindEmpty for the header,
+   the dimmed rows and the caption, and only stacks .sc-zero__cta underneath. */
+
+/* ---- ghost card grid ---- */
+.sc-zero__cards {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.sc-zero__card {
+    width: 152px;
+    background-color: #161A22;
+    border-radius: 14px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    padding-top: 14px;
+    padding-right: 14px;
+    padding-bottom: 16px;
+    padding-left: 14px;
+    margin-right: 12px;
+    margin-bottom: 12px;
+}
+.sc-zero__card-glyph {
+    font-size: 20px;
+    color: #2E3746;
+    margin-bottom: 12px;
+}
+.sc-zero__card .sc-zero__bar {
+    margin-bottom: 8px;
+}
+
+/* ---- explanatory panel (Panel / NotConfigured / Forbidden) ---- */
+.sc-zero__panel {
+    align-items: center;
+    background-color: #161A22;
+    border-radius: 16px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    padding-top: 28px;
+    padding-right: 24px;
+    padding-bottom: 28px;
+    padding-left: 24px;
+}
+.sc-zero__glyph {
+    font-size: 30px;
+    color: #6B7488;
+}
+.sc-zero__title {
+    color: #E6EAF2;
+    font-size: 15px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: normal;
+    margin-top: 12px;
+}
+.sc-zero__panel .sc-zero__msg {
+    max-width: 460px;
+    margin-top: 8px;
+}
+.sc-zero__panel--warn .sc-zero__glyph { color: #F59E0B; }
+.sc-zero__panel--bad .sc-zero__glyph { color: #EF4444; }
+
+.sc-zero__hint {
+    flex-direction: row;
+    align-items: flex-start;
+    max-width: 480px;
+    background-color: #1B2029;
+    border-radius: 10px;
+    padding-top: 9px;
+    padding-right: 12px;
+    padding-bottom: 9px;
+    padding-left: 11px;
+    margin-top: 16px;
+}
+.sc-zero__hint-glyph {
+    font-size: 12px;
+    color: #38BDF8;
+    margin-right: 8px;
+}
+.sc-zero__hint-text {
+    color: #6B7488;
+    font-size: 12px;
+    white-space: normal;
+    flex-shrink: 1;
+}
+
+/* ===== KPI row (Components/KpiRow.cs) ===== */
+.sc-kpi-row > * {
+    min-width: 124px;
+}
+.sc-kpi__trend {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 3px;
+}
+.sc-kpi__trend-glyph {
+    font-size: 11px;
+    margin-right: 4px;
+}
+.sc-kpi__trend-text {
+    font-size: 11px;
+    -unity-font-style: bold;
+}
+.sc-kpi__trend--up .sc-kpi__trend-glyph { color: #22C55E; }
+.sc-kpi__trend--up .sc-kpi__trend-text { color: #22C55E; }
+.sc-kpi__trend--down .sc-kpi__trend-glyph { color: #EF4444; }
+.sc-kpi__trend--down .sc-kpi__trend-text { color: #EF4444; }
+.sc-kpi__trend--flat .sc-kpi__trend-text { color: #6B7488; }
+
+/* muted "nothing to count yet" tile — recessed instead of missing */
+.sc-kpi--zero {
+    background-color: #0E1116;
+    border-top-color: #1B2029;
+    border-right-color: #1B2029;
+    border-bottom-color: #1B2029;
+    border-left-color: #1B2029;
+}
+.sc-kpi--zero .sc-stat-tile__value { color: #6B7488; }
+.sc-kpi--zero .sc-stat-tile__caption { color: #6B7488; }
+.sc-kpi--zero .sc-stat-tile__glyph { color: #2E3746; }
+
+/* ===== micro components: badge, copy button, relative time, json viewer, info hint ===== */
+
+/* ---- badge (denser than .sc-chip: no border, tighter padding) ---- */
+.sc-badge {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    background-color: #1B2029;
+    padding-top: 1px;
+    padding-bottom: 1px;
+    padding-left: 7px;
+    padding-right: 7px;
+}
+.sc-badge__label {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: #9AA4B8;
+}
+.sc-badge--neutral { background-color: #1B2029; }
+.sc-badge--neutral .sc-badge__label { color: #9AA4B8; }
+.sc-badge--accent { background-color: rgba(37, 99, 235, 0.18); }
+.sc-badge--accent .sc-badge__label { color: #4D8DFF; }
+.sc-badge--ok { background-color: rgba(34, 197, 94, 0.16); }
+.sc-badge--ok .sc-badge__label { color: #22C55E; }
+.sc-badge--warn { background-color: rgba(245, 158, 11, 0.16); }
+.sc-badge--warn .sc-badge__label { color: #F59E0B; }
+.sc-badge--bad { background-color: rgba(239, 68, 68, 0.16); }
+.sc-badge--bad .sc-badge__label { color: #EF4444; }
+.sc-badge--info { background-color: rgba(56, 189, 248, 0.16); }
+.sc-badge--info .sc-badge__label { color: #38BDF8; }
+
+/* ---- copy button ----
+   One skin for two implementations: Micro.CopyButton (a VisualElement with a glyph +
+   optional label child) and SdkCallDrawer.CopyButton (a plain text Button). The button
+   resets (border/margin/text-align) are inert on the VisualElement; the child classes
+   below re-state color and size, so the inherited text properties never reach them.
+   Spacing between several buttons lives on the container, not here. */
+.sc-copy-btn {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background-color: #1B2029;
+    color: #9AA4B8;
+    font-size: 11px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: 0;
+    margin-left: 0;
+    transition-property: background-color;
+    transition-duration: 120ms;
+}
+.sc-copy-btn:hover {
+    background-color: #232A36;
+    color: #E6EAF2;
+}
+.sc-copy-btn:active {
+    background-color: #2E3746;
+}
+.sc-copy-btn__glyph {
+    font-size: 12px;
+    color: #9AA4B8;
+}
+.sc-copy-btn__label {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #9AA4B8;
+    margin-left: 6px;
+}
+.sc-copy-btn--done { background-color: rgba(34, 197, 94, 0.18); }
+.sc-copy-btn--done .sc-copy-btn__glyph { color: #22C55E; }
+.sc-copy-btn--done .sc-copy-btn__label { color: #22C55E; }
+
+/* ---- relative time ---- */
+.sc-rel-time {
+    color: #6B7488;
+    font-size: 11px;
+}
+
+/* ---- json viewer ---- */
+.sc-json {
+    background-color: #0E1116;
+    border-radius: 12px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    overflow: hidden;
+}
+.sc-json__head {
+    flex-direction: row;
+    align-items: center;
+    background-color: #161A22;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 10px;
+    padding-right: 8px;
+}
+.sc-json__head:hover { background-color: #1B2029; }
+.sc-json__chev {
+    font-size: 12px;
+    color: #6B7488;
+    margin-right: 6px;
+}
+.sc-json__glyph {
+    font-size: 12px;
+    color: #4D8DFF;
+    margin-right: 8px;
+}
+.sc-json__preview {
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+    color: #9AA4B8;
+    font-size: 11px;
+    -unity-font-style: bold;
+    margin-right: 8px;
+}
+.sc-json__body {
+    max-height: 260px;
+    padding-top: 8px;
+    padding-bottom: 10px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+.sc-json__text {
+    color: #E6EAF2;
+    font-size: 12px;
+}
+.sc-json__more {
+    color: #6B7488;
+    font-size: 11px;
+    margin-top: 8px;
+}
+.sc-json--collapsed .sc-json__head { background-color: #161A22; }
+
+/* ---- info hint ---- */
+.sc-hint {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background-color: #1B2029;
+    margin-left: 6px;
+}
+.sc-hint:hover { background-color: #232A36; }
+.sc-hint--open { background-color: #2E3746; }
+.sc-hint__glyph {
+    font-size: 11px;
+    color: #9AA4B8;
+}
+.sc-hint--open .sc-hint__glyph { color: #E6EAF2; }
+.sc-hint__bubble {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    width: 240px;
+    margin-top: 6px;
+    background-color: #1B2029;
+    border-radius: 10px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #2E3746;
+    border-right-color: #2E3746;
+    border-bottom-color: #2E3746;
+    border-left-color: #2E3746;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 10px;
+    padding-right: 10px;
+    color: #E6EAF2;
+    font-size: 12px;
+    white-space: normal;
+}
+
+/* ===== action card (Components/ActionCard.cs) ===== */
+.sc-action {
+    background-color: #161A22;
+    border-radius: 14px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    padding-top: 14px;
+    padding-right: 16px;
+    padding-bottom: 14px;
+    padding-left: 16px;
+    margin-bottom: 12px;
+}
+.sc-action__head {
+    flex-direction: row;
+    align-items: flex-start;
+}
+.sc-action__glyph {
+    font-size: 15px;
+    color: #4D8DFF;
+    margin-right: 10px;
+    margin-top: 1px;
+}
+.sc-action__texts {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+.sc-action__title {
+    color: #E6EAF2;
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+.sc-action__desc {
+    color: #9AA4B8;
+    font-size: 12px;
+    margin-top: 3px;
+    white-space: normal;
+}
+.sc-action__form-slot { margin-top: 12px; }
+.sc-action__form { margin-bottom: 0; }
+
+/* collapsible snippet */
+.sc-action__snippet { margin-top: 10px; }
+.sc-action__snip-head {
+    flex-direction: row;
+    align-items: center;
+    background-color: #1B2029;
+    border-radius: 9px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 9px;
+    padding-right: 6px;
+    transition-property: background-color;
+    transition-duration: 120ms;
+}
+.sc-action__snip-head:hover { background-color: #232A36; }
+.sc-action__snip-chev {
+    font-size: 12px;
+    color: #6B7488;
+    margin-right: 6px;
+}
+.sc-action__snip-glyph {
+    font-size: 12px;
+    color: #9AA4B8;
+    margin-right: 7px;
+}
+.sc-action__snip-title {
+    color: #9AA4B8;
+    font-size: 11px;
+    -unity-font-style: bold;
+}
+.sc-action__snip-body {
+    max-height: 180px;
+    margin-top: 6px;
+    background-color: #0E1116;
+    border-radius: 9px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+.sc-action__snip-code {
+    color: #E6EAF2;
+    font-size: 12px;
+}
+
+/* run button + inline result */
+.sc-action__footer {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 12px;
+}
+.sc-action__run {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 18px;
+    padding-right: 18px;
+    font-size: 13px;
+}
+.sc-action__result-slot { margin-top: 12px; }
+.sc-action__result {
+    border-radius: 10px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    padding-left: 11px;
+    padding-right: 11px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+}
+.sc-action__result--ok {
+    background-color: rgba(34, 197, 94, 0.10);
+    border-top-color: rgba(34, 197, 94, 0.45);
+    border-right-color: rgba(34, 197, 94, 0.45);
+    border-bottom-color: rgba(34, 197, 94, 0.45);
+    border-left-color: rgba(34, 197, 94, 0.45);
+}
+.sc-action__result--bad {
+    background-color: rgba(239, 68, 68, 0.10);
+    border-top-color: rgba(239, 68, 68, 0.45);
+    border-right-color: rgba(239, 68, 68, 0.45);
+    border-bottom-color: rgba(239, 68, 68, 0.45);
+    border-left-color: rgba(239, 68, 68, 0.45);
+}
+.sc-action__result-line {
+    flex-direction: row;
+    align-items: flex-start;
+}
+.sc-action__result-glyph {
+    font-size: 13px;
+    margin-right: 8px;
+    margin-top: 1px;
+}
+.sc-action__result--ok .sc-action__result-glyph { color: #22C55E; }
+.sc-action__result--bad .sc-action__result-glyph { color: #EF4444; }
+.sc-action__result-msg {
+    flex-grow: 1;
+    flex-shrink: 1;
+    font-size: 12px;
+    white-space: normal;
+}
+.sc-action__result--ok .sc-action__result-msg { color: #E6EAF2; }
+.sc-action__result--bad .sc-action__result-msg { color: #E6EAF2; }
+.sc-action__result-detail { margin-top: 10px; }
+
+/* ===== code block + sdk call drawer (Infra/SdkCall.cs) ===== */
+.sc-code {
+    background-color: #0E1116;
+    border-radius: 10px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    padding-top: 10px;
+    padding-right: 12px;
+    padding-bottom: 10px;
+    padding-left: 12px;
+    color: #E6EAF2;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    white-space: normal;
+}
+.sc-callbook__call {
+    margin-bottom: 14px;
+}
+.sc-callbook__head {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 7px;
+}
+.sc-callbook__glyph {
+    color: #4D8DFF;
+    font-size: 13px;
+    margin-right: 8px;
+}
+.sc-callbook__title {
+    color: #E6EAF2;
+    font-size: 13px;
+    -unity-font-style: bold;
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+.sc-callbook__note {
+    color: #9AA4B8;
+    font-size: 11px;
+    white-space: normal;
+    margin-top: 7px;
+}
+
+/* ===== request log panel (Infra/RequestLog.cs) ===== */
+.sc-reqlog {
+    background-color: #161A22;
+    border-radius: 14px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    overflow: hidden;
+}
+.sc-reqlog__head {
+    flex-direction: row;
+    align-items: center;
+    background-color: #1B2029;
+    padding-top: 9px;
+    padding-right: 10px;
+    padding-bottom: 9px;
+    padding-left: 14px;
+    border-bottom-width: 1px;
+    border-bottom-color: #232A36;
+}
+.sc-reqlog__glyph {
+    color: #9AA4B8;
+    font-size: 13px;
+    margin-right: 9px;
+}
+.sc-reqlog__title {
+    color: #E6EAF2;
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+.sc-reqlog__count {
+    color: #9AA4B8;
+    font-size: 11px;
+    -unity-font-style: bold;
+    background-color: #232A36;
+    border-radius: 8px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    padding-left: 8px;
+    padding-right: 8px;
+    margin-left: 9px;
+}
+.sc-reqlog__spacer {
+    flex-grow: 1;
+}
+.sc-reqlog__clear {
+    color: #9AA4B8;
+    font-size: 11px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    background-color: #232A36;
+    border-radius: 8px;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 12px;
+    padding-right: 12px;
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-left: 8px;
+    margin-right: 0;
+}
+.sc-reqlog__clear:hover {
+    background-color: #2E3746;
+    color: #E6EAF2;
+}
+.sc-reqlog__list {
+    max-height: 320px;
+}
+.sc-reqlog__row {
+    border-bottom-width: 1px;
+    border-bottom-color: #1B2029;
+}
+.sc-reqlog__row--bad {
+    background-color: rgba(239, 68, 68, 0.06);
+}
+.sc-reqlog__bar {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 8px;
+    padding-right: 12px;
+    padding-bottom: 8px;
+    padding-left: 12px;
+}
+.sc-reqlog__bar:hover {
+    background-color: #1B2029;
+}
+.sc-reqlog__method {
+    width: 54px;
+    flex-shrink: 0;
+    color: #9AA4B8;
+    font-size: 10px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    background-color: #232A36;
+    border-radius: 6px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    margin-right: 10px;
+}
+.sc-reqlog__method--get {
+    color: #38BDF8;
+    background-color: rgba(56, 189, 248, 0.14);
+}
+.sc-reqlog__method--post {
+    color: #22C55E;
+    background-color: rgba(34, 197, 94, 0.14);
+}
+.sc-reqlog__method--put {
+    color: #F59E0B;
+    background-color: rgba(245, 158, 11, 0.14);
+}
+.sc-reqlog__method--patch {
+    color: #F59E0B;
+    background-color: rgba(245, 158, 11, 0.14);
+}
+.sc-reqlog__method--delete {
+    color: #EF4444;
+    background-color: rgba(239, 68, 68, 0.14);
+}
+.sc-reqlog__method--other {
+    color: #6B7488;
+}
+.sc-reqlog__texts {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+.sc-reqlog__label {
+    color: #E6EAF2;
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+.sc-reqlog__route {
+    color: #6B7488;
+    font-size: 11px;
+    margin-top: 1px;
+}
+.sc-reqlog__status {
+    width: 40px;
+    flex-shrink: 0;
+    font-size: 12px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-right;
+    margin-left: 10px;
+    color: #9AA4B8;
+}
+.sc-reqlog__status--ok { color: #22C55E; }
+.sc-reqlog__status--warn { color: #F59E0B; }
+.sc-reqlog__status--bad { color: #EF4444; }
+.sc-reqlog__status--dim { color: #6B7488; }
+.sc-reqlog__ms {
+    width: 66px;
+    flex-shrink: 0;
+    color: #9AA4B8;
+    font-size: 11px;
+    -unity-text-align: middle-right;
+    margin-left: 10px;
+}
+.sc-reqlog__chev {
+    color: #6B7488;
+    font-size: 12px;
+    margin-left: 10px;
+}
+.sc-reqlog__detail {
+    background-color: #0E1116;
+    padding-top: 2px;
+    padding-right: 12px;
+    padding-bottom: 12px;
+    padding-left: 12px;
+}
+.sc-reqlog__caption {
+    color: #6B7488;
+    font-size: 10px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+.sc-reqlog__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 9px;
+}
+/* spacing between the copy buttons lives here, so the shared .sc-copy-btn skin can stay
+   margin-free for the inline uses elsewhere */
+.sc-reqlog__actions > * {
+    margin-right: 8px;
+    margin-bottom: 6px;
+}
+
+/* A chip is a pill, not a bar: inside a table cell the default stretch alignment blows it out to
+   the full column width. Alignment follows the cell's own text alignment. */
+.sc-table__cell > .sc-chip {
+    flex-grow: 0;
+    align-self: flex-start;
+}
+
+.sc-cell-right > .sc-chip {
+    align-self: flex-end;
+}
+
+.sc-cell-center > .sc-chip {
+    align-self: center;
+}
+
+/* Row-level action buttons inside a table cell: one line, right-aligned, never wrapping. */
+.sc-row-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.sc-row-actions .sc-btn {
+    margin-left: 6px;
+    margin-bottom: 0;
+    padding-left: 10px;
+    padding-right: 10px;
+    font-size: 12px;
+}
+
+/* ===== economy ===== */
+.sc-eco-energy {
+    margin-bottom: 12px;
+}
+
+/* ===== chat (messenger screen) ===== */
+.sc-chat-split {
+    flex-direction: row;
+    height: 560px;
+    margin-bottom: 16px;
+}
+
+.sc-chat-channels {
+    width: 260px;
+    flex-shrink: 0;
+    background-color: #161A22;
+    border-radius: 14px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    padding-top: 12px;
+    padding-right: 10px;
+    padding-bottom: 12px;
+    padding-left: 10px;
+    margin-right: 14px;
+}
+
+/* The shared .sc-chat-lookup is a wide row; in the 260px channel column the labelled field and
+   its button do not fit side by side, so they stack instead of overflowing the panel. */
+.sc-chat-channels .sc-chat-lookup {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.sc-chat-channels .sc-chat-lookup .sc-field {
+    margin-bottom: 6px;
+}
+
+.sc-chat-channels .sc-chat-lookup .unity-base-field__label {
+    min-width: 0;
+    margin-bottom: 3px;
+}
+
+.sc-chat-channels .sc-chat-lookup .sc-btn {
+    margin-left: 0;
+    align-self: flex-start;
+}
+
+.sc-chat-channels__title {
+    color: #E6EAF2;
+    font-size: 15px;
+    -unity-font-style: bold;
+    margin-bottom: 10px;
+}
+
+.sc-chat-channels__sub {
+    color: #6B7488;
+    font-size: 11px;
+    -unity-font-style: bold;
+    margin-top: 12px;
+    margin-bottom: 6px;
+}
+
+.sc-chat-channel {
+    flex-direction: row;
+    align-items: center;
+    border-radius: 10px;
+    padding-top: 7px;
+    padding-right: 8px;
+    padding-bottom: 7px;
+    padding-left: 8px;
+}
+
+.sc-chat-channel:hover {
+    background-color: #1B2029;
+}
+
+.sc-chat-channel__glyph {
+    color: #4D8DFF;
+    font-size: 15px;
+    width: 22px;
+    -unity-text-align: middle-center;
+}
+
+.sc-chat-channel__texts {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.sc-chat-channel__name {
+    color: #E6EAF2;
+    font-size: 13px;
+}
+
+.sc-chat-channel__sub {
+    color: #6B7488;
+    font-size: 11px;
+}
+
+.sc-chat-pane {
+    flex-grow: 1;
+    flex-shrink: 1;
+    background-color: #161A22;
+    border-radius: 14px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    padding-top: 12px;
+    padding-right: 14px;
+    padding-bottom: 12px;
+    padding-left: 14px;
+    justify-content: center;
+}
+
+.sc-chat-head {
+    border-bottom-width: 1px;
+    border-bottom-color: #232A36;
+    padding-bottom: 10px;
+    margin-bottom: 8px;
+}
+
+.sc-chat-head__name {
+    color: #E6EAF2;
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+
+.sc-chat-earlier {
+    align-self: center;
+    margin-bottom: 6px;
+}
+
+.sc-chat-log {
+    flex-grow: 1;
+    flex-shrink: 1;
+    /* room for the last bubble to sit clear of the composer */
+    padding-bottom: 6px;
+}
+
+.sc-chat-composer {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.sc-chat-composer__input {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-bottom: 0;
+    margin-right: 8px;
+}
+
+/* ---- message bubbles ---- */
+.sc-msg {
+    flex-direction: row;
+    align-items: flex-end;
+    margin-bottom: 10px;
+}
+
+.sc-msg--grouped {
+    margin-bottom: 3px;
+}
+
+.sc-msg--mine {
+    justify-content: flex-end;
+}
+
+.sc-msg__avatar {
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.sc-msg__col {
+    max-width: 72%;
+}
+
+.sc-msg--mine .sc-msg__col {
+    align-items: flex-end;
+}
+
+.sc-msg__meta {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.sc-msg__who {
+    color: #9AA4B8;
+    font-size: 11px;
+    -unity-font-style: bold;
+    margin-right: 8px;
+}
+
+.sc-msg__when {
+    color: #6B7488;
+    font-size: 10px;
+}
+
+.sc-msg__bubble {
+    background-color: #1B2029;
+    border-radius: 12px;
+    padding-top: 8px;
+    padding-right: 12px;
+    padding-bottom: 8px;
+    padding-left: 12px;
+}
+
+.sc-msg--mine .sc-msg__bubble {
+    background-color: rgba(37, 99, 235, 0.22);
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: rgba(77, 141, 255, 0.35);
+    border-right-color: rgba(77, 141, 255, 0.35);
+    border-bottom-color: rgba(77, 141, 255, 0.35);
+    border-left-color: rgba(77, 141, 255, 0.35);
+}
+
+.sc-msg__body {
+    color: #E6EAF2;
+    font-size: 13px;
+    white-space: normal;
+}
+
+.sc-msg__body--deleted {
+    color: #6B7488;
+    -unity-font-style: italic;
+}
+
+.sc-msg__marks {
+    flex-direction: row;
+    margin-top: 4px;
+}
+
+.sc-msg__mark {
+    color: #6B7488;
+    font-size: 10px;
+    margin-right: 8px;
+}
+
+.sc-msg__actions {
+    flex-direction: row;
+    margin-top: 4px;
+}
+
+.sc-msg__action {
+    background-color: rgba(0, 0, 0, 0);
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+    color: #6B7488;
+    font-size: 11px;
+    margin-left: 0;
+    margin-right: 10px;
+    padding-top: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+    padding-left: 0;
+}
+
+.sc-msg__action:hover {
+    color: #E6EAF2;
+}
+
+.sc-msg__action--danger:hover {
+    color: #EF4444;
+}
+
+/* ---- realtime event log ---- */
+.sc-chat-events__head {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.sc-chat-events__head .sc-card__title {
+    flex-grow: 1;
+    margin-bottom: 0;
+}
+
+.sc-chat-events__body {
+    max-height: 220px;
+    background-color: #0E1116;
+    border-radius: 10px;
+    padding-top: 8px;
+    padding-right: 10px;
+    padding-bottom: 8px;
+    padding-left: 10px;
+}
+
+.sc-chat-events__line {
+    color: #9AA4B8;
+    font-size: 11px;
+    margin-bottom: 2px;
+}
+
+/* ===== asset catalog (file-manager screen) ===== */
+.sc-fs-crumbs {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.sc-fs-crumb {
+    color: #4D8DFF;
+    font-size: 13px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+.sc-fs-crumb:hover {
+    color: #E6EAF2;
+}
+
+.sc-fs-crumb--current {
+    color: #E6EAF2;
+    font-size: 13px;
+    -unity-font-style: bold;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+.sc-fs-crumb__sep {
+    color: #6B7488;
+    font-size: 11px;
+    margin-left: 6px;
+    margin-right: 6px;
+}
+
+.sc-fs-breakdown {
+    flex-direction: row;
+    align-items: center;
+    background-color: #161A22;
+    border-radius: 14px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+    padding-top: 14px;
+    padding-right: 16px;
+    padding-bottom: 14px;
+    padding-left: 16px;
+    margin-bottom: 16px;
+}
+
+.sc-fs-breakdown__side {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-left: 18px;
+}
+
+.sc-fs-hint {
+    color: #9AA4B8;
+    font-size: 12px;
+    white-space: normal;
+    margin-bottom: 8px;
+}
+
+.sc-fs-more {
+    align-self: center;
+    margin-top: 10px;
+}
+
+.sc-asset-card--folder .sc-asset-card__preview {
+    background-color: rgba(77, 141, 255, 0.10);
+}
+
+.sc-fs-hit {
+    /* the whole row opens the hit, so it reads as a control rather than a read-out */
+    border-radius: 10px;
+}
+
+.sc-fs-hit:hover {
+    background-color: #1B2029;
+}
+
+.sc-fs-hit__glyph {
+    font-size: 16px;
+    width: 24px;
+    -unity-text-align: middle-center;
+}
+
+/* ---- asset details dialog ---- */
+.sc-fs-detail__preview {
+    margin-bottom: 12px;
+}
+
+.sc-fs-detail__image-host {
+    min-height: 120px;
+    justify-content: center;
+}
+
+.sc-fs-detail__image {
+    height: 240px;
+    background-color: #0E1116;
+    border-radius: 10px;
+}
+
+.sc-fs-detail__caption {
+    color: #6B7488;
+    font-size: 11px;
+    -unity-text-align: middle-center;
+    margin-top: 6px;
+    white-space: normal;
+}
+
+.sc-fs-detail__audio {
+    align-items: flex-start;
+}
+
+.sc-fs-public {
+    margin-top: 18px;
+}
+
+/* ===== form field variants =====
+   Numeric fields are typed as text on purpose (so "left blank" stays distinguishable from 0);
+   these rules give them the numeric affordances the control type would have implied. */
+.sc-field--num .unity-base-text-field__input {
+    -unity-text-align: middle-right;
+    max-width: 160px;
+}
+
+.sc-field--choice .unity-base-popup-field__input {
+    min-width: 140px;
+}
+
+/* ===== ViewBind failure block =====
+   The error state already centres itself and pads its own box; the retry button underneath
+   only needs pulling back to the middle, since a stretched button would span the whole slot. */
+.sc-bind-error__retry {
+    align-self: center;
+    margin-bottom: 14px;
+}
+
+/* ===== services home (grouped grid, search, connection status) =====
+   Restates the geometry of the original .sc-svc-* block further up: the card is no longer a
+   glyph-and-title tile, so the sizes belong with the elements that were added to it. */
+
+.sc-svc-topbar {
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.sc-svc-topbar__spacer {
+    flex-grow: 1;
+    min-width: 12px;
+}
+.sc-svc-topbar__logout {
+    font-size: 13px;
+    margin-left: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 14px;
+    padding-right: 14px;
+}
+.sc-svc-topbar__icon-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+    border-radius: 10px;
+    margin-left: 8px;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* ---- connection status ----
+   Which project/branch this build talks to; also the first thing to check when a screen comes
+   back empty, hence the warn tone when the id is missing entirely. */
+.sc-svc-conn {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.sc-svc-conn__pill {
+    flex-direction: row;
+    align-items: center;
+    height: 28px;
+    margin-left: 8px;
+    padding-left: 10px;
+    padding-right: 10px;
+    background-color: #1B2029;
+    border-radius: 8px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #232A36; border-right-color: #232A36; border-bottom-color: #232A36; border-left-color: #232A36;
+}
+.sc-svc-conn__pill--warn {
+    border-top-color: #F59E0B; border-right-color: #F59E0B; border-bottom-color: #F59E0B; border-left-color: #F59E0B;
+}
+.sc-svc-conn__glyph {
+    color: #6B7488;
+    font-size: 12px;
+    margin-right: 6px;
+}
+.sc-svc-conn__pill--warn .sc-svc-conn__glyph {
+    color: #F59E0B;
+}
+.sc-svc-conn__text {
+    color: #9AA4B8;
+    font-size: 12px;
+}
+.sc-svc-conn__pill--warn .sc-svc-conn__text {
+    color: #F59E0B;
+}
+
+/* ---- search + sections ---- */
+.sc-svc-search {
+    margin-bottom: 10px;
+}
+.sc-svc-section {
+    margin-bottom: 8px;
+}
+.sc-svc-zero {
+    margin-top: 6px;
+}
+
+/* ---- card ----
+   Fixed height so a row of cards stays aligned however long the description is; the description
+   itself is clipped to the two lines it reserves. */
+.sc-svc-card {
+    height: 168px;
+    padding-top: 16px; padding-right: 16px; padding-bottom: 16px; padding-left: 16px;
+    background-color: #161A22;
+    border-top-color: #232A36; border-right-color: #232A36; border-bottom-color: #232A36; border-left-color: #232A36;
+}
+.sc-svc-card:hover {
+    background-color: #1B2029;
+    border-top-color: #2E3746; border-right-color: #2E3746; border-bottom-color: #2E3746; border-left-color: #2E3746;
+}
+.sc-svc-card__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+}
+.sc-svc-card__glyph {
+    font-size: 16px;
+}
+.sc-svc-card__title {
+    font-size: 16px;
+    margin-top: 10px;
+}
+.sc-svc-card__desc {
+    color: #9AA4B8;
+    font-size: 12px;
+    white-space: normal;
+    margin-top: 5px;
+    height: 32px;
+    overflow: hidden;
+}
+.sc-svc-card__caps {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.sc-svc-card__caps > * {
+    margin-right: 6px;
+}
+
+/* ===== service screen chrome (Views/ServiceView.cs) =====
+   Header band: back · accent tile · title + capability badges · description · status chip.
+   It reuses .sc-detail__header (back-button spacing) and adds the two-line text column. */
+.sc-svc-head {
+    flex-shrink: 0;
+    align-items: center;
+}
+/* same 36px accent tile as .sc-svc-card__icon (redefined above), so opening a card reads as a
+   zoom-in rather than a jump to an unrelated page */
+.sc-svc-head__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: 12px;
+}
+.sc-svc-head__glyph {
+    font-size: 18px;
+}
+.sc-svc-head__texts {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+.sc-svc-head__title-row {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.sc-svc-head__caps {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-left: 10px;
+}
+/* no gap in USS — the badge spacing lives on the direct children */
+.sc-svc-head__caps > * {
+    margin-right: 6px;
+}
+.sc-svc-head__subtitle {
+    color: #9AA4B8;
+    font-size: 12px;
+    white-space: normal;
+    max-width: 780px;
+    margin-top: 3px;
+}
+.sc-svc-head__status {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+/* the toolbar band sits between the header and the scroller and is never squeezed by it */
+.sc-svc__toolbar {
+    flex-shrink: 0;
+}
+
+/* Tab strip band. The Tabs element left here holds only its strip: ServiceView.UseTabs moves
+   the pane host into .sc-svc-content, so the screen keeps exactly one scroller. */
+.sc-svc__tabs {
+    flex-shrink: 0;
+}
+/* the moved pane host is now scrolled content: it must size to the pane, not stretch to the
+   viewport (which is what the flex-grow on .sc-tabs__content would ask for) */
+.sc-svc__panes {
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
+/* ===== S1 pilot: leaderboard board pane ===== */
+
+/* the config chip row, the KPI strip and the chart stack above the ranking table */
+.sc-lb-meta {
+    margin-bottom: 12px;
+}
+.sc-lb-kpis {
+    margin-bottom: 14px;
+}
+.sc-lb-chart {
+    margin-bottom: 14px;
+}
+
+/* rank cell: medal glyph for the top three, plain "#N" below that */
+.sc-lb-rank {
+    flex-direction: row;
+    align-items: center;
+}
+.sc-lb-medal {
+    font-size: 14px;
+    margin-right: 5px;
+}
+
+/* player cell: avatar + name (+ the "You" badge on the signed-in player's row) */
+.sc-lb-player {
+    flex-direction: row;
+    align-items: center;
+}
+.sc-lb-player__avatar {
+    flex-shrink: 0;
+    margin-right: 10px;
+}
+.sc-lb-player__you {
+    margin-left: 8px;
+}
+
+/* ===== S1 pilot: player account screen (Views/PlayerAccountView.cs) =====
+   The block rhythm and the KV/table details other service views copy. */
+
+/* one stacked section of a tab pane (hero card, KPI strip, details card, chip strip) */
+.sc-pa-block {
+    margin-bottom: 18px;
+}
+
+/* trait chips belong to the name they qualify, so they hug the line above them */
+.sc-pa-traits {
+    margin-top: 8px;
+}
+
+/* .sc-kv-list keeps a top margin for lists that follow a hero; inside a card the card's
+   own body padding already provides it */
+.sc-pa-kv {
+    margin-top: 0;
+}
+
+/* value side of a copyable KV row: the wrapper takes over the width cap .sc-kv__v carries,
+   so the label can shrink and the clipboard button stays glued to the right edge */
+.sc-pa-kv__val {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 1;
+    max-width: 64%;
+}
+.sc-pa-kv__val .sc-kv__v {
+    max-width: 100%;
+}
+
+/* "nothing assigned yet" line under a section heading — quieter than an empty state panel,
+   which would dwarf a strip that normally holds three chips */
+.sc-pa-note {
+    color: #6B7488;
+    font-size: 12px;
+    white-space: normal;
+}
+
+/* presence cell: the chip is swapped in place when the per-row call answers */
+.sc-pa-presence {
+    flex-direction: row;
+    align-items: center;
+}
+
+/* two classes deep on purpose: `.sc-table__cell Label` sets the default cell color and would
+   otherwise win over a single-class rule */
+.sc-table__cell .sc-pa-cell--strong {
+    color: #E6EAF2;
+    -unity-font-style: bold;
+}
+.sc-table__cell .sc-pa-cell--dim {
+    color: #9AA4B8;
+}
+
+/* profile card inside the popup — the dialog itself does not scroll */
+.sc-pa-card {
+    flex-shrink: 1;
+}
+.sc-pa-card__name {
+    color: #E6EAF2;
+    font-size: 18px;
+    -unity-font-style: bold;
+}
+.sc-pa-card__scroll {
+    max-height: 360px;
+    flex-shrink: 1;
+    margin-top: 4px;
+}
+
+/* ==========================================================================================
+   Per-service view styles. Each block belongs to one screen and is prefixed with that
+   screen's short name, so two views can never collide on a class.
+   ========================================================================================== */
+
+/* ---- shared bits the service screens reuse ---- */
+/* Root of the "</>" drawer; the dialog that hosts it caps the height and scrolls. */
+.sc-callbook { flex-grow: 1; }
+.sc-bind-error { align-items: center; }
+
+.sc-chat-events { margin-top: 16px; }
+.sc-msg--theirs { justify-content: flex-start; }
+/* Column: the head stacks icon, title and description. As a row the title painted over the
+   icon and the description ran off the card. */
+.sc-svc-card__head { flex-direction: column; flex-grow: 1; }
+
+/* ---- purchases ---- */
+.sc-pur-grid { flex-direction: row; flex-wrap: wrap; }
+.sc-pur-card {
+    width: 300px;
+    background-color: #161A22;
+    border-radius: 14px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #232A36; border-right-color: #232A36;
+    border-bottom-color: #232A36; border-left-color: #232A36;
+    padding-top: 14px; padding-right: 14px; padding-bottom: 14px; padding-left: 14px;
+    margin-right: 12px; margin-bottom: 12px;
+}
+.sc-pur-card:hover { border-top-color: #2E3746; border-right-color: #2E3746; border-bottom-color: #2E3746; border-left-color: #2E3746; }
+.sc-pur-card--sub { border-top-color: #2563EB; border-right-color: #2563EB; border-bottom-color: #2563EB; border-left-color: #2563EB; }
+.sc-pur-card__head { flex-direction: row; align-items: center; margin-bottom: 8px; }
+.sc-pur-card__icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background-color: rgba(37, 99, 235, 0.16);
+    align-items: center; justify-content: center;
+    flex-shrink: 0; margin-right: 10px;
+}
+.sc-pur-card__glyph { font-size: 17px; color: #4D8DFF; }
+.sc-pur-card__texts { flex-grow: 1; flex-shrink: 1; }
+.sc-pur-card__name { color: #E6EAF2; font-size: 14px; -unity-font-style: bold; }
+.sc-pur-card__key { color: #6B7488; font-size: 11px; }
+.sc-pur-card__desc { color: #9AA4B8; font-size: 12px; white-space: normal; margin-bottom: 8px; }
+.sc-pur-card__price { color: #E6EAF2; font-size: 18px; -unity-font-style: bold; }
+.sc-pur-card__price--none { color: #6B7488; font-size: 13px; -unity-font-style: normal; }
+.sc-pur-card__price-sub { color: #6B7488; font-size: 11px; }
+.sc-pur-card__foot { flex-direction: row; align-items: center; justify-content: space-between; margin-top: 10px; }
+.sc-pur-card__note { color: #6B7488; font-size: 11px; white-space: normal; margin-top: 6px; }
+.sc-pur-sub { margin-bottom: 12px; }
+.sc-pur-lead-glyph { font-size: 16px; width: 24px; -unity-text-align: middle-center; color: #4D8DFF; }
+.sc-pur-note {
+    background-color: rgba(245, 158, 11, 0.10);
+    border-radius: 12px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: rgba(245, 158, 11, 0.35); border-right-color: rgba(245, 158, 11, 0.35);
+    border-bottom-color: rgba(245, 158, 11, 0.35); border-left-color: rgba(245, 158, 11, 0.35);
+    padding-top: 12px; padding-right: 14px; padding-bottom: 12px; padding-left: 14px;
+    margin-top: 14px; margin-bottom: 14px;
+}
+.sc-pur-note__text { color: #E6EAF2; font-size: 12px; white-space: normal; }
+.sc-pur-flow { margin-top: 10px; }
+.sc-pur-step { flex-direction: row; align-items: flex-start; margin-bottom: 8px; }
+.sc-pur-step__num {
+    width: 22px; height: 22px; border-radius: 11px;
+    background-color: rgba(37, 99, 235, 0.22);
+    color: #4D8DFF; font-size: 11px; -unity-font-style: bold;
+    -unity-text-align: middle-center; flex-shrink: 0; margin-right: 10px;
+}
+.sc-pur-step__text { color: #9AA4B8; font-size: 12px; white-space: normal; flex-grow: 1; flex-shrink: 1; }
+
+/* ---- promo codes ---- */
+.sc-pc-grid { flex-direction: row; flex-wrap: wrap; }
+.sc-pc-kpis { margin-bottom: 14px; }
+.sc-pc-effect { width: 320px; margin-right: 12px; margin-bottom: 12px; }
+.sc-pc-kv { margin-top: 8px; }
+.sc-pc-caption { color: #9AA4B8; font-size: 12px; white-space: normal; margin-bottom: 8px; }
+.sc-pc-note { color: #6B7488; font-size: 11px; white-space: normal; margin-top: 8px; }
+.sc-pc-strong { color: #E6EAF2; font-size: 13px; -unity-font-style: bold; }
+.sc-pc-dim { color: #6B7488; font-size: 11px; }
+.sc-pc-statuses { margin-top: 10px; }
+.sc-pc-status { flex-direction: row; align-items: flex-start; margin-bottom: 6px; }
+.sc-pc-status__lane { width: 132px; flex-shrink: 0; }
+.sc-pc-status__code { color: #6B7488; font-size: 11px; margin-right: 8px; }
+.sc-pc-status__text { color: #9AA4B8; font-size: 12px; white-space: normal; flex-grow: 1; flex-shrink: 1; }
+
+/* ---- tournaments ---- */
+.sc-trn-kpis { margin-bottom: 14px; }
+.sc-trn-chart { margin-bottom: 16px; }
+.sc-trn-meta { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.sc-trn-leagues { flex-direction: row; flex-wrap: wrap; margin-bottom: 14px; }
+.sc-trn-league {
+    flex-direction: row; align-items: center;
+    background-color: #1B2029; border-radius: 10px;
+    padding-top: 6px; padding-right: 12px; padding-bottom: 6px; padding-left: 10px;
+    margin-right: 8px; margin-bottom: 8px;
+}
+.sc-trn-league--active { background-color: rgba(37, 99, 235, 0.22); }
+.sc-trn-league__glyph { font-size: 14px; color: #F59E0B; margin-right: 8px; }
+.sc-trn-league__name { color: #E6EAF2; font-size: 12px; }
+.sc-trn-league-card { margin-bottom: 12px; }
+.sc-trn-league-card--mine {
+    border-top-color: #2563EB; border-right-color: #2563EB;
+    border-bottom-color: #2563EB; border-left-color: #2563EB;
+}
+.sc-trn-around { margin-top: 16px; }
+.sc-trn-player { flex-direction: row; align-items: center; }
+.sc-trn-player__avatar { margin-right: 8px; flex-shrink: 0; }
+.sc-trn-player__you { color: #4D8DFF; -unity-font-style: bold; }
+.sc-trn-rank { color: #9AA4B8; font-size: 13px; -unity-font-style: bold; -unity-text-align: middle-center; }
+.sc-trn-medal { font-size: 15px; -unity-text-align: middle-center; }
+.sc-trn-submit { margin-top: 12px; }
+
+/* ---- challenges ---- */
+.sc-chal-kpis { margin-bottom: 14px; }
+.sc-chal-block { margin-bottom: 14px; }
+.sc-chal-chart { margin-bottom: 16px; }
+.sc-chal-goal { color: #9AA4B8; font-size: 12px; white-space: normal; margin-bottom: 6px; }
+.sc-chal-progress { margin-top: 8px; margin-bottom: 10px; }
+.sc-chal-granted { flex-direction: row; flex-wrap: wrap; margin-top: 8px; }
+.sc-chal-claim-hint { color: #6B7488; font-size: 11px; white-space: normal; margin-top: 6px; }
+.sc-chal-player { flex-direction: row; align-items: center; }
+.sc-chal-player__avatar { margin-right: 8px; flex-shrink: 0; }
+.sc-chal-player__you { color: #4D8DFF; -unity-font-style: bold; }
+
+/* ---- daily rewards ---- */
+.sc-dr-strip { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.sc-dr-next { color: #9AA4B8; font-size: 12px; margin-right: 10px; }
+.sc-dr-progress { margin-top: 6px; margin-bottom: 14px; }
+.sc-dr-tile {
+    width: 96px; min-height: 108px;
+    background-color: #161A22; border-radius: 12px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #232A36; border-right-color: #232A36;
+    border-bottom-color: #232A36; border-left-color: #232A36;
+    padding-top: 8px; padding-right: 8px; padding-bottom: 8px; padding-left: 8px;
+    margin-right: 8px; margin-bottom: 8px;
+    align-items: center;
+}
+/* Background and opacity only, so .sc-day-tile--current keeps owning the accent border. */
+.sc-dr-tile--claimed { background-color: rgba(34, 197, 94, 0.12); }
+.sc-dr-tile--missed { opacity: 0.45; }
+.sc-dr-tile--locked { opacity: 0.6; }
+.sc-dr-tile--open { background-color: rgba(37, 99, 235, 0.18); }
+.sc-dr-tile__head { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
+.sc-dr-tile__day { color: #9AA4B8; font-size: 11px; -unity-font-style: bold; }
+.sc-dr-tile__mark { font-size: 12px; color: #22C55E; }
+.sc-dr-tile__star { font-size: 12px; color: #F59E0B; }
+.sc-dr-tile__rewards { flex-direction: row; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+.sc-dr-tile__none { color: #6B7488; font-size: 11px; margin-top: 8px; }
+.sc-dr-claimed { color: #22C55E; font-size: 11px; }
+.sc-dr-rewards { flex-direction: row; flex-wrap: wrap; margin-top: 8px; }
+.sc-dr-grant { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+.sc-dr-grant__label { color: #6B7488; font-size: 11px; width: 96px; flex-shrink: 0; }
+.sc-dr-milestone { margin-top: 10px; }
+.sc-dr-milestone__head { flex-direction: row; align-items: center; justify-content: space-between; }
+.sc-dr-milestone__title { color: #E6EAF2; font-size: 13px; -unity-font-style: bold; }
+
+/* ---- remote config ---- */
+.sc-rcfg-chart { margin-bottom: 16px; }
+.sc-rcfg-groups { flex-direction: row; flex-wrap: wrap; margin-bottom: 12px; }
+.sc-rcfg-cell { flex-direction: row; align-items: center; }
+.sc-rcfg-key { color: #E6EAF2; font-size: 13px; }
+.sc-rcfg-name { color: #E6EAF2; font-size: 13px; -unity-font-style: bold; }
+.sc-rcfg-value { color: #9AA4B8; font-size: 12px; }
+
+/* ---- localization ---- */
+.sc-loc-chart { margin-bottom: 16px; }
+.sc-loc-picker { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.sc-loc-key { color: #E6EAF2; font-size: 13px; }
+.sc-loc-value { color: #9AA4B8; font-size: 12px; }
+.sc-loc-missing { color: #6B7488; font-size: 12px; -unity-font-style: italic; }
+
+/* ---- segments ---- */
+.sc-seg-split { flex-direction: row; align-items: center; margin-bottom: 16px; }
+.sc-seg-split__side { flex-grow: 1; flex-shrink: 1; margin-left: 18px; }
+.sc-seg-split__note { color: #9AA4B8; font-size: 12px; white-space: normal; margin-bottom: 8px; }
+.sc-seg-block { margin-bottom: 14px; }
+.sc-seg-name { color: #E6EAF2; font-size: 13px; -unity-font-style: bold; }
+.sc-seg-desc { color: #9AA4B8; font-size: 12px; white-space: normal; }
+.sc-seg-note { color: #6B7488; font-size: 11px; white-space: normal; margin-top: 8px; }
+
+/* ---- entities ---- */
+.sc-ent-chart { margin-bottom: 16px; }
+.sc-ent-headline { color: #9AA4B8; font-size: 12px; white-space: normal; margin-bottom: 10px; }
+.sc-ent-group { margin-bottom: 10px; }
+.sc-ent-group__head {
+    flex-direction: row; align-items: center;
+    background-color: #1B2029; border-radius: 10px;
+    padding-top: 8px; padding-right: 10px; padding-bottom: 8px; padding-left: 10px;
+}
+.sc-ent-group__head:hover { background-color: #232A36; }
+.sc-ent-group__chev { color: #6B7488; font-size: 12px; width: 20px; -unity-text-align: middle-center; }
+.sc-ent-group__glyph { color: #4D8DFF; font-size: 14px; width: 24px; -unity-text-align: middle-center; }
+.sc-ent-group__title { color: #E6EAF2; font-size: 13px; -unity-font-style: bold; flex-grow: 1; }
+.sc-ent-component { margin-top: 8px; }
+.sc-ent-key { color: #E6EAF2; font-size: 13px; }
+.sc-ent-name { color: #E6EAF2; font-size: 13px; -unity-font-style: bold; }
+.sc-ent-id { color: #6B7488; font-size: 11px; }
+
+/* ---- analytics ---- */
+.sc-an-scope { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.sc-an-cell { flex-direction: column; }
+.sc-an-cell__sub { color: #6B7488; font-size: 11px; }
+.sc-an-cell__sub--bad { color: #EF4444; }
+
+/* ---- cloud code ---- */
+.sc-cc-scope { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.sc-cc-id { color: #E6EAF2; font-size: 13px; -unity-font-style: bold; }
+.sc-cc-cell { flex-direction: column; }
+.sc-cc-in { color: #9AA4B8; font-size: 12px; }
+.sc-cc-in--bad { color: #EF4444; }
+.sc-cc-out { margin-top: 10px; }
+
+/* ===== lucide icon labels =====
+   Applied to any Label whose text is a LucideIcon codepoint. Declared last in the
+   sheet so its font-style wins over the bold set by the per-context glyph classes
+   (faux-bold distorts SDF icon glyphs). */
+.sc-icon {
+    -unity-font: url("Fonts/lucide.ttf");
+    -unity-font-definition: initial;
+    -unity-font-style: normal;
+}

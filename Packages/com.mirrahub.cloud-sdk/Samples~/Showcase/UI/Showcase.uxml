@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:Style src="Showcase.uss" />
+    <ui:VisualElement name="sc-screen" class="sc-root" style="flex-grow: 1;" />
+</ui:UXML>

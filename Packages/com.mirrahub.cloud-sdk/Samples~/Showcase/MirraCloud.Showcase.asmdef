@@ -1,0 +1,17 @@
+{
+    "name": "MirraCloud.Showcase",
+    "rootNamespace": "MirraCloud.Example.Showcase",
+    "references": [
+        "GUID:c0770843d576328409bf9d9c0d2c39be",
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

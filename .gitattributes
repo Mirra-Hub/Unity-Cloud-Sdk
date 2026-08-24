@@ -1,0 +1,6 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Vendored third-party plugins must round-trip byte for byte: the macOS WebView.bundle is
+# code-signed, and normalizing line endings anywhere inside it invalidates the signature.
+Packages/com.mirrahub.cloud-sdk/ThirdParty/** -text
