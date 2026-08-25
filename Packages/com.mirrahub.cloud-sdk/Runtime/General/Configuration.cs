@@ -6,7 +6,11 @@ namespace MirraCloud
     public class Configuration : ScriptableObject
     {
         private const string PROD_SDK_URL = "https://sdk.mirrahub.com/api/cloud/sdk";
-        private const string PROD_EDITOR_URL = "https://mirrahub.com";
+
+        // The API host, not the app host: mirrahub.com is a 301 to the dashboard frontend, which
+        // serves no /api routes, so every editor call against it 404s. api.mirrahub.com is the
+        // gateway, and it is what routes /api/cloud/client to the client-api-gateway.
+        private const string PROD_EDITOR_URL = "https://api.mirrahub.com";
         private const string RESOURCES_PATH = "Configuration";
 
         [Header("General")]
