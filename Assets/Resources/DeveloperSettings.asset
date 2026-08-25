@@ -18,5 +18,5 @@ MonoBehaviour:
     EditorUrl: http://localhost:83
   - Name: Production
     SdkUrl: https://sdk.mirracloud.com/api/cloud/sdk
-    EditorUrl: https://api.mirracloud.com
+    EditorUrl: https://sa.mirracloud.com
   SelectedEnvironment: 0

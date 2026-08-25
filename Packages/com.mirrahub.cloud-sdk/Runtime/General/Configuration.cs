@@ -5,13 +5,14 @@ namespace MirraCloud
     [CreateAssetMenu(menuName = "Mirra Cloud/Create Configuration", fileName = "Configuration", order = 0)]
     public class Configuration : ScriptableObject
     {
-        // The Mirra Cloud domain. Both hosts are 308 redirects to their cloud.godreams.io
-        // counterparts today, which costs a hop on every call. Until sdk.mirracloud.com is served
-        // directly by the ingress, that redirect also breaks OpenID sign-in: BeginOpenIdLoginUrlAsync
-        // reads the first Location header it gets as the identity provider URL, and through a
-        // redirecting host that header is the redirect, not the provider.
+        // The Mirra Cloud domain. Both hosts are served directly by the ingress.
+        //
+        // Each name is a different gateway, so they are not interchangeable. The editor url is the
+        // service-account gateway, NOT api.mirracloud.com: that one is the client api-gateway,
+        // which declares none of the editor routes and drops them into its /api/cloud/** catch-all,
+        // where a policy demanding a Cloud client role answers 401 before any backend is reached.
         private const string PROD_SDK_URL = "https://sdk.mirracloud.com/api/cloud/sdk";
-        private const string PROD_EDITOR_URL = "https://api.mirracloud.com";
+        private const string PROD_EDITOR_URL = "https://sa.mirracloud.com";
 
         private const string RESOURCES_PATH = "Configuration";
 
