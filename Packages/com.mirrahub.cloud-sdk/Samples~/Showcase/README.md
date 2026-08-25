@@ -41,7 +41,8 @@ Showcase/
   Scenes/MC_Showcase.unity        # ShowcaseUI (UIDocument) + ShowcaseRoot (installer) + EventSystem
   UI/
     Showcase.uxml / Showcase.uss  # design-system tokens + every sc- component style
-    BridgePanelSettings.asset      # ConstantPixelSize panel (crisp text)
+    BridgePanelSettings.asset      # the UIDocument's panel
+    UnityDefaultRuntimeTheme.tss   # the panel's theme, shipped with the sample on purpose
     Fonts/                         # LiberationSans (OFL) for text, lucide.ttf (ISC) for icons
   Scripts/Showcase/
     App/      ShowcaseApp, ShowcaseInstaller, ShowcaseModules, Nav, Popup, Toasts
@@ -116,6 +117,11 @@ values), so each view only writes the happy-path render.
   the `.sc-icon` glyphs. Both are referenced by a path relative to the `.uss`, so they survive the
   sample being imported anywhere. Keep them if you fork the styles. Liberation Sans is SIL OFL 1.1
   and Lucide is ISC — licenses ship next to the files.
+- **Panel theme.** `BridgePanelSettings` points at the `UnityDefaultRuntimeTheme.tss` next to it,
+  not at the one Unity generates in `Assets/UI Toolkit`. A panel without a theme does not stretch its
+  root to the screen — you get the UI sized to its content with the skybox showing underneath — and
+  built-in controls lose their styling. If you repoint the panel at your project's own theme, keep
+  that in mind.
 - **Editing the sample.** The source of truth is `Samples~/Showcase` inside the package, and Unity
   cannot see a `~` folder. To change it, edit the imported copy under `Assets/Samples/…` and copy
   the files back over `Samples~/Showcase`. The `.meta` files must come back too — they carry the

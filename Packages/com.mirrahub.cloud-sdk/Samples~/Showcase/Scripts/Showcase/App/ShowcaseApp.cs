@@ -52,6 +52,16 @@ namespace MirraCloud.Example.Showcase
             }
 
             var root = _document.rootVisualElement;
+
+            // UIDocument's root only fills the panel because the default runtime theme positions it
+            // absolutely. Pin it here too, so the sample still covers the screen in a project whose
+            // panel settings lost their theme reference instead of leaving the skybox showing.
+            root.style.position = Position.Absolute;
+            root.style.left = 0;
+            root.style.top = 0;
+            root.style.right = 0;
+            root.style.bottom = 0;
+
             var screen = root.Q<VisualElement>("sc-screen") ?? root;
             screen.Clear();
             screen.AddToClassList("sc-root");
