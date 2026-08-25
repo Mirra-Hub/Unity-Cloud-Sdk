@@ -5,15 +5,14 @@ namespace MirraCloud
     [CreateAssetMenu(menuName = "Mirra Cloud/Create Configuration", fileName = "Configuration", order = 0)]
     public class Configuration : ScriptableObject
     {
-        // The gateway host itself. sdk.mirrahub.com is a 308 to this address, and routing SDK
-        // traffic through it costs a hop on every call — and breaks OpenID sign-in, which reads the
-        // first Location header it gets as the provider URL and would read the redirect instead.
-        private const string PROD_SDK_URL = "https://sdk.hub.godreams.io/api/cloud/sdk";
+        // The Mirra Cloud domain. Both hosts are 308 redirects to their cloud.godreams.io
+        // counterparts today, which costs a hop on every call. Until sdk.mirracloud.com is served
+        // directly by the ingress, that redirect also breaks OpenID sign-in: BeginOpenIdLoginUrlAsync
+        // reads the first Location header it gets as the identity provider URL, and through a
+        // redirecting host that header is the redirect, not the provider.
+        private const string PROD_SDK_URL = "https://sdk.mirracloud.com/api/cloud/sdk";
+        private const string PROD_EDITOR_URL = "https://api.mirracloud.com";
 
-        // The API host, not the app host: mirrahub.com is a 301 to the dashboard frontend, which
-        // serves no /api routes, so every editor call against it 404s. api.mirrahub.com is the
-        // gateway, and it is what routes /api/cloud/client to the client-api-gateway.
-        private const string PROD_EDITOR_URL = "https://api.mirrahub.com";
         private const string RESOURCES_PATH = "Configuration";
 
         [Header("General")]

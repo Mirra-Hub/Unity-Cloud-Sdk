@@ -17,6 +17,6 @@ MonoBehaviour:
     SdkUrl: http://localhost:81/api/cloud/sdk
     EditorUrl: http://localhost:83
   - Name: Production
-    SdkUrl: https://sdk.hub.godreams.io/api/cloud/sdk
-    EditorUrl: https://api.mirrahub.com
+    SdkUrl: https://sdk.mirracloud.com/api/cloud/sdk
+    EditorUrl: https://api.mirracloud.com
   SelectedEnvironment: 0
