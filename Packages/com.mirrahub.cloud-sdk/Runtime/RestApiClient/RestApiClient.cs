@@ -23,6 +23,7 @@ namespace MirraCloud.Core
         private readonly List<Func<RestRequestConfig, RestRequestConfig>> _requestInterceptors = new();
         private ISessionRefresher _sessionRefresher;
         private static readonly long[] DefaultRedirectHttpStatusCodes = { 301, 302, 303, 307, 308 };
+        private static readonly char[] HexDigits = "0123456789ABCDEF".ToCharArray();
 
         /// <summary>Who is responsible for the download handler attached to an attempt's request.</summary>
         private enum DownloadHandlerOwnership
@@ -722,11 +723,67 @@ namespace MirraCloud.Core
             {
                 foreach (var header in config.Headers)
                 {
-                    request.SetRequestHeader(header.Key, header.Value);
+                    // A null value makes Unity throw, and the value itself may carry free-form
+                    // player text (nickname, segment keys) that UnityWebRequest refuses outright.
+                    if (header.Value == null)
+                    {
+                        continue;
+                    }
+
+                    request.SetRequestHeader(header.Key, MakeHeaderValueTransportSafe(header.Value));
                 }
             }
 
             return request;
+        }
+
+        /// <summary>
+        /// UnityWebRequest only accepts header values built from printable ASCII (0x20..0x7E):
+        /// a Cyrillic nickname or an emoji makes SetRequestHeader throw
+        /// "Header value contains invalid characters" and takes the whole request down with it.
+        /// Values that are already clean are returned untouched (byte-identical on the wire);
+        /// anything else is percent-encoded from its UTF-8 bytes, so the server restores the
+        /// original with Uri.UnescapeDataString.
+        /// </summary>
+        private static string MakeHeaderValueTransportSafe(string value)
+        {
+            if (IsHeaderValueTransportSafe(value))
+            {
+                return value;
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(value);
+            var builder = new StringBuilder(bytes.Length + 8);
+            for (var i = 0; i < bytes.Length; i++)
+            {
+                var b = bytes[i];
+                if (b >= 0x20 && b <= 0x7E && b != (byte)'%')
+                {
+                    builder.Append((char)b);
+                }
+                else
+                {
+                    builder.Append('%');
+                    builder.Append(HexDigits[b >> 4]);
+                    builder.Append(HexDigits[b & 0x0F]);
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        private static bool IsHeaderValueTransportSafe(string value)
+        {
+            for (var i = 0; i < value.Length; i++)
+            {
+                var c = value[i];
+                if (c < 0x20 || c > 0x7E)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void DisposeRequest(UnityWebRequest request, DownloadHandlerOwnership downloadOwnership, bool ownsUploadHandler, bool finalAttempt)
