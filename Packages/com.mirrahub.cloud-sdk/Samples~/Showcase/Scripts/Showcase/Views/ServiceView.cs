@@ -405,7 +405,11 @@ namespace MirraCloud.Example.Showcase
             _toolbar.WithSdkCall(OpenSdkCalls);
         }
 
-        private void OpenSdkCalls()
+        /// <summary>
+        /// Opens the <c>&lt;/&gt;</c> drawer. Normally reached from the toolbar button; protected so
+        /// a view that hides its toolbar on a sub-screen can still offer the snippets there.
+        /// </summary>
+        protected void OpenSdkCalls()
         {
             var popup = Ctx.Popup;
             if (popup == null)

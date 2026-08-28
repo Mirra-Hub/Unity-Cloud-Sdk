@@ -877,6 +877,12 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
             spacer.style.flexGrow = 1f;
             row.Add(spacer);
 
+            // The toolbar is hidden on this sub-screen, and its two useful buttons are the ones a
+            // reader wants most here — the group's own reads are what the snippets describe.
+            if (Popup != null)
+            {
+                row.Add(GlyphButton("SDK call", LucideIcon.Code, OpenSdkCalls));
+            }
             row.Add(GlyphButton("Reload", LucideIcon.RefreshCw, LoadGroup));
             return row;
         }
