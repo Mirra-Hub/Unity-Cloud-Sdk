@@ -2399,10 +2399,6 @@
     align-items: flex-start;
 }
 
-.sc-fs-public {
-    margin-top: 18px;
-}
-
 /* ===== form field variants =====
    Numeric fields are typed as text on purpose (so "left blank" stays distinguishable from 0);
    these rules give them the numeric affordances the control type would have implied. */

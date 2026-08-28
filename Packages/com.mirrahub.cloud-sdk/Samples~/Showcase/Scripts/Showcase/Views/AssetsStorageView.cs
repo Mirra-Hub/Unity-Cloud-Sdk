@@ -133,7 +133,7 @@ bool servedAnonymously = op.Result.IsSuccess;";
             DeclareCall(new SdkCall("Download text or JSON", TextSnippet));
             DeclareCall(new SdkCall("Download audio", AudioSnippet));
             DeclareCall(new SdkCall("Download a public asset anonymously", PublicSnippet,
-                "Works without a signed-in player; a private asset answers 403."));
+                "Open an asset tagged Public and press Fetch without a token; a private one answers 403."));
 
             // A dropdown rather than a toggle button: the picker shows which mode is active without
             // this screen having to keep a button label in sync with the flag.
@@ -219,8 +219,6 @@ bool servedAnonymously = op.Result.IsSuccess;";
 
             _browserSlot = new VisualElement();
             root.Add(_browserSlot);
-
-            root.Add(BuildPublicSection());
 
             RenderBrowser();
             return root;
@@ -584,6 +582,24 @@ bool servedAnonymously = op.Result.IsSuccess;";
                 },
                 new DataColumn
                 {
+                    Header = "ACCESS", Grow = 1f,
+                    // A folder has no visibility of its own, so folders sort together, below files.
+                    SortKey = o => o is FolderDto ? 0 : (((AssetDto)o).isPublic ? 2 : 1),
+                    Cell = o =>
+                    {
+                        var folder = o as FolderDto;
+                        if (folder != null)
+                        {
+                            return new Label(Fmt.Dash);
+                        }
+                        var asset = (AssetDto)o;
+                        return asset.isPublic
+                            ? (VisualElement)new Chip("Public", ChipTone.Ok)
+                            : new Label("Private");
+                    },
+                },
+                new DataColumn
+                {
                     Header = "UPDATED", Grow = 1f, Align = "right",
                     SortKey = o => UpdatedOf(o),
                     Cell = o => new Label(Fmt.Date(UpdatedOf(o))),
@@ -652,7 +668,14 @@ bool servedAnonymously = op.Result.IsSuccess;";
                 }
                 else
                 {
-                    row.SetTrailing(new Chip(Fmt.Bytes(((AssetDto)hit).size), ChipTone.Neutral));
+                    var hitAsset = (AssetDto)hit;
+                    row.SetTrailing(new Chip(Fmt.Bytes(hitAsset.size), ChipTone.Neutral));
+                    if (hitAsset.isPublic)
+                    {
+                        var publicChip = new Chip("Public", ChipTone.Ok);
+                        publicChip.style.marginLeft = 6f;
+                        row.Trailing.Add(publicChip);
+                    }
                 }
 
                 object captured = hit;
@@ -741,6 +764,10 @@ bool servedAnonymously = op.Result.IsSuccess;";
             chips.AddToClassList("sc-chip-row");
             chips.Add(new Chip(asset.type.ToString(), ToneFor(asset.type)));
             chips.Add(new Chip(Fmt.Bytes(asset.size), ChipTone.Neutral));
+            if (asset.isPublic)
+            {
+                chips.Add(new Chip("Public", ChipTone.Ok));
+            }
             body.Add(chips);
             card.Add(body);
 
@@ -948,6 +975,7 @@ bool servedAnonymously = op.Result.IsSuccess;";
             kv.Add(Kv("Internal id", Fmt.OrDash(asset.id), asset.id));
             kv.Add(Kv("Path", Fmt.OrDash(asset.path), asset.path));
             kv.Add(Kv("Type", asset.type.ToString(), null));
+            kv.Add(Kv("Visibility", asset.isPublic ? "Public" : "Private", null));
             kv.Add(Kv("MIME", Fmt.OrDash(asset.mimeType), null));
             kv.Add(Kv("Extension", Fmt.OrDash(asset.extension), null));
             kv.Add(Kv("Size", Fmt.Bytes(asset.size), null));
@@ -955,6 +983,12 @@ bool servedAnonymously = op.Result.IsSuccess;";
             kv.Add(Kv("Created", Fmt.DateTime2(asset.createdAt), null));
             kv.Add(Kv("Updated", Fmt.DateTime2(asset.updatedAt), null));
             body.Add(kv);
+
+            if (asset.isPublic)
+            {
+                body.Add(new SectionHeader("Anonymous access"));
+                body.Add(BuildAnonymousRow(asset));
+            }
 
             Popup.Open(body, Fmt.Truncate(Fmt.OrDash(asset.name), 40));
         }
@@ -1159,55 +1193,19 @@ bool servedAnonymously = op.Result.IsSuccess;";
 
         // ----- anonymous access -----------------------------------------------------------------
 
-        private VisualElement BuildPublicSection()
+        /// <summary>
+        /// The one place the sample calls the anonymous route. It is offered only for an asset the
+        /// server marks public, so pressing it proves the route works instead of demonstrating the
+        /// 403 a private asset would answer with.
+        /// </summary>
+        private VisualElement BuildAnonymousRow(AssetDto asset)
         {
-            var card = new Card(Meta.Accent);
-            card.AddToClassList("sc-fs-public");
-            card.WithTitle("Anonymous access", Meta.Accent);
+            var wrap = new VisualElement();
 
-            var text = new Label("An asset marked public in the console downloads without a signed-in "
-                + "player — handy for a splash image or a config the game needs before login. "
-                + "Everything else answers 403 on this route.");
-            text.AddToClassList("sc-fs-hint");
-            card.Body.Add(text);
-
-            // Prefer an asset the server actually marks public, so the demo proves the route rather
-            // than demonstrating a 403; fall back to any image if the branch has none.
-            AssetDto candidate = null;
-            AssetDto fallback = null;
-            foreach (var a in _allAssets)
-            {
-                if (a.type != AssetType.Image || string.IsNullOrEmpty(a.stableId))
-                {
-                    continue;
-                }
-                if (a.isPublic)
-                {
-                    candidate = a;
-                    break;
-                }
-                if (fallback == null)
-                {
-                    fallback = a;
-                }
-            }
-            candidate = candidate ?? fallback;
-
-            if (candidate == null)
-            {
-                card.Body.Add(ZeroState.Panel(LucideIcon.Globe, "Nothing to try it on",
-                    "Upload an image to this branch and mark it public — this section will then fetch it "
-                    + "without a token to prove the route works."));
-                return card;
-            }
-
-            var row = new VisualElement();
-            row.AddToClassList("sc-chip-row");
-
-            var name = new Label(Fmt.Truncate(Fmt.OrDash(candidate.name), 30));
-            name.enableRichText = false;
-            name.AddToClassList("sc-fs-hint");
-            row.Add(name);
+            var hint = new Label("This asset downloads without a signed-in player — handy for a splash "
+                + "image or a config the game needs before login. Everything private answers 403 here.");
+            hint.AddToClassList("sc-fs-hint");
+            wrap.Add(hint);
 
             var verdict = new Label();
             verdict.AddToClassList("sc-fs-detail__caption");
@@ -1218,26 +1216,58 @@ bool servedAnonymously = op.Result.IsSuccess;";
             {
                 button.SetEnabled(false);
                 verdict.text = "Requesting…";
-                TryPublic(candidate, button, verdict);
+                TryPublic(asset, button, verdict);
             };
-            row.Add(button);
 
-            card.Body.Add(row);
-            card.Body.Add(verdict);
-            return card;
+            wrap.Add(button);
+            wrap.Add(verdict);
+            return wrap;
         }
 
+        /// <summary>
+        /// An image is pulled as a texture, because its decoded size is visible proof the bytes
+        /// arrived; anything else is pulled as raw data — a texture handler would fail on a json or
+        /// an mp3 for reasons that have nothing to do with the anonymous route.
+        /// </summary>
         private async void TryPublic(AssetDto asset, Button button, Label verdict)
         {
-            var op = Sdk.AssetsStorage.LoadPublicTextureFromId(asset.stableId);
-            if (op == null)
+            MirraCloud.Core.RestApiResult result;
+            string proof = null;
+
+            if (asset.type == AssetType.Image)
             {
-                verdict.text = "Could not start the request.";
-                button.SetEnabled(true);
-                return;
+                var op = Sdk.AssetsStorage.LoadPublicTextureFromId(asset.stableId);
+                if (op == null)
+                {
+                    verdict.text = "Could not start the request.";
+                    button.SetEnabled(true);
+                    return;
+                }
+                await op.Task();
+                result = op.Result;
+                if (op.Result != null && op.Result.IsSuccess && op.Result.Data != null)
+                {
+                    proof = op.Result.Data.width + " × " + op.Result.Data.height + " px";
+                }
             }
-            await op.Task();
-            var result = op.Result;
+            else
+            {
+                var op = Sdk.AssetsStorage.LoadPublicTextFromId(asset.stableId, ExtractTextFileType.Data);
+                if (op == null)
+                {
+                    verdict.text = "Could not start the request.";
+                    button.SetEnabled(true);
+                    return;
+                }
+                await op.Task();
+                result = op.Result;
+                if (op.Result != null && op.Result.IsSuccess
+                    && op.Result.Data != null && op.Result.Data.Data != null)
+                {
+                    proof = Fmt.Bytes(op.Result.Data.Data.Length);
+                }
+            }
+
             if (Ctx.Log != null && result != null)
             {
                 Ctx.Log.Record("Public " + Fmt.Id(asset.stableId, 8), result, PublicSnippet);
@@ -1249,10 +1279,9 @@ bool servedAnonymously = op.Result.IsSuccess;";
             }
             button.SetEnabled(true);
 
-            if (result != null && result.IsSuccess && result.Data != null)
+            if (proof != null)
             {
-                verdict.text = "Served anonymously — this asset is public ("
-                    + result.Data.width + " × " + result.Data.height + " px).";
+                verdict.text = "Served anonymously — no token was sent (" + proof + ").";
                 return;
             }
 
