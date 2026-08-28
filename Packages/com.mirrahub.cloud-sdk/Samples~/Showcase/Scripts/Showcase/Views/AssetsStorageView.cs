@@ -1225,16 +1225,18 @@ bool servedAnonymously = op.Result.IsSuccess;";
         }
 
         /// <summary>
-        /// An image is pulled as a texture, because its decoded size is visible proof the bytes
-        /// arrived; anything else is pulled as raw data — a texture handler would fail on a json or
-        /// an mp3 for reasons that have nothing to do with the anonymous route.
+        /// A png or a jpg is pulled as a texture, because the decoded size is visible proof the
+        /// bytes arrived. Everything else — a gif, an mp3, a json — is pulled as raw data:
+        /// <c>DownloadHandlerTexture</c> decodes png and jpg only, and its failure on anything else
+        /// would read here as a failure of the anonymous route, which it is not.
         /// </summary>
         private async void TryPublic(AssetDto asset, Button button, Label verdict)
         {
+            bool asTexture = IsTextureDecodable(asset);
             MirraCloud.Core.RestApiResult result;
             string proof = null;
 
-            if (asset.type == AssetType.Image)
+            if (asTexture)
             {
                 var op = Sdk.AssetsStorage.LoadPublicTextureFromId(asset.stableId);
                 if (op == null)
@@ -1264,7 +1266,7 @@ bool servedAnonymously = op.Result.IsSuccess;";
                 if (op.Result != null && op.Result.IsSuccess
                     && op.Result.Data != null && op.Result.Data.Data != null)
                 {
-                    proof = Fmt.Bytes(op.Result.Data.Data.Length);
+                    proof = Fmt.Bytes(op.Result.Data.Data.Length) + " downloaded";
                 }
             }
 
@@ -1286,11 +1288,43 @@ bool servedAnonymously = op.Result.IsSuccess;";
             }
 
             long? code = result != null ? result.HttpStatusCode : null;
-            verdict.text = code == 403
-                ? "403 — this asset is private, so the anonymous route refused it. That is the expected answer."
-                : "The anonymous request failed: " + (result != null && result.Error != null
+            if (code == 403)
+            {
+                verdict.text = "403 — this asset is private, so the anonymous route refused it. That is the expected answer.";
+                return;
+            }
+
+            // The route answered and the client is what fell short. Saying "the request failed"
+            // here would point the reader at the wrong half of the system.
+            if (result != null && result.IsSuccess)
+            {
+                verdict.text = "Served anonymously (HTTP " + StatusText(code) + "), but "
+                    + (asTexture
+                        ? "Unity could not decode the bytes as an image."
+                        : "the response carried no bytes.");
+                return;
+            }
+
+            verdict.text = "The anonymous request failed (HTTP " + StatusText(code) + "): "
+                + (result != null && result.Error != null
                     ? Fmt.OrDash(result.Error.Message)
                     : "no response");
+        }
+
+        /// <summary>Texture2D.LoadImage, which the texture handler builds on, reads png and jpg only.</summary>
+        private static bool IsTextureDecodable(AssetDto asset)
+        {
+            if (asset == null || asset.type != AssetType.Image)
+            {
+                return false;
+            }
+            string e = (asset.extension ?? string.Empty).TrimStart('.').ToLowerInvariant();
+            return e == "png" || e == "jpg" || e == "jpeg";
+        }
+
+        private static string StatusText(long? code)
+        {
+            return code.HasValue ? code.Value.ToString() : Fmt.Dash;
         }
 
         // ----- helpers --------------------------------------------------------------------------
