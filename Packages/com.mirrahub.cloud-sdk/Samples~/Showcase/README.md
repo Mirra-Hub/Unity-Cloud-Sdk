@@ -91,7 +91,7 @@ values), so each view only writes the happy-path render.
 | Tournaments | Tab per tournament, leagues with rewards-for-places, standings, your rewards |
 | Challenges | Card per challenge with live progress bar, status, reward tiers, countdown |
 | Daily Rewards | Streak/progress header + day-by-day reward track + streak bonuses + milestones |
-| Groups | My-groups list → group card + members table (owner highlighted) |
+| Groups | My groups / Discover → open a group: its card, the actions it allows, members, requests, roles, invites, bans |
 | Remote Config | Per-group typed key/value table |
 | Localization | Lookup by collection → language selector + key→translation table |
 | Segments | Player membership chips + all-segments status table |

@@ -2933,6 +2933,48 @@
 .sc-cc-in--bad { color: #EF4444; }
 .sc-cc-out { margin-top: 10px; }
 
+/* ---- groups (browse list → one group's page) ---- */
+/* a row is a link to the group's page, so it lifts under the pointer like the cards do */
+.sc-grp-row:hover { background-color: #1F1F24; }
+
+/* button that carries a leading Lucide glyph; the icon needs its own label because a
+   Button paints a single font */
+.sc-grp-btn { flex-direction: row; align-items: center; justify-content: center; }
+.sc-grp-btn__glyph { font-size: 13px; margin-right: 7px; }
+
+/* segmented visibility filter — the active option wears .sc-btn--primary */
+.sc-grp-filters { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.sc-grp-filters__label { color: #8A8A92; font-size: 12px; margin-right: 10px; }
+.sc-grp-filters__btn {
+    font-size: 12px;
+    padding-top: 6px; padding-bottom: 6px; padding-left: 12px; padding-right: 12px;
+    margin-right: 6px;
+}
+
+/* label + field + buttons on one line, wrapping on a narrow panel */
+.sc-grp-inline { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.sc-grp-inline__field { flex-grow: 1; flex-shrink: 1; min-width: 220px; margin-right: 8px; }
+.sc-grp-inline .sc-btn { margin-right: 6px; }
+
+/* one group's page */
+.sc-grp-back { flex-direction: row; align-items: center; margin-bottom: 14px; }
+.sc-grp-hero { flex-direction: row; align-items: center; }
+.sc-grp-hero__texts { margin-left: 12px; flex-grow: 1; flex-shrink: 1; }
+.sc-grp-hero__name { font-size: 18px; -unity-font-style: bold; }
+.sc-grp-hero__role { color: #9AA4B8; font-size: 12px; margin-top: 2px; }
+.sc-grp-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 14px;
+}
+.sc-grp-actions .sc-btn { margin-right: 8px; margin-bottom: 8px; }
+.sc-grp-actions .sc-chip { margin-right: 8px; margin-bottom: 8px; }
+.sc-grp-tabs { margin-top: 18px; }
+
+/* the two helper cards under the search results */
+.sc-grp-panel { margin-top: 16px; }
+
 /* ===== lucide icon labels =====
    Applied to any Label whose text is a LucideIcon codepoint. Declared last in the
    sheet so its font-style wins over the bold set by the per-context glyph classes

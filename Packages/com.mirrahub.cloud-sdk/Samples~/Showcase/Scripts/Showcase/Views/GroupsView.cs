@@ -5,17 +5,25 @@ using MirraCloud.Core;
 using MirraCloud.Core.Groups.Dto.Request;
 using MirraCloud.Core.Groups.Dto.Response;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace MirraCloud.Example.Showcase
 {
     /// <summary>
-    /// Groups screen: the player's groups, a public search, one group in full (members, roles, bans,
-    /// invites, join requests), and every write the service exposes.
+    /// Groups screen, built as a browse → open flow rather than a menu of calls: the player's own
+    /// groups and a public search on the front, and opening any row swaps the whole screen for that
+    /// one group's page — its card, the actions that apply to *it*, and its members, roles, join
+    /// requests, invites and bans.
     /// <para>
-    /// Most of the reads here are paged (<c>PaginatedResult</c>), so each section owns a
-    /// <see cref="Pager"/> and asks the server for one page at a time rather than pretending the
-    /// whole list fits. Picking a group on the first two tabs is what fills the Group tab.
+    /// Nothing is addressed by typing an id into a form. Creating a group happens from the toolbar
+    /// and the new group lands in the list; joining happens on the row you found; editing, leaving
+    /// and deleting happen on the group's own page, gated on whether the player is a member or the
+    /// owner, so a control that cannot possibly work is absent instead of present and failing.
+    /// </para>
+    /// <para>
+    /// Most of the reads are paged (<c>PaginatedResult</c>), so each list owns a <see cref="Pager"/>
+    /// and asks the server for one page at a time rather than pretending the whole list fits.
     /// </para>
     /// </summary>
     public sealed class GroupsView : ServiceView
@@ -138,21 +146,66 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
 
         private const int PageSize = 20;
 
+        /// <summary>
+        /// How many of the player's groups the membership probe pulls in one go. Only used when the
+        /// first page of "My groups" did not already settle the question (see <see cref="IsMember"/>).
+        /// </summary>
+        private const int MembershipProbeSize = 100;
+
+        private static readonly string[] Visibilities = { "Any", "public", "private" };
+
+        // Group ids the player belongs to, accumulated from every "My groups" page that has loaded.
+        // Membership decides which actions a group's page offers, so it is tracked rather than guessed.
+        private readonly HashSet<string> _myGroupIds = new HashSet<string>(StringComparer.Ordinal);
+
+        // The SDK exposes no "current profile id", so ownership is decided by set membership: every
+        // profile this account owns counts as me — which is what the server enforces anyway.
+        private readonly HashSet<string> _myProfileIds = new HashSet<string>(StringComparer.Ordinal);
+
+        private Toolbar _toolbar;
         private Tabs _tabs;
-        private string _groupId;
+        private VisualElement _panes;
+        private VisualElement _detail;
+
         private string _query = string.Empty;
         private string _visibility;
+        private int _myGroupsTotal = -1;
+
+        // The last group this session asked to join. Nothing reads a *pending* request back out of
+        // the service for the asking player, so the answer is remembered here.
+        private string _requestedGroupId;
+        private bool _closed;
+
+        // ----- open group -----
+        private string _groupId;
+        private GroupDto _group;
         private RoleDto[] _roles = new RoleDto[0];
+        private Label _heroRole;
+        private VisualElement _actionSlot;
+        private VisualElement _sectionsSlot;
+        private Tabs _groupTabs;
+        private int _tabMembers = -1;
+        private int _tabRequests = -1;
+        private int _tabRoles = -1;
+        private int _tabBans = -1;
+        private bool _membershipResolved;
 
         public GroupsView(ServiceMeta meta, Action onBack, ShowcaseContext ctx)
             : base(meta, onBack, ctx)
         {
+            // Async continuations must not paint into a screen the player has walked away from.
+            RegisterCallback<DetachFromPanelEvent>(_ => _closed = true);
         }
 
         protected override void Populate()
         {
+            _closed = false;
             _query = string.Empty;
             _visibility = null;
+            _myGroupsTotal = -1;
+            _requestedGroupId = null;
+            _myGroupIds.Clear();
+            ClearOpenGroup();
 
             DeclareCall(new SdkCall("Read the player's groups", MyGroupsSnippet));
             DeclareCall(new SdkCall("Search public groups", SearchSnippet));
@@ -166,38 +219,42 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 "Which call applies depends on the group's JoinPolicy."));
             DeclareCall(new SdkCall("Create, update, delete", LifecycleSnippet));
 
-            UseToolbar()
-                .WithSearch("Search public groups by name", OnSearch)
-                .WithFilter("Visibility", new[] { "Any", "public", "private" }, OnVisibility, "Any")
+            _toolbar = UseToolbar()
+                .WithSearch("Search groups by name", OnSearch)
                 .WithSpacer()
+                .WithAction("New group", LucideIcon.Plus, OpenCreateDialog, true)
                 .WithRefresh(Refresh);
 
             _tabs = UseTabs();
             _tabs.Add("My groups", LucideIcon.Users, BuildMyGroups)
-                .Add("Search", LucideIcon.Search, BuildSearch)
-                .Add("Group", LucideIcon.Shield, BuildGroup)
-                .Add("Actions", LucideIcon.Sparkles, BuildActions);
+                .Add("Discover", LucideIcon.Search, BuildDiscover);
+
+            // ServiceView pins the strip above the scroller and moves the panes into it. Both halves
+            // are hidden together while a group's page is open, which is what makes the detail read
+            // as its own screen instead of a third tab.
+            _panes = Content.Q<VisualElement>(className: "sc-svc__panes");
+
+            _detail = new VisualElement();
+            _detail.AddToClassList("sc-grp-detail");
+            _detail.style.display = DisplayStyle.None;
+            Content.Add(_detail);
+
+            ResolveOwnProfiles();
         }
 
         private void OnSearch(string text)
         {
-            _query = text == null ? string.Empty : text.Trim();
-            _tabs.Invalidate(1);
-            _tabs.Select(1);
-        }
+            string next = text == null ? string.Empty : text.Trim();
+            if (string.Equals(next, _query, StringComparison.Ordinal))
+            {
+                return;
+            }
+            _query = next;
 
-        private void OnVisibility(string value)
-        {
-            _visibility = value == "Any" ? null : value;
+            // Both lists answer to the search box, so whichever one is in front reacts and the other
+            // rebuilds when it is next selected.
+            _tabs.Invalidate(0);
             _tabs.Invalidate(1);
-        }
-
-        private void Select(string groupId)
-        {
-            _groupId = groupId;
-            _roles = new RoleDto[0];
-            _tabs.Invalidate(2);
-            _tabs.Select(2);
         }
 
         // ----- my groups ------------------------------------------------------------------------
@@ -205,6 +262,14 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
         private VisualElement BuildMyGroups()
         {
             var host = new VisualElement();
+
+            if (_query.Length > 0)
+            {
+                // GetMyGroupsAsync takes no query, so this filter is honest about being local.
+                host.Add(Hint("Filtering the loaded page by \"" + Fmt.Truncate(_query, 24)
+                    + "\" — the SDK has no server-side search over the player's own groups."));
+            }
+
             var slot = new VisualElement();
             var pager = new Pager(PageSize);
             host.Add(slot);
@@ -222,10 +287,18 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 slot,
                 data =>
                 {
+                    RememberMyGroups(data);
                     pager.SetTotal(data.TotalCount, page);
-                    SetStatus(data.TotalCount + (data.TotalCount == 1 ? " group" : " groups"),
-                        data.TotalCount > 0 ? ChipTone.Ok : ChipTone.Neutral);
-                    return GroupList(data.Items, true);
+                    SetBrowseStatus();
+
+                    var matching = Filter(data.Items);
+                    if (matching.Count == 0)
+                    {
+                        return ZeroState.Panel(LucideIcon.Search, "Nothing on this page matches",
+                            "Clear the search box, or turn the page — only the groups already loaded "
+                            + "are filtered.");
+                    }
+                    return GroupList(matching, true);
                 },
                 d => d == null || d.Items == null || d.Items.Length == 0,
                 new BindOptions
@@ -237,36 +310,130 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                     AllowRetry = true,
                     EmptyView = () =>
                     {
+                        _myGroupsTotal = 0;
                         pager.SetTotal(0, 1);
+                        SetBrowseStatus();
                         return ZeroState.Panel(LucideIcon.Users, "Not in any group yet",
-                            "Create one from the Actions tab, or find an existing one under Search and "
-                            + "join it. A group can carry its own chat channel, roles and bans.",
-                            "Create a group", () => _tabs.Select(3));
+                            "Create one and it appears right here, or find an existing one under "
+                            + "Discover and join it. A group can carry its own chat channel, roles "
+                            + "and bans.",
+                            "Create a group", OpenCreateDialog);
                     },
                 });
         }
 
-        // ----- search ---------------------------------------------------------------------------
+        /// <summary>
+        /// Records what the player belongs to. <see cref="_myGroupsTotal"/> is what later tells
+        /// <see cref="IsMember"/> whether the cached set is the whole truth or just a page of it.
+        /// </summary>
+        private void RememberMyGroups(PaginatedResult<GroupListItemDto> page)
+        {
+            if (page == null)
+            {
+                return;
+            }
+            _myGroupsTotal = page.TotalCount;
+            if (page.Items == null)
+            {
+                return;
+            }
+            foreach (var group in page.Items)
+            {
+                if (group != null && !string.IsNullOrEmpty(group.GroupId))
+                {
+                    _myGroupIds.Add(group.GroupId);
+                }
+            }
+        }
 
-        private VisualElement BuildSearch()
+        private List<GroupListItemDto> Filter(GroupListItemDto[] groups)
+        {
+            var kept = new List<GroupListItemDto>();
+            if (groups == null)
+            {
+                return kept;
+            }
+            foreach (var group in groups)
+            {
+                if (group == null)
+                {
+                    continue;
+                }
+                if (_query.Length == 0
+                    || (group.Name != null
+                        && group.Name.IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    kept.Add(group);
+                }
+            }
+            return kept;
+        }
+
+        // ----- discover -------------------------------------------------------------------------
+
+        private VisualElement BuildDiscover()
         {
             var host = new VisualElement();
 
-            var hint = new Label(_query.Length == 0
-                ? "Type in the search box above to look for public groups. The visibility filter narrows it."
-                : "Results for \"" + Fmt.Truncate(_query, 28) + "\""
-                    + (_visibility == null ? string.Empty : " · " + _visibility));
-            hint.AddToClassList("sc-fs-hint");
-            host.Add(hint);
+            host.Add(Hint(_query.Length == 0
+                ? "Groups this project lets you find. Type in the search box above to narrow it."
+                : "Results for \"" + Fmt.Truncate(_query, 28) + "\"."));
 
             var slot = new VisualElement();
             var pager = new Pager(PageSize);
+
+            host.Add(VisibilityFilter());
             host.Add(slot);
             host.Add(pager);
 
             pager.PageRequested += page => LoadSearch(slot, pager, page);
             LoadSearch(slot, pager, 1);
+
+            host.Add(InvitePanel());
+            host.Add(PlayerLookupPanel());
             return host;
+        }
+
+        /// <summary>
+        /// Segmented visibility filter. It lives in the pane rather than the toolbar because it only
+        /// means something for the search — a toolbar dropdown that does nothing on the other tab
+        /// is worse than no dropdown at all.
+        /// </summary>
+        private VisualElement VisibilityFilter()
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sc-grp-filters");
+
+            var caption = new Label("Visibility");
+            caption.AddToClassList("sc-grp-filters__label");
+            row.Add(caption);
+
+            foreach (var option in Visibilities)
+            {
+                string value = option == "Any" ? null : option;
+                bool active = string.Equals(value, _visibility, StringComparison.Ordinal);
+
+                var btn = new Button(() =>
+                {
+                    if (string.Equals(value, _visibility, StringComparison.Ordinal))
+                    {
+                        return;
+                    }
+                    _visibility = value;
+                    _tabs.Invalidate(1);
+                })
+                {
+                    text = option,
+                };
+                btn.AddToClassList("sc-btn");
+                btn.AddToClassList("sc-grp-filters__btn");
+                if (active)
+                {
+                    btn.AddToClassList("sc-btn--primary");
+                }
+                row.Add(btn);
+            }
+            return row;
         }
 
         private void LoadSearch(VisualElement slot, Pager pager, int page)
@@ -278,7 +445,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 data =>
                 {
                     pager.SetTotal(data.TotalCount, page);
-                    return GroupList(data.Items, false);
+                    return GroupList(new List<GroupListItemDto>(data.Items), false);
                 },
                 d => d == null || d.Items == null || d.Items.Length == 0,
                 new BindOptions
@@ -293,106 +460,398 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                         pager.SetTotal(0, 1);
                         return ZeroState.Cards(LucideIcon.Search,
                             query == null
-                                ? "No public groups in this project yet."
+                                ? "No group is public in this project yet."
                                 : "Nothing public matches \"" + Fmt.Truncate(query, 24) + "\".",
                             3);
                     },
                 });
         }
 
-        private VisualElement GroupList(GroupListItemDto[] groups, bool mine)
+        /// <summary>
+        /// Invites arrive out of band and the service has no endpoint that lists them, so redeeming
+        /// one is a paste-and-go panel rather than a hidden dialog.
+        /// </summary>
+        private VisualElement InvitePanel()
+        {
+            var card = new Card(Meta.Accent);
+            card.AddToClassList("sc-grp-panel");
+            card.WithTitle("Have an invite?", Meta.Accent);
+
+            card.Body.Add(Hint("There is no call that lists the invites a player received — they come "
+                + "from a chat message, a deep link or your own backend. Paste what you were given: "
+                + "a shareable key secret, or the id of a direct invite."));
+
+            var groupId = Field("Group id");
+            var groupRow = new VisualElement();
+            groupRow.AddToClassList("sc-grp-inline");
+            groupRow.Add(groupId);
+            card.Body.Add(groupRow);
+
+            var key = Field("Invite key secret");
+            var keyRow = new VisualElement();
+            keyRow.AddToClassList("sc-grp-inline");
+            keyRow.Add(key);
+            keyRow.Add(GlyphButton("Join with key", LucideIcon.KeyRound,
+                () => JoinByKey(groupId.value, key.value)));
+            card.Body.Add(keyRow);
+
+            var invite = Field("Direct invite id");
+            var inviteRow = new VisualElement();
+            inviteRow.AddToClassList("sc-grp-inline");
+            inviteRow.Add(invite);
+            inviteRow.Add(GlyphButton("Accept", LucideIcon.Check,
+                () => AnswerInvite(groupId.value, invite.value, true), "sc-btn--primary"));
+            inviteRow.Add(GlyphButton("Decline", LucideIcon.X,
+                () => AnswerInvite(groupId.value, invite.value, false)));
+            card.Body.Add(inviteRow);
+
+            return card;
+        }
+
+        private VisualElement PlayerLookupPanel()
+        {
+            var card = new Card();
+            card.AddToClassList("sc-grp-panel");
+            card.WithTitle("Another player's groups");
+            card.Body.Add(Hint("Whether this answers at all depends on the project's visibility rules."));
+
+            var results = new VisualElement();
+
+            var profileId = Field("Profile id");
+            var row = new VisualElement();
+            row.AddToClassList("sc-grp-inline");
+            row.Add(profileId);
+            row.Add(GlyphButton("Look up", LucideIcon.Search, () =>
+            {
+                string id = profileId.value == null ? null : profileId.value.Trim();
+                if (string.IsNullOrEmpty(id))
+                {
+                    Warn("Type a profile id first.");
+                    return;
+                }
+                LoadPlayerGroups(results, id);
+            }));
+
+            card.Body.Add(row);
+            card.Body.Add(results);
+            return card;
+        }
+
+        private void LoadPlayerGroups(VisualElement slot, string profileId)
+        {
+            ViewBind.Load(
+                () => Sdk.Groups.GetPlayerGroupsAsync(profileId, 1, PageSize),
+                slot,
+                data => GroupList(new List<GroupListItemDto>(data.Items), false),
+                d => d == null || d.Items == null || d.Items.Length == 0,
+                new BindOptions
+                {
+                    Log = Ctx.Log,
+                    Label = "Player groups",
+                    Snippet = MyGroupsSnippet,
+                    ServiceName = "Groups",
+                    AllowRetry = true,
+                    EmptyMessage = "That player is in no group this account may see.",
+                });
+        }
+
+        // ----- the list rows --------------------------------------------------------------------
+
+        private VisualElement GroupList(List<GroupListItemDto> groups, bool mine)
         {
             var list = new VisualElement();
             foreach (var group in groups)
             {
-                var row = new ListRow();
-                row.SetLead(new Avatar(38f).SetInitialsFor(Fmt.OrDash(group.Name)));
-                row.SetTitle(Fmt.OrDash(group.Name));
-                row.SetSubtitle(string.IsNullOrEmpty(group.Description)
-                    ? "no description"
-                    : Fmt.Truncate(group.Description, 72));
-
-                var trailing = new VisualElement();
-                trailing.AddToClassList("sc-row-actions");
-                trailing.Add(new Badge(group.MemberCount + "/" + group.MaxMembers, ChipTone.Neutral));
-                if (!string.IsNullOrEmpty(group.Visibility))
-                {
-                    trailing.Add(new Badge(group.Visibility, ChipTone.Info));
-                }
-
-                string groupId = group.GroupId;
-                if (!mine)
-                {
-                    // An open group can be joined outright; anything else needs a request the
-                    // moderators answer, so the button says which one it is.
-                    bool open = string.Equals(group.JoinPolicy, "open", StringComparison.OrdinalIgnoreCase);
-                    var join = new Button(() => JoinOrRequest(groupId, open))
-                    {
-                        text = open ? "Join" : "Request",
-                    };
-                    join.AddToClassList("sc-btn");
-                    join.AddToClassList("sc-btn--primary");
-                    trailing.Add(join);
-                }
-
-                var open2 = new Button(() => Select(groupId)) { text = "Open" };
-                open2.AddToClassList("sc-btn");
-                trailing.Add(open2);
-
-                row.SetTrailing(trailing);
-                list.Add(row);
+                list.Add(GroupRow(group, mine));
             }
             return list;
         }
 
+        private VisualElement GroupRow(GroupListItemDto group, bool mine)
+        {
+            string groupId = group.GroupId;
+            bool joined = mine || _myGroupIds.Contains(groupId);
+
+            var row = new ListRow();
+            row.AddToClassList("sc-grp-row");
+            row.SetLead(new Avatar(38f).SetInitialsFor(Fmt.OrDash(group.Name)));
+            row.SetTitle(Fmt.OrDash(group.Name));
+            row.SetSubtitle(string.IsNullOrEmpty(group.Description)
+                ? "no description"
+                : Fmt.Truncate(group.Description, 72));
+
+            var trailing = new VisualElement();
+            trailing.AddToClassList("sc-row-actions");
+            trailing.Add(new Badge(group.MemberCount + "/" + group.MaxMembers, ChipTone.Neutral));
+            if (!string.IsNullOrEmpty(group.Visibility))
+            {
+                trailing.Add(new Badge(group.Visibility, ChipTone.Info));
+            }
+            if (joined && !mine)
+            {
+                trailing.Add(new Badge("joined", ChipTone.Ok));
+            }
+
+            if (!joined)
+            {
+                // An open group can be joined outright; anything else needs a request the moderators
+                // answer, so the button says which one it is.
+                bool open = IsOpenPolicy(group.JoinPolicy);
+                var join = GlyphButton(open ? "Join" : "Request",
+                    open ? LucideIcon.DoorOpen : LucideIcon.UserPlus,
+                    () => JoinOrRequest(groupId, open),
+                    "sc-btn--primary");
+                trailing.Add(join);
+            }
+
+            trailing.Add(GlyphButton("Open", LucideIcon.ChevronRight, () => OpenGroup(groupId)));
+            row.SetTrailing(trailing);
+
+            // The whole row opens the group; the buttons inside keep their own meaning.
+            row.RegisterCallback<ClickEvent>(e =>
+            {
+                for (var t = e.target as VisualElement; t != null && t != row; t = t.parent)
+                {
+                    if (t is Button)
+                    {
+                        return;
+                    }
+                }
+                OpenGroup(groupId);
+            });
+            return row;
+        }
+
         private async void JoinOrRequest(string groupId, bool open)
         {
-            var op = open ? Sdk.Groups.JoinAsync(groupId) : null;
             if (!open)
             {
                 var request = Sdk.Groups.CreateJoinRequestAsync(groupId);
-                var requestOutcome = await AwaitData(request, "Groups · join request");
-                Report(requestOutcome, "Join request sent", "Join request");
+                var requested = await AwaitData(request, "Groups · join request");
+                Report(requested, "Join request sent — a moderator has to approve it", "Join request");
+                if (requested.Ok && !_closed)
+                {
+                    _requestedGroupId = groupId;
+                    if (groupId == _groupId)
+                    {
+                        RenderActions();
+                    }
+                }
                 return;
             }
 
-            var outcome = await Await(op, "Groups · join");
+            var outcome = await Await(Sdk.Groups.JoinAsync(groupId), "Groups · join");
             Report(outcome, "Joined the group", "Join");
-            if (outcome.Ok)
+            if (!outcome.Ok || _closed)
             {
-                _tabs.Invalidate(0);
+                return;
             }
+
+            _myGroupIds.Add(groupId);
+            if (_myGroupsTotal >= 0)
+            {
+                _myGroupsTotal++;
+            }
+            _tabs.Invalidate(0);
+            _tabs.Invalidate(1);
+            if (groupId == _groupId)
+            {
+                LoadGroup();
+            }
+        }
+
+        private async void JoinByKey(string groupId, string secret)
+        {
+            string id = groupId == null ? null : groupId.Trim();
+            string key = secret == null ? null : secret.Trim();
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(key))
+            {
+                Warn("Both the group id and the key secret are needed.");
+                return;
+            }
+
+            var outcome = await Await(
+                Sdk.Groups.JoinByKeyAsync(id, new JoinByKeyDto { SecretKey = key }),
+                "Groups · join by key");
+            Report(outcome, "Joined with the key", "Join with key");
+            if (!outcome.Ok || _closed)
+            {
+                return;
+            }
+            _myGroupIds.Add(id);
+            _tabs.Invalidate(0);
+            OpenGroup(id);
+        }
+
+        private async void AnswerInvite(string groupId, string inviteId, bool accept)
+        {
+            string id = groupId == null ? null : groupId.Trim();
+            string invite = inviteId == null ? null : inviteId.Trim();
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(invite))
+            {
+                Warn("Both the group id and the invite id are needed.");
+                return;
+            }
+
+            var op = accept
+                ? Sdk.Groups.AcceptInviteAsync(id, invite)
+                : Sdk.Groups.DeclineInviteAsync(id, invite);
+            var outcome = await Await(op, "Groups · invite answer");
+            Report(outcome, accept ? "Invite accepted" : "Invite declined", "Invite answer");
+            if (!outcome.Ok || _closed || !accept)
+            {
+                return;
+            }
+            _myGroupIds.Add(id);
+            _tabs.Invalidate(0);
+            OpenGroup(id);
+        }
+
+        // ----- creating a group -----------------------------------------------------------------
+
+        private void OpenCreateDialog()
+        {
+            FormDialog.Open(Popup, "New group",
+                new[]
+                {
+                    FormField.Text("name", "Name", null, true).WithPlaceholder("Shown in every list"),
+                    FormField.LongText("description", "Description"),
+                    FormField.Choice("visibility", "Visibility", new[] { "public", "private" }, "public")
+                        .WithPlaceholder("Only public groups turn up under Discover"),
+                    FormField.Choice("joinPolicy", "Join policy",
+                            new[] { "open", "request", "invite" }, "open")
+                        .WithPlaceholder("open joins outright · request needs approval · invite is closed"),
+                    FormField.Int("maxMembers", "Max members", 50),
+                    FormField.Bool("chat", "Create a chat channel too", true),
+                },
+                "Create", CreateGroup);
+        }
+
+        private async void CreateGroup(FormValues values)
+        {
+            var op = Sdk.Groups.CreateAsync(new CreateGroupDto
+            {
+                Name = values.Text("name"),
+                Description = values.Text("description"),
+                Visibility = values.Choice("visibility"),
+                JoinPolicy = values.Choice("joinPolicy"),
+                MaxMembers = Math.Max(1, values.Int("maxMembers")),
+                CreateChat = values.Bool("chat"),
+            });
+
+            var outcome = await AwaitData(op, "Groups · create");
+            Report(outcome, "Group created", "Create group");
+            if (!outcome.Ok || _closed)
+            {
+                return;
+            }
+
+            var created = op.Result.Data;
+            if (created != null && !string.IsNullOrEmpty(created.GroupId))
+            {
+                _myGroupIds.Add(created.GroupId);
+            }
+            if (_myGroupsTotal >= 0)
+            {
+                _myGroupsTotal++;
+            }
+
+            // The new group belongs in the list the player already knows, so this lands there rather
+            // than jumping straight into the group's page.
+            CloseGroup();
+            _tabs.Invalidate(0);
+            _tabs.Select(0);
         }
 
         // ----- one group ------------------------------------------------------------------------
 
-        private VisualElement BuildGroup()
+        private void OpenGroup(string groupId)
         {
-            var host = new VisualElement();
-
-            var picker = new VisualElement();
-            picker.AddToClassList("sc-chat-lookup");
-            var field = new TextField { label = "Group id", value = _groupId ?? string.Empty };
-            field.AddToClassList("sc-field");
-            picker.Add(field);
-            var load = new Button(() => Select(field.value == null ? null : field.value.Trim())) { text = "Load" };
-            load.AddToClassList("sc-btn");
-            picker.Add(load);
-            host.Add(picker);
-
-            if (string.IsNullOrEmpty(_groupId))
+            if (string.IsNullOrEmpty(groupId))
             {
-                host.Add(ZeroState.Panel(LucideIcon.Shield, "No group selected",
-                    "Pick one under My groups or Search, or paste a group id above. This tab then shows "
-                    + "its members, roles, bans, invites and join requests.",
-                    "Browse my groups", () => _tabs.Select(0)));
-                return host;
+                return;
             }
 
+            _groupId = groupId;
+            _group = null;
+            _roles = new RoleDto[0];
+            _groupTabs = null;
+            _membershipResolved = _myGroupIds.Contains(groupId) || MyGroupsFullyKnown;
+
+            ShowDetail(true);
+            LoadGroup();
+
+            if (!_membershipResolved)
+            {
+                ProbeMembership(groupId);
+            }
+        }
+
+        private void CloseGroup()
+        {
+            ClearOpenGroup();
+            if (_detail != null)
+            {
+                _detail.Clear();
+            }
+            ShowDetail(false);
+            SetBrowseStatus();
+        }
+
+        private void ClearOpenGroup()
+        {
+            _groupId = null;
+            _group = null;
+            _roles = new RoleDto[0];
+            _groupTabs = null;
+            _heroRole = null;
+            _actionSlot = null;
+            _sectionsSlot = null;
+            _tabMembers = -1;
+            _tabRequests = -1;
+            _tabRoles = -1;
+            _tabBans = -1;
+            _membershipResolved = false;
+        }
+
+        private void ShowDetail(bool on)
+        {
+            var browse = on ? DisplayStyle.None : DisplayStyle.Flex;
+            if (_toolbar != null)
+            {
+                _toolbar.style.display = browse;
+            }
+            if (_tabs != null)
+            {
+                _tabs.style.display = browse;
+            }
+            if (_panes != null)
+            {
+                _panes.style.display = browse;
+            }
+            if (_detail != null)
+            {
+                _detail.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+            Content.scrollOffset = Vector2.zero;
+        }
+
+        private void LoadGroup()
+        {
+            if (_detail == null || string.IsNullOrEmpty(_groupId))
+            {
+                return;
+            }
+
+            _detail.Clear();
+            _detail.Add(BackRow());
+
             var slot = new VisualElement();
-            host.Add(slot);
+            _detail.Add(slot);
+
+            string groupId = _groupId;
             ViewBind.Load(
-                () => Sdk.Groups.GetAsync(_groupId),
+                () => Sdk.Groups.GetAsync(groupId),
                 slot,
                 BuildGroupBody,
                 null,
@@ -402,15 +861,34 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                     Label = "Group",
                     Snippet = GroupSnippet,
                     ServiceName = "Group",
-                    ConfigurationRequest = true,
+                    // No ConfigurationRequest: a 404 here means "no such group" — usually a mistyped
+                    // id pasted into the invite panel — not "the project has nothing set up".
                     AllowRetry = true,
                 });
-            return host;
+        }
+
+        private VisualElement BackRow()
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sc-grp-back");
+            row.Add(GlyphButton("All groups", LucideIcon.ArrowLeft, CloseGroup));
+
+            var spacer = new VisualElement();
+            spacer.style.flexGrow = 1f;
+            row.Add(spacer);
+
+            row.Add(GlyphButton("Reload", LucideIcon.RefreshCw, LoadGroup));
+            return row;
         }
 
         private VisualElement BuildGroupBody(GroupDto group)
         {
+            _group = group;
             SetStatus(Fmt.Truncate(Fmt.OrDash(group.Name), 24), ChipTone.Ok);
+
+            // The role picker on the Members tab needs the group's roles, and the Roles tab may never
+            // be opened — so they are fetched once here as well.
+            LoadRoles(group.GroupId);
 
             var col = new VisualElement();
             col.Add(GroupCard(group));
@@ -421,18 +899,37 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 .Add("Join policy", LucideIcon.DoorOpen, Fmt.OrDash(group.JoinPolicy))
                 .Add("Created", LucideIcon.CalendarDays, Fmt.Date(group.CreatedAt)));
 
-            col.Add(MembersSection());
-            col.Add(RolesSection());
-            col.Add(BansSection());
-            col.Add(InvitesSection());
-            col.Add(JoinRequestsSection());
+            _actionSlot = new VisualElement();
+            col.Add(_actionSlot);
+            RenderActions();
+
+            _sectionsSlot = new VisualElement();
+            col.Add(_sectionsSlot);
+            RenderSections();
             return col;
         }
 
         private VisualElement GroupCard(GroupDto group)
         {
             var card = new Card(Meta.Accent);
-            card.WithTitle(Fmt.OrDash(group.Name), Meta.Accent);
+
+            var head = new VisualElement();
+            head.AddToClassList("sc-grp-hero");
+            head.Add(new Avatar(46f).SetInitialsFor(Fmt.OrDash(group.Name)));
+
+            var texts = new VisualElement();
+            texts.AddToClassList("sc-grp-hero__texts");
+            var name = new Label(Fmt.OrDash(group.Name));
+            name.enableRichText = false;
+            name.AddToClassList("sc-grp-hero__name");
+            name.style.color = Meta.Accent;
+            texts.Add(name);
+
+            _heroRole = new Label(MembershipLine(group));
+            _heroRole.AddToClassList("sc-grp-hero__role");
+            texts.Add(_heroRole);
+            head.Add(texts);
+            card.WithHeader(head);
 
             if (!string.IsNullOrEmpty(group.Description))
             {
@@ -473,6 +970,19 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
             return card;
         }
 
+        private string MembershipLine(GroupDto group)
+        {
+            if (!_membershipResolved)
+            {
+                return "checking your membership…";
+            }
+            if (IsOwner(group))
+            {
+                return "you own this group";
+            }
+            return IsMember(group.GroupId) ? "you are a member" : "you are not a member";
+        }
+
         private VisualElement ChatRow(GroupDto group)
         {
             var row = new VisualElement();
@@ -494,10 +1004,9 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 return box;
             }
 
+            // The "add one" button lives in the action row below, which is the part that knows
+            // whether this player is a member.
             row.Add(new Chip("no chat", ChipTone.Neutral));
-            var create = new Button(() => CreateChat(group.GroupId)) { text = "Create a chat channel" };
-            create.AddToClassList("sc-btn");
-            row.Add(create);
             return row;
         }
 
@@ -505,39 +1014,367 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
         {
             var outcome = await AwaitData(Sdk.Groups.CreateChatAsync(groupId), "Groups · create chat");
             Report(outcome, "Chat channel created", "Create chat");
-            if (outcome.Ok)
+            if (outcome.Ok && !_closed && groupId == _groupId)
             {
-                _tabs.Invalidate(2);
+                LoadGroup();
             }
         }
 
-        private VisualElement Kv(string key, string value, string copyable)
+        // ----- what the player may do with this group -------------------------------------------
+
+        /// <summary>
+        /// Fills the action row from what is known right now. It is re-run when the membership probe
+        /// or the profile lookup lands, so the row settles instead of guessing.
+        /// </summary>
+        private void RenderActions()
         {
-            var row = new VisualElement();
-            row.AddToClassList("sc-kv");
-
-            var k = new Label(key);
-            k.AddToClassList("sc-kv__k");
-            row.Add(k);
-
-            var v = new Label(value);
-            v.enableRichText = false;
-            v.AddToClassList("sc-kv__v");
-            row.Add(v);
-
-            if (!string.IsNullOrEmpty(copyable))
+            if (_actionSlot == null || _group == null)
             {
-                row.Add(new CopyButton(copyable, Toasts));
+                return;
             }
-            return row;
+
+            var group = _group;
+            _actionSlot.Clear();
+
+            var row = new VisualElement();
+            row.AddToClassList("sc-grp-actions");
+
+            if (!_membershipResolved)
+            {
+                row.Add(new Chip("checking your membership…", ChipTone.Neutral));
+                _actionSlot.Add(row);
+                return;
+            }
+
+            bool member = IsMember(group.GroupId);
+            bool owner = IsOwner(group);
+
+            if (!member)
+            {
+                bool open = IsOpenPolicy(group.JoinPolicy);
+                if (open)
+                {
+                    row.Add(GlyphButton("Join group", LucideIcon.DoorOpen,
+                        () => JoinOrRequest(group.GroupId, true), "sc-btn--primary"));
+                }
+                else if (string.Equals(group.GroupId, _requestedGroupId, StringComparison.Ordinal))
+                {
+                    // Non-members cannot see the Requests tab, so this chip is the only trace of
+                    // the request they just sent.
+                    row.Add(new Chip("request pending", ChipTone.Warn));
+                }
+                else if (string.Equals(group.JoinPolicy, "invite", StringComparison.OrdinalIgnoreCase))
+                {
+                    row.Add(new Chip("invite only", ChipTone.Warn));
+                }
+                else
+                {
+                    row.Add(GlyphButton("Request to join", LucideIcon.UserPlus,
+                        () => JoinOrRequest(group.GroupId, false), "sc-btn--primary"));
+                }
+
+                if (!open)
+                {
+                    row.Add(GlyphButton("Join with a key", LucideIcon.KeyRound,
+                        () => OpenJoinByKeyDialog(group.GroupId)));
+                }
+
+                _actionSlot.Add(row);
+                _actionSlot.Add(Hint("Only members see the roles, invites, bans and join requests of "
+                    + "a group."));
+                return;
+            }
+
+            row.Add(GlyphButton("Edit group", LucideIcon.Pencil, () => OpenEditDialog(group)));
+            row.Add(GlyphButton("Invite a player", LucideIcon.UserPlus,
+                () => OpenInviteDialog(group.GroupId)));
+
+            if (group.ChatConfig == null || string.IsNullOrEmpty(group.ChatConfig.ChannelId))
+            {
+                row.Add(GlyphButton("Add a chat channel", LucideIcon.MessageCircle,
+                    () => CreateChat(group.GroupId)));
+            }
+
+            if (owner)
+            {
+                row.Add(GlyphButton("Delete group", LucideIcon.Trash,
+                    () => ConfirmDeleteGroup(group), "sc-btn--danger"));
+            }
+            else
+            {
+                row.Add(GlyphButton("Leave group", LucideIcon.LogOut,
+                    () => ConfirmLeave(group), "sc-btn--danger"));
+            }
+
+            _actionSlot.Add(row);
+            _actionSlot.Add(Hint(owner
+                ? "The owner cannot leave — deleting the group is the way out, and it takes the "
+                  + "members, roles and chat with it."
+                : "Your role decides which of these the server accepts; anything it does not allow "
+                  + "comes back as an error rather than silently doing nothing."));
+        }
+
+        private void OpenEditDialog(GroupDto group)
+        {
+            FormDialog.Open(Popup, "Edit group",
+                new[]
+                {
+                    FormField.Text("name", "Name", group.Name, true),
+                    FormField.LongText("description", "Description", group.Description),
+                    FormField.Choice("visibility", "Visibility", new[] { "public", "private" },
+                        string.IsNullOrEmpty(group.Visibility) ? "public" : group.Visibility),
+                    FormField.Choice("joinPolicy", "Join policy",
+                        new[] { "open", "request", "invite" },
+                        string.IsNullOrEmpty(group.JoinPolicy) ? "open" : group.JoinPolicy),
+                    FormField.Int("maxMembers", "Max members", group.MaxMembers),
+                },
+                "Save", values => UpdateGroup(group.GroupId, values));
+        }
+
+        private async void UpdateGroup(string groupId, FormValues values)
+        {
+            // Every field is prefilled from the group, so the whole set is sent back — the dialog
+            // shows exactly what will be stored.
+            var dto = new UpdateGroupDto
+            {
+                Name = values.Text("name"),
+                Description = values.Text("description"),
+                Visibility = values.Choice("visibility"),
+                JoinPolicy = values.Choice("joinPolicy"),
+                MaxMembers = Math.Max(1, values.Int("maxMembers")),
+            };
+
+            var outcome = await AwaitData(Sdk.Groups.UpdateAsync(groupId, dto), "Groups · update");
+            Report(outcome, "Group updated", "Update group");
+            if (!outcome.Ok || _closed)
+            {
+                return;
+            }
+            _tabs.Invalidate(0);
+            _tabs.Invalidate(1);
+            if (groupId == _groupId)
+            {
+                LoadGroup();
+            }
+        }
+
+        private void ConfirmLeave(GroupDto group)
+        {
+            ConfirmDialog.Open(Popup, "Leave group",
+                "You stop being a member of \"" + Fmt.OrDash(group.Name) + "\". Whether you can come "
+                + "back depends on its join policy.",
+                "Leave",
+                () => Leave(group.GroupId));
+        }
+
+        private async void Leave(string groupId)
+        {
+            var outcome = await Await(Sdk.Groups.LeaveAsync(groupId), "Groups · leave");
+            Report(outcome, "Left the group", "Leave");
+            if (!outcome.Ok || _closed)
+            {
+                return;
+            }
+            _myGroupIds.Remove(groupId);
+            if (_myGroupsTotal > 0)
+            {
+                _myGroupsTotal--;
+            }
+            _tabs.Invalidate(0);
+            _tabs.Invalidate(1);
+            CloseGroup();
+        }
+
+        private void ConfirmDeleteGroup(GroupDto group)
+        {
+            // Retyping the name is the gate; a group with no name falls back to a plain confirm
+            // rather than asking the player to type an em dash.
+            ConfirmDialog.Open(Popup, "Delete group",
+                "Permanent, and it takes the members, roles, bans and chat channel with it.",
+                "Delete",
+                () => DeleteGroup(group.GroupId),
+                string.IsNullOrWhiteSpace(group.Name) ? null : group.Name);
+        }
+
+        private async void DeleteGroup(string groupId)
+        {
+            var outcome = await Await(Sdk.Groups.DeleteAsync(groupId), "Groups · delete");
+            Report(outcome, "Group deleted", "Delete group");
+            if (!outcome.Ok || _closed)
+            {
+                return;
+            }
+            _myGroupIds.Remove(groupId);
+            if (_myGroupsTotal > 0)
+            {
+                _myGroupsTotal--;
+            }
+            _tabs.Invalidate(0);
+            _tabs.Invalidate(1);
+            CloseGroup();
+        }
+
+        private void OpenJoinByKeyDialog(string groupId)
+        {
+            FormDialog.Open(Popup, "Join with a key",
+                new[] { FormField.Text("secret", "Secret key", null, true) },
+                "Join",
+                values => JoinByKey(groupId, values.Text("secret")));
+        }
+
+        // ----- membership and ownership ---------------------------------------------------------
+
+        /// <summary>True once every group the player belongs to is in <see cref="_myGroupIds"/>.</summary>
+        private bool MyGroupsFullyKnown => _myGroupsTotal >= 0 && _myGroupIds.Count >= _myGroupsTotal;
+
+        private bool IsMember(string groupId)
+        {
+            return !string.IsNullOrEmpty(groupId) && _myGroupIds.Contains(groupId);
+        }
+
+        private bool IsOwner(GroupDto group)
+        {
+            return group != null && !string.IsNullOrEmpty(group.OwnerId)
+                && _myProfileIds.Contains(group.OwnerId);
+        }
+
+        /// <summary>
+        /// Settles membership for a group opened from the search, where the first page of "My groups"
+        /// may not have covered it. One extra read, and only when the answer is genuinely unknown.
+        /// </summary>
+        private async void ProbeMembership(string groupId)
+        {
+            var op = Sdk.Groups.GetMyGroupsAsync(1, MembershipProbeSize);
+            if (op == null)
+            {
+                return;
+            }
+            await op.Task();
+            if (_closed)
+            {
+                return;
+            }
+
+            var result = op.Result;
+            if (result != null && result.IsSuccess && result.Data != null)
+            {
+                RememberMyGroups(result.Data);
+            }
+
+            if (_groupId != groupId)
+            {
+                return;
+            }
+            _membershipResolved = true;
+
+            // Only the parts that read membership are redrawn — re-issuing the group read to move
+            // one line of text would be silly.
+            if (_heroRole != null && _group != null)
+            {
+                _heroRole.text = MembershipLine(_group);
+            }
+            RenderActions();
+            RenderSections();
+        }
+
+        private async void ResolveOwnProfiles()
+        {
+            var op = Sdk.PlayerAccount.GetProfilesAsync();
+            if (op == null)
+            {
+                return;
+            }
+            await op.Task();
+            var result = op.Result;
+            if (_closed || result == null || !result.IsSuccess || result.Data == null)
+            {
+                return;
+            }
+
+            bool added = false;
+            foreach (var profile in result.Data)
+            {
+                if (profile != null && !string.IsNullOrEmpty(profile.Id))
+                {
+                    added |= _myProfileIds.Add(profile.Id);
+                }
+            }
+            if (added && _group != null)
+            {
+                RenderActions();
+            }
+        }
+
+        private async void LoadRoles(string groupId)
+        {
+            var op = Sdk.Groups.GetRolesAsync(groupId);
+            if (op == null)
+            {
+                return;
+            }
+            await op.Task();
+            var result = op.Result;
+            if (_closed || _groupId != groupId || result == null || !result.IsSuccess)
+            {
+                return;
+            }
+            _roles = result.Data ?? new RoleDto[0];
+        }
+
+        // ----- the group's own sections ---------------------------------------------------------
+
+        /// <summary>
+        /// The five section lists as tabs rather than one long scroll: each is paged, and stacking
+        /// them would fire five requests the moment a group opens. Everything past Members is for
+        /// members only — for anyone else those calls are a guaranteed 403, which is also why this
+        /// is re-run rather than built once when the membership probe lands.
+        /// </summary>
+        private void RenderSections()
+        {
+            if (_sectionsSlot == null || _group == null)
+            {
+                return;
+            }
+            _sectionsSlot.Clear();
+
+            _groupTabs = new Tabs();
+            _groupTabs.AddToClassList("sc-grp-tabs");
+
+            _tabMembers = 0;
+            _groupTabs.Add("Members", LucideIcon.Users, MembersPane);
+
+            if (IsMember(_group.GroupId))
+            {
+                _tabRequests = 1;
+                _tabRoles = 2;
+                _tabBans = 4;
+                _groupTabs.Add("Requests", LucideIcon.Inbox, JoinRequestsPane)
+                    .Add("Roles", LucideIcon.KeyRound, RolesPane)
+                    .Add("Invites", LucideIcon.UserPlus, InvitesPane)
+                    .Add("Bans", LucideIcon.Ban, BansPane);
+            }
+            else
+            {
+                _tabRequests = -1;
+                _tabRoles = -1;
+                _tabBans = -1;
+            }
+            _sectionsSlot.Add(_groupTabs);
+        }
+
+        private void InvalidateSection(int index)
+        {
+            if (_groupTabs != null && index >= 0)
+            {
+                _groupTabs.Invalidate(index);
+            }
         }
 
         // ----- members --------------------------------------------------------------------------
 
-        private VisualElement MembersSection()
+        private VisualElement MembersPane()
         {
             var box = new VisualElement();
-            box.Add(new SectionHeader("Members"));
 
             var slot = new VisualElement();
             var pager = new Pager(PageSize);
@@ -574,13 +1411,14 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                     {
                         pager.SetTotal(0, 1);
                         return ZeroState.Table(MemberColumns(),
-                            "Nobody has joined yet. Invite someone from the sections below.", 3);
+                            "Nobody has joined yet. Invite someone from the group's actions above.", 3);
                     },
                 });
         }
 
         private DataColumn[] MemberColumns()
         {
+            bool member = IsMember(_groupId);
             return new[]
             {
                 new DataColumn
@@ -589,15 +1427,21 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                     SortKey = o => ((MemberDto)o).ProfileId,
                     Cell = o =>
                     {
-                        var member = (MemberDto)o;
+                        var m = (MemberDto)o;
                         var row = new VisualElement();
                         row.AddToClassList("sc-row-actions");
                         row.style.justifyContent = Justify.FlexStart;
-                        row.Add(new Avatar(28f).SetInitialsFor(member.ProfileId));
-                        var id = new Label(Fmt.Id(member.ProfileId, 12));
+                        row.Add(new Avatar(28f).SetInitialsFor(m.ProfileId));
+                        var id = new Label(Fmt.Id(m.ProfileId, 12));
                         id.enableRichText = false;
                         id.style.marginLeft = 8f;
                         row.Add(id);
+                        if (_myProfileIds.Contains(m.ProfileId))
+                        {
+                            var you = new Badge("you", ChipTone.Info);
+                            you.style.marginLeft = 6f;
+                            row.Add(you);
+                        }
                         return row;
                     },
                 },
@@ -607,10 +1451,10 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                     SortKey = o => ((MemberDto)o).RoleName,
                     Cell = o =>
                     {
-                        var member = (MemberDto)o;
-                        return member.IsOwner
+                        var m = (MemberDto)o;
+                        return m.IsOwner
                             ? new Chip("owner", ChipTone.Warn)
-                            : new Chip(Fmt.OrDash(member.RoleName), ChipTone.Neutral);
+                            : new Chip(Fmt.OrDash(m.RoleName), ChipTone.Neutral);
                     },
                 },
                 new DataColumn
@@ -621,26 +1465,30 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 },
                 new DataColumn
                 {
-                    Header = string.Empty, FixedWidth = true, Px = 176, Align = "right",
+                    Header = string.Empty, FixedWidth = true, Px = member ? 176 : 80, Align = "right",
                     Cell = o =>
                     {
-                        var member = (MemberDto)o;
+                        var m = (MemberDto)o;
                         var row = new VisualElement();
                         row.AddToClassList("sc-row-actions");
 
                         // The owner cannot be demoted or kicked, so those controls are simply absent
-                        // rather than present and failing.
-                        if (member.IsOwner)
+                        // rather than present and failing. Neither can a non-member moderate.
+                        if (m.IsOwner)
                         {
                             row.Add(new Badge("owner", ChipTone.Warn));
                             return row;
                         }
+                        if (!member)
+                        {
+                            return row;
+                        }
 
-                        var role = new Button(() => OpenRoleDialog(member)) { text = "Role" };
+                        var role = new Button(() => OpenRoleDialog(m)) { text = "Role" };
                         role.AddToClassList("sc-btn");
                         row.Add(role);
 
-                        var kick = new Button(() => ConfirmKick(member)) { text = "Kick" };
+                        var kick = new Button(() => ConfirmKick(m)) { text = "Kick" };
                         kick.AddToClassList("sc-btn");
                         kick.AddToClassList("sc-btn--danger");
                         row.Add(kick);
@@ -652,11 +1500,6 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
 
         private void OpenRoleDialog(MemberDto member)
         {
-            if (Popup == null)
-            {
-                return;
-            }
-
             // Offer the group's real roles when they are loaded; fall back to a free-text id when
             // the roles call has not answered (or the group has none).
             var options = new List<string>();
@@ -675,8 +1518,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
             FormDialog.Open(Popup, "Change role", new[] { field }, "Apply", values =>
             {
                 string picked = options.Count > 0 ? values.Choice("role") : values.Text("role");
-                string roleId = ExtractRoleId(picked);
-                SetRole(member.ProfileId, roleId);
+                SetRole(member.ProfileId, ExtractRoleId(picked));
             });
         }
 
@@ -693,46 +1535,36 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
         private async void SetRole(string profileId, string roleId)
         {
             var outcome = await AwaitData(
-                Sdk.Groups.UpdateMemberRoleAsync(_groupId, profileId, new UpdateMemberRoleDto { RoleId = roleId }),
+                Sdk.Groups.UpdateMemberRoleAsync(_groupId, profileId,
+                    new UpdateMemberRoleDto { RoleId = roleId }),
                 "Groups · member role");
             Report(outcome, "Role updated", "Role change");
-            if (outcome.Ok)
+            if (outcome.Ok && !_closed)
             {
-                _tabs.Invalidate(2);
+                InvalidateSection(_tabMembers);
             }
         }
 
         private void ConfirmKick(MemberDto member)
         {
-            if (Popup == null)
-            {
-                return;
-            }
             ConfirmDialog.Open(Popup, "Kick member",
                 "Removes " + Fmt.Id(member.ProfileId, 10) + " from the group. They can rejoin unless "
                 + "you ban them.",
                 "Kick",
-                () => RunAndReload(Sdk.Groups.KickMemberAsync(_groupId, member.ProfileId),
-                    "Member kicked", "Kick"));
+                () => Write(Sdk.Groups.KickMemberAsync(_groupId, member.ProfileId),
+                    "Member kicked", "Kick", () => InvalidateSection(_tabMembers)));
         }
 
         // ----- roles ----------------------------------------------------------------------------
 
-        private VisualElement RolesSection()
+        private VisualElement RolesPane()
         {
             var box = new VisualElement();
-
-            var header = new VisualElement();
-            header.AddToClassList("sc-row-actions");
-            header.style.justifyContent = Justify.SpaceBetween;
-            header.Add(new SectionHeader("Roles"));
-            var add = new Button(OpenCreateRoleDialog) { text = "New role" };
-            add.AddToClassList("sc-btn");
-            header.Add(add);
-            box.Add(header);
+            box.Add(SectionBar("Roles", "New role", LucideIcon.Plus, OpenCreateRoleDialog));
 
             var slot = new VisualElement();
             box.Add(slot);
+
             string groupId = _groupId;
             ViewBind.Load(
                 () => Sdk.Groups.GetRolesAsync(groupId),
@@ -770,16 +1602,9 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
 
                 var trailing = new VisualElement();
                 trailing.AddToClassList("sc-row-actions");
-
-                var edit = new Button(() => OpenEditRoleDialog(role)) { text = "Edit" };
-                edit.AddToClassList("sc-btn");
-                trailing.Add(edit);
-
-                var remove = new Button(() => ConfirmDeleteRole(role)) { text = "Delete" };
-                remove.AddToClassList("sc-btn");
-                remove.AddToClassList("sc-btn--danger");
-                trailing.Add(remove);
-
+                trailing.Add(GlyphButton("Edit", LucideIcon.Pencil, () => OpenEditRoleDialog(role)));
+                trailing.Add(GlyphButton("Delete", LucideIcon.Trash,
+                    () => ConfirmDeleteRole(role), "sc-btn--danger"));
                 row.SetTrailing(trailing);
                 list.Add(row);
             }
@@ -854,320 +1679,54 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
 
         private void OpenCreateRoleDialog()
         {
-            if (Popup == null || string.IsNullOrEmpty(_groupId))
+            if (string.IsNullOrEmpty(_groupId))
             {
                 return;
             }
             FormDialog.Open(Popup, "New role", RoleFields(null), "Create", values =>
-                RunDataAndReload(
+                WriteData(
                     Sdk.Groups.CreateRoleAsync(_groupId, new CreateRoleDto
                     {
                         Name = values.Text("name"),
                         Permissions = PermissionsFrom(values),
                     }),
-                    "Role created", "Create role"));
+                    "Role created", "Create role", ReloadRoles));
         }
 
         private void OpenEditRoleDialog(RoleDto role)
         {
-            if (Popup == null)
-            {
-                return;
-            }
             FormDialog.Open(Popup, "Edit role", RoleFields(role), "Save", values =>
-                RunDataAndReload(
+                WriteData(
                     Sdk.Groups.UpdateRoleAsync(_groupId, role.RoleId, new UpdateRoleDto
                     {
                         Name = values.Text("name"),
                         Permissions = PermissionsFrom(values),
                     }),
-                    "Role updated", "Update role"));
+                    "Role updated", "Update role", ReloadRoles));
         }
 
         private void ConfirmDeleteRole(RoleDto role)
         {
-            if (Popup == null)
-            {
-                return;
-            }
             ConfirmDialog.Open(Popup, "Delete role",
                 "Members holding \"" + Fmt.OrDash(role.Name) + "\" fall back to the default role.",
                 "Delete",
-                () => RunAndReload(Sdk.Groups.DeleteRoleAsync(_groupId, role.RoleId),
-                    "Role deleted", "Delete role"));
+                () => Write(Sdk.Groups.DeleteRoleAsync(_groupId, role.RoleId),
+                    "Role deleted", "Delete role", ReloadRoles));
         }
 
-        // ----- bans -----------------------------------------------------------------------------
-
-        private VisualElement BansSection()
+        /// <summary>Members carry a role name, so a role write refreshes both lists.</summary>
+        private void ReloadRoles()
         {
-            var box = new VisualElement();
-
-            var header = new VisualElement();
-            header.AddToClassList("sc-row-actions");
-            header.style.justifyContent = Justify.SpaceBetween;
-            header.Add(new SectionHeader("Bans"));
-            var add = new Button(OpenBanDialog) { text = "Ban a player" };
-            add.AddToClassList("sc-btn");
-            add.AddToClassList("sc-btn--danger");
-            header.Add(add);
-            box.Add(header);
-
-            var slot = new VisualElement();
-            var pager = new Pager(PageSize);
-            box.Add(slot);
-            box.Add(pager);
-
-            pager.PageRequested += page => LoadBans(slot, pager, page);
-            LoadBans(slot, pager, 1);
-            return box;
-        }
-
-        private void LoadBans(VisualElement slot, Pager pager, int page)
-        {
-            string groupId = _groupId;
-            ViewBind.Load(
-                () => Sdk.Groups.GetBansAsync(groupId, page, PageSize),
-                slot,
-                data =>
-                {
-                    pager.SetTotal(data.TotalCount, page);
-                    var list = new VisualElement();
-                    foreach (var ban in data.Items)
-                    {
-                        var row = new ListRow();
-                        row.SetLead(new Avatar(30f).SetInitialsFor(ban.ProfileId));
-                        row.SetTitle(Fmt.Id(ban.ProfileId, 14));
-                        row.SetSubtitle(string.IsNullOrEmpty(ban.Reason)
-                            ? "banned " + Fmt.Date(ban.BannedAt)
-                            : ban.Reason + " · " + Fmt.Date(ban.BannedAt));
-
-                        var trailing = new VisualElement();
-                        trailing.AddToClassList("sc-row-actions");
-                        string profileId = ban.ProfileId;
-                        var unban = new Button(() => RunAndReload(
-                            Sdk.Groups.UnbanPlayerAsync(_groupId, profileId), "Player unbanned", "Unban"))
-                        {
-                            text = "Unban",
-                        };
-                        unban.AddToClassList("sc-btn");
-                        trailing.Add(unban);
-                        row.SetTrailing(trailing);
-                        list.Add(row);
-                    }
-                    return list;
-                },
-                d => d == null || d.Items == null || d.Items.Length == 0,
-                new BindOptions
-                {
-                    Log = Ctx.Log,
-                    Label = "Bans",
-                    Snippet = BansSnippet,
-                    ServiceName = "Group",
-                    AllowRetry = true,
-                    EmptyView = () =>
-                    {
-                        pager.SetTotal(0, 1);
-                        return ZeroState.Panel(LucideIcon.Ban, "Nobody is banned",
-                            "A ban keeps a player out for good, unlike a kick. Banning takes an account "
-                            + "id; unbanning takes a profile id.");
-                    },
-                });
-        }
-
-        private void OpenBanDialog()
-        {
-            if (Popup == null || string.IsNullOrEmpty(_groupId))
-            {
-                return;
-            }
-            FormDialog.Open(Popup, "Ban a player",
-                new[]
-                {
-                    FormField.Text("accountId", "Account id", null, true),
-                    FormField.Text("reason", "Reason"),
-                },
-                "Ban",
-                values => RunAndReload(
-                    Sdk.Groups.BanPlayerAsync(_groupId, new BanPlayerDto
-                    {
-                        AccountId = values.Text("accountId"),
-                        Reason = values.Text("reason"),
-                    }),
-                    "Player banned", "Ban"),
-                true);
-        }
-
-        // ----- invites --------------------------------------------------------------------------
-
-        private VisualElement InvitesSection()
-        {
-            var box = new VisualElement();
-            box.Add(new SectionHeader("Invites"));
-
-            var hint = new Label("There is no endpoint to list a group's invites, so this section is the "
-                + "write side only: a direct invite for one player, or a shareable key anyone can redeem. "
-                + "Both come back with the id you need to revoke them.");
-            hint.AddToClassList("sc-fs-hint");
-            box.Add(hint);
-
-            var row = new VisualElement();
-            row.AddToClassList("sc-chip-row");
-
-            var direct = new Button(OpenInviteDialog) { text = "Invite a player" };
-            direct.AddToClassList("sc-btn");
-            direct.AddToClassList("sc-btn--primary");
-            row.Add(direct);
-
-            var key = new Button(OpenInviteKeyDialog) { text = "Create an invite key" };
-            key.AddToClassList("sc-btn");
-            row.Add(key);
-
-            var revoke = new Button(OpenRevokeInviteDialog) { text = "Revoke an invite" };
-            revoke.AddToClassList("sc-btn");
-            row.Add(revoke);
-
-            var deleteKey = new Button(OpenDeleteKeyDialog) { text = "Delete an invite key" };
-            deleteKey.AddToClassList("sc-btn");
-            row.Add(deleteKey);
-
-            box.Add(row);
-            return box;
-        }
-
-        private void OpenInviteDialog()
-        {
-            if (Popup == null || string.IsNullOrEmpty(_groupId))
-            {
-                return;
-            }
-            FormDialog.Open(Popup, "Invite a player",
-                new[]
-                {
-                    FormField.Text("playerId", "Target player id", null, true),
-                    FormField.Int("days", "Expires in (days)", 7),
-                },
-                "Invite",
-                values => InviteResult(Sdk.Groups.CreateInviteAsync(_groupId, new CreateInviteDto
-                {
-                    TargetPlayerId = values.Text("playerId"),
-                    InviteType = "direct",
-                    ExpiresAt = DateTime.UtcNow.AddDays(Math.Max(1, values.Int("days"))),
-                })));
-        }
-
-        private async void InviteResult(AsyncOperation<RestApiResult<InviteDto>> op)
-        {
-            var outcome = await AwaitData(op, "Groups · invite");
-            if (!outcome.Ok)
-            {
-                Report(outcome, null, "Invite");
-                return;
-            }
-            var invite = op.Result.Data;
-            if (Toasts != null)
-            {
-                Toasts.Ok("Invite created");
-            }
-            // The invite id only comes back here, and revoking needs it, so it is handed over rather
-            // than left in a log line.
-            if (Popup != null && invite != null)
-            {
-                var body = new VisualElement();
-                var text = new Label("Keep this invite id — revoking the invite needs it.");
-                text.AddToClassList("sc-fs-hint");
-                body.Add(text);
-
-                var ids = new VisualElement();
-                ids.AddToClassList("sc-kv-list");
-                ids.Add(Kv("Invite id", Fmt.OrDash(invite.InviteId), invite.InviteId));
-                ids.Add(Kv("Target", Fmt.Id(invite.TargetPlayerId, 12), invite.TargetPlayerId));
-                ids.Add(Kv("Expires", Fmt.DateTime2(invite.ExpiresAt), null));
-                body.Add(ids);
-                Popup.Open(body, "Invite created");
-            }
-        }
-
-        private void OpenInviteKeyDialog()
-        {
-            if (Popup == null || string.IsNullOrEmpty(_groupId))
-            {
-                return;
-            }
-            FormDialog.Open(Popup, "Create an invite key",
-                new[] { FormField.Int("days", "Expires in (days)", 30) },
-                "Create",
-                values => InviteKeyResult(Sdk.Groups.CreateInviteKeyAsync(_groupId, new CreateInviteKeyDto
-                {
-                    InviteType = "key",
-                    ExpiresAt = DateTime.UtcNow.AddDays(Math.Max(1, values.Int("days"))),
-                })));
-        }
-
-        private async void InviteKeyResult(AsyncOperation<RestApiResult<InviteKeyDto>> op)
-        {
-            var outcome = await AwaitData(op, "Groups · invite key");
-            if (!outcome.Ok)
-            {
-                Report(outcome, null, "Invite key");
-                return;
-            }
-            var key = op.Result.Data;
-            if (Toasts != null)
-            {
-                Toasts.Ok("Invite key created");
-            }
-            if (Popup != null && key != null)
-            {
-                var body = new VisualElement();
-                var text = new Label("Share the secret; anyone holding it can join with JoinByKeyAsync.");
-                text.AddToClassList("sc-fs-hint");
-                body.Add(text);
-
-                var ids = new VisualElement();
-                ids.AddToClassList("sc-kv-list");
-                ids.Add(Kv("Secret", Fmt.OrDash(key.SecretKey), key.SecretKey));
-                ids.Add(Kv("Key id", Fmt.OrDash(key.InviteKeyId), key.InviteKeyId));
-                ids.Add(Kv("Expires", Fmt.DateTime2(key.ExpiresAt), null));
-                body.Add(ids);
-                Popup.Open(body, "Invite key created");
-            }
-        }
-
-        private void OpenRevokeInviteDialog()
-        {
-            if (Popup == null || string.IsNullOrEmpty(_groupId))
-            {
-                return;
-            }
-            FormDialog.Open(Popup, "Revoke an invite",
-                new[] { FormField.Text("inviteId", "Invite id", null, true) },
-                "Revoke",
-                values => RunAndReload(Sdk.Groups.RevokeInviteAsync(_groupId, values.Text("inviteId")),
-                    "Invite revoked", "Revoke invite"),
-                true);
-        }
-
-        private void OpenDeleteKeyDialog()
-        {
-            if (Popup == null || string.IsNullOrEmpty(_groupId))
-            {
-                return;
-            }
-            FormDialog.Open(Popup, "Delete an invite key",
-                new[] { FormField.Text("keyId", "Invite key id", null, true) },
-                "Delete",
-                values => RunAndReload(Sdk.Groups.DeleteInviteKeyAsync(_groupId, values.Text("keyId")),
-                    "Invite key deleted", "Delete invite key"),
-                true);
+            InvalidateSection(_tabRoles);
+            InvalidateSection(_tabMembers);
         }
 
         // ----- join requests --------------------------------------------------------------------
 
-        private VisualElement JoinRequestsSection()
+        private VisualElement JoinRequestsPane()
         {
             var box = new VisualElement();
-            box.Add(new SectionHeader("Join requests"));
+            box.Add(Hint("Players asking to join a request-only group wait here for a moderator."));
 
             var slot = new VisualElement();
             var pager = new Pager(PageSize);
@@ -1202,18 +1761,13 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                         trailing.Add(new Badge(Fmt.OrDash(request.Status), ChipTone.Warn));
 
                         string requestId = request.RequestId;
-                        var approve = new Button(() => RunAndReload(
-                            Sdk.Groups.ApproveJoinRequestAsync(_groupId, requestId),
-                            "Request approved", "Approve")) { text = "Approve" };
-                        approve.AddToClassList("sc-btn");
-                        approve.AddToClassList("sc-btn--primary");
-                        trailing.Add(approve);
-
-                        var reject = new Button(() => RunAndReload(
-                            Sdk.Groups.RejectJoinRequestAsync(_groupId, requestId),
-                            "Request rejected", "Reject")) { text = "Reject" };
-                        reject.AddToClassList("sc-btn");
-                        trailing.Add(reject);
+                        trailing.Add(GlyphButton("Approve", LucideIcon.Check,
+                            () => Write(Sdk.Groups.ApproveJoinRequestAsync(_groupId, requestId),
+                                "Request approved", "Approve", ReloadRequests),
+                            "sc-btn--primary"));
+                        trailing.Add(GlyphButton("Reject", LucideIcon.X,
+                            () => Write(Sdk.Groups.RejectJoinRequestAsync(_groupId, requestId),
+                                "Request rejected", "Reject", ReloadRequests)));
 
                         row.SetTrailing(trailing);
                         list.Add(row);
@@ -1232,269 +1786,382 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                     {
                         pager.SetTotal(0, 1);
                         return ZeroState.Panel(LucideIcon.Inbox, "No pending requests",
-                            "Players asking to join a request-only group appear here for a moderator to "
-                            + "approve or reject.");
+                            "An approved request adds the player to the group, so the members list "
+                            + "moves with this one.");
                     },
                 });
         }
 
-        // ----- actions --------------------------------------------------------------------------
-
-        private VisualElement BuildActions()
+        private void ReloadRequests()
         {
-            var col = new VisualElement();
-
-            var hint = new Label("The group lifecycle and the calls that do not belong to one section. "
-                + "Anything taking a group id uses the one selected on the Group tab when you leave the "
-                + "field empty.");
-            hint.AddToClassList("sc-fs-hint");
-            col.Add(hint);
-
-            col.Add(new ActionCard("Create a group",
-                    "Visibility and join policy are project-defined strings, not SDK enums.",
-                    LucideIcon.Plus)
-                .WithFields(
-                    FormField.Text("name", "Name", "Night Owls", true),
-                    FormField.Text("description", "Description"),
-                    FormField.Choice("visibility", "Visibility", new[] { "public", "private" }, "public"),
-                    FormField.Choice("joinPolicy", "Join policy",
-                        new[] { "open", "request", "invite" }, "open"),
-                    FormField.Int("maxMembers", "Max members", 50),
-                    FormField.Bool("chat", "Create a chat channel too", true))
-                .WithSnippet(LifecycleSnippet)
-                .OnRun("Create", CreateGroup));
-
-            col.Add(new ActionCard("Update the group", "Only the fields you fill in are sent.",
-                    LucideIcon.Pencil)
-                .WithFields(
-                    FormField.Text("groupId", "Group id (blank = selected)"),
-                    FormField.Text("name", "Name"),
-                    FormField.Text("description", "Description"),
-                    FormField.Int("maxMembers", "Max members", 0))
-                .WithSnippet(LifecycleSnippet)
-                .OnRun("Update", UpdateGroup));
-
-            col.Add(new ActionCard("Join an open group", "Works when the join policy is open.",
-                    LucideIcon.DoorOpen)
-                .WithFields(FormField.Text("groupId", "Group id (blank = selected)"))
-                .WithSnippet(JoinSnippet)
-                .OnRun("Join", v => Run(Sdk.Groups.JoinAsync(GroupIdFrom(v)), "Joined the group", 0)));
-
-            col.Add(new ActionCard("Ask to join",
-                    "For a request-only group: creates a request a moderator answers.",
-                    LucideIcon.UserPlus)
-                .WithFields(FormField.Text("groupId", "Group id (blank = selected)"))
-                .WithSnippet(JoinSnippet)
-                .OnRun("Request", v => RunData(Sdk.Groups.CreateJoinRequestAsync(GroupIdFrom(v)),
-                    "Join request sent", 0)));
-
-            col.Add(new ActionCard("Join with a key", "Redeems an invite key's secret.", LucideIcon.KeyRound)
-                .WithFields(
-                    FormField.Text("groupId", "Group id (blank = selected)"),
-                    FormField.Text("secret", "Secret key", null, true))
-                .WithSnippet(InvitesSnippet)
-                .OnRun("Join", v => Run(
-                    Sdk.Groups.JoinByKeyAsync(GroupIdFrom(v), new JoinByKeyDto { SecretKey = v.Text("secret") }),
-                    "Joined with the key", 0)));
-
-            col.Add(new ActionCard("Answer an invite", "Accept or decline an invite you received.",
-                    LucideIcon.BadgeCheck)
-                .WithFields(
-                    FormField.Text("groupId", "Group id (blank = selected)"),
-                    FormField.Text("inviteId", "Invite id", null, true),
-                    FormField.Choice("answer", "Answer", new[] { "accept", "decline" }, "accept"))
-                .WithSnippet(InvitesSnippet)
-                .OnRun("Send", v => Run(
-                    v.Choice("answer") == "accept"
-                        ? Sdk.Groups.AcceptInviteAsync(GroupIdFrom(v), v.Text("inviteId"))
-                        : Sdk.Groups.DeclineInviteAsync(GroupIdFrom(v), v.Text("inviteId")),
-                    "Invite " + v.Choice("answer") + "ed", 0)));
-
-            col.Add(new ActionCard("Leave the group", "Removes you; the owner has to transfer or delete.",
-                    LucideIcon.LogOut)
-                .WithFields(FormField.Text("groupId", "Group id (blank = selected)"))
-                .WithSnippet(JoinSnippet)
-                .OnRun("Leave", v => Run(Sdk.Groups.LeaveAsync(GroupIdFrom(v)), "Left the group", 0), true));
-
-            col.Add(new ActionCard("Delete the group",
-                    "Permanent, and takes the members, roles and chat with it.", LucideIcon.Trash)
-                .WithFields(FormField.Text("groupId", "Group id (blank = selected)"))
-                .WithSnippet(LifecycleSnippet)
-                .OnRun("Delete", v => Run(Sdk.Groups.DeleteAsync(GroupIdFrom(v)),
-                    "Group deleted", 0), true));
-
-            col.Add(new ActionCard("Read another player's groups",
-                    "Whether this answers depends on the project's visibility rules.", LucideIcon.Users)
-                .WithFields(FormField.Text("profileId", "Profile id", null, true))
-                .WithSnippet(MyGroupsSnippet)
-                .OnRun("Read", ReadPlayerGroups));
-
-            return col;
+            InvalidateSection(_tabRequests);
+            InvalidateSection(_tabMembers);
         }
 
-        private string GroupIdFrom(FormValues values)
+        // ----- invites --------------------------------------------------------------------------
+
+        private VisualElement InvitesPane()
         {
-            string typed = values.Text("groupId");
-            return string.IsNullOrWhiteSpace(typed) ? _groupId : typed.Trim();
+            var box = new VisualElement();
+            box.Add(Hint("There is no endpoint that lists a group's invites, so this is the write side "
+                + "only. Both calls hand back the id you need to take the invite away again — keep it, "
+                + "because nothing else will tell you."));
+
+            var row = new VisualElement();
+            row.AddToClassList("sc-grp-actions");
+            row.Add(GlyphButton("Invite a player", LucideIcon.UserPlus,
+                () => OpenInviteDialog(_groupId), "sc-btn--primary"));
+            row.Add(GlyphButton("Create an invite key", LucideIcon.KeyRound,
+                () => OpenInviteKeyDialog(_groupId)));
+            row.Add(GlyphButton("Revoke an invite", LucideIcon.UserX, OpenRevokeInviteDialog));
+            row.Add(GlyphButton("Delete an invite key", LucideIcon.Trash, OpenDeleteKeyDialog));
+            box.Add(row);
+            return box;
         }
 
-        private async Task<ActionOutcome> CreateGroup(FormValues values)
+        private void OpenInviteDialog(string groupId)
         {
-            var op = Sdk.Groups.CreateAsync(new CreateGroupDto
-            {
-                Name = values.Text("name"),
-                Description = values.Text("description"),
-                Visibility = values.Choice("visibility"),
-                JoinPolicy = values.Choice("joinPolicy"),
-                MaxMembers = Math.Max(1, values.Int("maxMembers")),
-                CreateChat = values.Bool("chat"),
-            });
-
-            var outcome = await AwaitData(op, "Groups · create");
-            if (!outcome.Ok)
-            {
-                return ActionOutcome.Failure(outcome.Message);
-            }
-
-            var created = op.Result.Data;
-            _tabs.Invalidate(0);
-            if (created != null && !string.IsNullOrEmpty(created.GroupId))
-            {
-                _groupId = created.GroupId;
-                _tabs.Invalidate(2);
-            }
-            if (Toasts != null)
-            {
-                Toasts.Ok("Group created");
-            }
-
-            var detail = new VisualElement();
-            detail.AddToClassList("sc-kv-list");
-            detail.Add(Kv("Group id", created != null ? Fmt.OrDash(created.GroupId) : Fmt.Dash,
-                created != null ? created.GroupId : null));
-            return ActionOutcome.Success("Created and selected on the Group tab", detail);
-        }
-
-        private async Task<ActionOutcome> UpdateGroup(FormValues values)
-        {
-            string groupId = GroupIdFrom(values);
             if (string.IsNullOrEmpty(groupId))
             {
-                return ActionOutcome.Failure("Select a group first, or type its id.");
+                return;
             }
-
-            // Only non-empty fields are sent, so this card can nudge one property without wiping
-            // the rest of the group.
-            var dto = new UpdateGroupDto();
-            string name = values.Text("name");
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                dto.Name = name.Trim();
-            }
-            string description = values.Text("description");
-            if (!string.IsNullOrWhiteSpace(description))
-            {
-                dto.Description = description.Trim();
-            }
-            int max = values.Int("maxMembers");
-            if (max > 0)
-            {
-                dto.MaxMembers = max;
-            }
-
-            var outcome = await AwaitData(Sdk.Groups.UpdateAsync(groupId, dto), "Groups · update");
-            if (!outcome.Ok)
-            {
-                return ActionOutcome.Failure(outcome.Message);
-            }
-            _tabs.Invalidate(2);
-            _tabs.Invalidate(0);
-            if (Toasts != null)
-            {
-                Toasts.Ok("Group updated");
-            }
-            return ActionOutcome.Success("Group updated");
+            FormDialog.Open(Popup, "Invite a player",
+                new[]
+                {
+                    FormField.Text("playerId", "Target player id", null, true)
+                        .WithPlaceholder("The player's profile id"),
+                    FormField.Int("days", "Expires in (days)", 7),
+                },
+                "Invite",
+                values => InviteResult(Sdk.Groups.CreateInviteAsync(groupId, new CreateInviteDto
+                {
+                    TargetPlayerId = values.Text("playerId"),
+                    InviteType = "direct",
+                    ExpiresAt = DateTime.UtcNow.AddDays(Math.Max(1, values.Int("days"))),
+                })));
         }
 
-        private async Task<ActionOutcome> ReadPlayerGroups(FormValues values)
+        private async void InviteResult(AsyncOperation<RestApiResult<InviteDto>> op)
         {
-            var op = Sdk.Groups.GetPlayerGroupsAsync(values.Text("profileId"), 1, PageSize);
-            var outcome = await AwaitData(op, "Groups · player groups");
+            var outcome = await AwaitData(op, "Groups · invite");
             if (!outcome.Ok)
             {
-                return ActionOutcome.Failure(outcome.Message);
+                Report(outcome, null, "Invite");
+                return;
+            }
+            if (_closed)
+            {
+                return;
             }
 
-            var page = op.Result.Data;
-            int total = page != null ? page.TotalCount : 0;
-            if (total == 0)
+            var invite = op.Result.Data;
+            if (Toasts != null)
             {
-                return ActionOutcome.Success("That player is in no visible group");
+                Toasts.Ok("Invite created");
             }
-
-            var chips = new VisualElement();
-            chips.AddToClassList("sc-chip-row");
-            if (page.Items != null)
+            // The invite id only comes back here, and revoking needs it, so it is handed over rather
+            // than left in a log line.
+            if (Popup != null && invite != null)
             {
-                foreach (var group in page.Items)
+                var body = new VisualElement();
+                body.Add(Hint("Keep this invite id — revoking the invite needs it."));
+
+                var ids = new VisualElement();
+                ids.AddToClassList("sc-kv-list");
+                ids.Add(Kv("Invite id", Fmt.OrDash(invite.InviteId), invite.InviteId));
+                ids.Add(Kv("Target", Fmt.Id(invite.TargetPlayerId, 12), invite.TargetPlayerId));
+                ids.Add(Kv("Expires", Fmt.DateTime2(invite.ExpiresAt), null));
+                body.Add(ids);
+                Popup.Open(body, "Invite created");
+            }
+        }
+
+        private void OpenInviteKeyDialog(string groupId)
+        {
+            if (string.IsNullOrEmpty(groupId))
+            {
+                return;
+            }
+            FormDialog.Open(Popup, "Create an invite key",
+                new[] { FormField.Int("days", "Expires in (days)", 30) },
+                "Create",
+                values => InviteKeyResult(Sdk.Groups.CreateInviteKeyAsync(groupId, new CreateInviteKeyDto
                 {
-                    chips.Add(new Chip(Fmt.Truncate(Fmt.OrDash(group.Name), 22), ChipTone.Accent));
-                }
+                    InviteType = "key",
+                    ExpiresAt = DateTime.UtcNow.AddDays(Math.Max(1, values.Int("days"))),
+                })));
+        }
+
+        private async void InviteKeyResult(AsyncOperation<RestApiResult<InviteKeyDto>> op)
+        {
+            var outcome = await AwaitData(op, "Groups · invite key");
+            if (!outcome.Ok)
+            {
+                Report(outcome, null, "Invite key");
+                return;
             }
-            return ActionOutcome.Success(total + (total == 1 ? " group" : " groups"), chips);
+            if (_closed)
+            {
+                return;
+            }
+
+            var key = op.Result.Data;
+            if (Toasts != null)
+            {
+                Toasts.Ok("Invite key created");
+            }
+            if (Popup != null && key != null)
+            {
+                var body = new VisualElement();
+                body.Add(Hint("Share the secret; anyone holding it can join from the Discover tab."));
+
+                var ids = new VisualElement();
+                ids.AddToClassList("sc-kv-list");
+                ids.Add(Kv("Secret", Fmt.OrDash(key.SecretKey), key.SecretKey));
+                ids.Add(Kv("Key id", Fmt.OrDash(key.InviteKeyId), key.InviteKeyId));
+                ids.Add(Kv("Expires", Fmt.DateTime2(key.ExpiresAt), null));
+                body.Add(ids);
+                Popup.Open(body, "Invite key created");
+            }
+        }
+
+        private void OpenRevokeInviteDialog()
+        {
+            FormDialog.Open(Popup, "Revoke an invite",
+                new[] { FormField.Text("inviteId", "Invite id", null, true) },
+                "Revoke",
+                values => Write(Sdk.Groups.RevokeInviteAsync(_groupId, values.Text("inviteId")),
+                    "Invite revoked", "Revoke invite", null),
+                true);
+        }
+
+        private void OpenDeleteKeyDialog()
+        {
+            FormDialog.Open(Popup, "Delete an invite key",
+                new[] { FormField.Text("keyId", "Invite key id", null, true) },
+                "Delete",
+                values => Write(Sdk.Groups.DeleteInviteKeyAsync(_groupId, values.Text("keyId")),
+                    "Invite key deleted", "Delete invite key", null),
+                true);
+        }
+
+        // ----- bans -----------------------------------------------------------------------------
+
+        private VisualElement BansPane()
+        {
+            var box = new VisualElement();
+            box.Add(SectionBar("Banned players", "Ban a player", LucideIcon.Ban, OpenBanDialog,
+                "sc-btn--danger"));
+
+            var slot = new VisualElement();
+            var pager = new Pager(PageSize);
+            box.Add(slot);
+            box.Add(pager);
+
+            pager.PageRequested += page => LoadBans(slot, pager, page);
+            LoadBans(slot, pager, 1);
+            return box;
+        }
+
+        private void LoadBans(VisualElement slot, Pager pager, int page)
+        {
+            string groupId = _groupId;
+            ViewBind.Load(
+                () => Sdk.Groups.GetBansAsync(groupId, page, PageSize),
+                slot,
+                data =>
+                {
+                    pager.SetTotal(data.TotalCount, page);
+                    var list = new VisualElement();
+                    foreach (var ban in data.Items)
+                    {
+                        var row = new ListRow();
+                        row.SetLead(new Avatar(30f).SetInitialsFor(ban.ProfileId));
+                        row.SetTitle(Fmt.Id(ban.ProfileId, 14));
+                        row.SetSubtitle(string.IsNullOrEmpty(ban.Reason)
+                            ? "banned " + Fmt.Date(ban.BannedAt)
+                            : ban.Reason + " · " + Fmt.Date(ban.BannedAt));
+
+                        var trailing = new VisualElement();
+                        trailing.AddToClassList("sc-row-actions");
+                        string profileId = ban.ProfileId;
+                        trailing.Add(GlyphButton("Unban", LucideIcon.UserCheck,
+                            () => Write(Sdk.Groups.UnbanPlayerAsync(_groupId, profileId),
+                                "Player unbanned", "Unban", ReloadBans)));
+                        row.SetTrailing(trailing);
+                        list.Add(row);
+                    }
+                    return list;
+                },
+                d => d == null || d.Items == null || d.Items.Length == 0,
+                new BindOptions
+                {
+                    Log = Ctx.Log,
+                    Label = "Bans",
+                    Snippet = BansSnippet,
+                    ServiceName = "Group",
+                    AllowRetry = true,
+                    EmptyView = () =>
+                    {
+                        pager.SetTotal(0, 1);
+                        return ZeroState.Panel(LucideIcon.Ban, "Nobody is banned",
+                            "A ban keeps a player out for good, unlike a kick. Banning takes an account "
+                            + "id; unbanning takes a profile id.");
+                    },
+                });
+        }
+
+        private void OpenBanDialog()
+        {
+            if (string.IsNullOrEmpty(_groupId))
+            {
+                return;
+            }
+            FormDialog.Open(Popup, "Ban a player",
+                new[]
+                {
+                    FormField.Text("accountId", "Account id", null, true)
+                        .WithPlaceholder("An account id here — unbanning takes a profile id"),
+                    FormField.Text("reason", "Reason"),
+                },
+                "Ban",
+                values => Write(
+                    Sdk.Groups.BanPlayerAsync(_groupId, new BanPlayerDto
+                    {
+                        AccountId = values.Text("accountId"),
+                        Reason = values.Text("reason"),
+                    }),
+                    "Player banned", "Ban", ReloadBans),
+                true);
+        }
+
+        private void ReloadBans()
+        {
+            InvalidateSection(_tabBans);
+            InvalidateSection(_tabMembers);
+        }
+
+        // ----- small shared pieces ---------------------------------------------------------------
+
+        private static Label Hint(string text)
+        {
+            var label = new Label(text);
+            label.enableRichText = false;
+            label.AddToClassList("sc-fs-hint");
+            return label;
+        }
+
+        private static TextField Field(string label)
+        {
+            var field = new TextField(label);
+            field.AddToClassList("sc-field");
+            field.AddToClassList("sc-grp-inline__field");
+            return field;
+        }
+
+        /// <summary>Button with a leading Lucide glyph — the icon has to be its own label.</summary>
+        private static Button GlyphButton(string text, string glyph, Action onClick, string tone = null)
+        {
+            var btn = new Button(() => onClick?.Invoke());
+            btn.AddToClassList("sc-btn");
+            btn.AddToClassList("sc-grp-btn");
+            if (!string.IsNullOrEmpty(tone))
+            {
+                btn.AddToClassList(tone);
+            }
+
+            var g = new Label(glyph);
+            g.AddToClassList("sc-grp-btn__glyph");
+            g.AddToClassList("sc-icon");
+            btn.Add(g);
+
+            var t = new Label(text);
+            t.enableRichText = false;
+            btn.Add(t);
+            return btn;
+        }
+
+        private static VisualElement SectionBar(string title, string action, string glyph,
+                                                Action onClick, string tone = null)
+        {
+            var bar = new VisualElement();
+            bar.AddToClassList("sc-row-actions");
+            bar.style.justifyContent = Justify.SpaceBetween;
+            bar.Add(new SectionHeader(title));
+            bar.Add(GlyphButton(action, glyph, onClick, tone));
+            return bar;
+        }
+
+        private VisualElement Kv(string key, string value, string copyable)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sc-kv");
+
+            var k = new Label(key);
+            k.AddToClassList("sc-kv__k");
+            row.Add(k);
+
+            var v = new Label(value);
+            v.enableRichText = false;
+            v.AddToClassList("sc-kv__v");
+            row.Add(v);
+
+            if (!string.IsNullOrEmpty(copyable))
+            {
+                row.Add(new CopyButton(copyable, Toasts));
+            }
+            return row;
+        }
+
+        private static bool IsOpenPolicy(string joinPolicy)
+        {
+            return string.Equals(joinPolicy, "open", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void SetBrowseStatus()
+        {
+            if (_groupId != null)
+            {
+                return;
+            }
+            if (_myGroupsTotal < 0)
+            {
+                SetStatus(null);
+                return;
+            }
+            SetStatus(_myGroupsTotal + (_myGroupsTotal == 1 ? " group" : " groups"),
+                _myGroupsTotal > 0 ? ChipTone.Ok : ChipTone.Neutral);
+        }
+
+        private void Warn(string message)
+        {
+            if (Toasts != null)
+            {
+                Toasts.Fail(message);
+            }
         }
 
         // ----- shared plumbing ------------------------------------------------------------------
 
-        private async Task<ActionOutcome> Run(AsyncOperation<RestApiResult> op, string success, int tab)
-        {
-            var outcome = await Await(op, "Groups write");
-            if (!outcome.Ok)
-            {
-                return ActionOutcome.Failure(outcome.Message);
-            }
-            if (Toasts != null)
-            {
-                Toasts.Ok(success);
-            }
-            _tabs.Invalidate(tab);
-            _tabs.Invalidate(2);
-            return ActionOutcome.Success(success);
-        }
-
-        private async Task<ActionOutcome> RunData<T>(AsyncOperation<RestApiResult<T>> op, string success, int tab)
-        {
-            var outcome = await AwaitData(op, "Groups write");
-            if (!outcome.Ok)
-            {
-                return ActionOutcome.Failure(outcome.Message);
-            }
-            if (Toasts != null)
-            {
-                Toasts.Ok(success);
-            }
-            _tabs.Invalidate(tab);
-            _tabs.Invalidate(2);
-            return ActionOutcome.Success(success);
-        }
-
-        private async void RunAndReload(AsyncOperation<RestApiResult> op, string success, string label)
+        private async void Write(AsyncOperation<RestApiResult> op, string success, string label,
+                                 Action onOk)
         {
             var outcome = await Await(op, "Groups · " + label);
             Report(outcome, success, label);
-            if (outcome.Ok)
+            if (outcome.Ok && !_closed && onOk != null)
             {
-                _tabs.Invalidate(2);
+                onOk();
             }
         }
 
-        private async void RunDataAndReload<T>(AsyncOperation<RestApiResult<T>> op, string success, string label)
+        private async void WriteData<T>(AsyncOperation<RestApiResult<T>> op, string success,
+                                        string label, Action onOk)
         {
             var outcome = await AwaitData(op, "Groups · " + label);
             Report(outcome, success, label);
-            if (outcome.Ok)
+            if (outcome.Ok && !_closed && onOk != null)
             {
-                _tabs.Invalidate(2);
+                onOk();
             }
         }
 
@@ -1509,10 +2176,6 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 if (!string.IsNullOrEmpty(success))
                 {
                     Toasts.Ok(success);
-                }
-                if (Popup != null)
-                {
-                    Popup.Close();
                 }
                 return;
             }
