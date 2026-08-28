@@ -84,14 +84,14 @@ values), so each view only writes the happy-path render.
 | --- | --- |
 | Player Account | Hero card (avatar, nickname/@handle, trait chips, lifetime stat tiles, segments) + sub-profiles |
 | Leaderboard | Tab per board, config chips + ranked table (medal ranks, avatars, scores) |
-| Economy | Wallet tiles + energy meters (fill bar + recharge/cooldown) + item grid |
+| Economy | Wallet listing every defined currency (add/subtract/set per row) + item slots with grant/take/consume/properties + energy meters + catalog |
 | Friends | Counts strip + friends (presence) / incoming / outgoing requests |
 | Assets Storage | Summary stats + by-type breakdown + folders list + assets table |
 | Chats | Lookup by channel/group id → channel header, members, recent messages |
 | Tournaments | Tab per tournament, leagues with rewards-for-places, standings, your rewards |
 | Challenges | Card per challenge with live progress bar, status, reward tiers, countdown |
 | Daily Rewards | Streak/progress header + day-by-day reward track + streak bonuses + milestones |
-| Groups | My-groups list → group card + members table (owner highlighted) |
+| Groups | My groups / Discover → open a group: its card, the actions it allows, members, requests, roles, invites, bans |
 | Remote Config | Per-group typed key/value table |
 | Localization | Lookup by collection → language selector + key→translation table |
 | Segments | Player membership chips + all-segments status table |

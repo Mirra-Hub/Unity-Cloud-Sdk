@@ -4,7 +4,7 @@
 
 ## Методы
 
-- `CheckAsync(string text, string groupName = null)` → `ProfanityCheckResponse` — отправляет текст на проверку. Возвращает:
+- `CheckAsync(string text, string groupKey)` → `ProfanityCheckResponse` — отправляет текст на проверку. Возвращает:
   - `isClean` — `true`, если совпадений нет.
   - `maskedText` — текст с заменой найденного на `*` (длина оригинала сохраняется).
   - `matches[]` — массив `{ start, length, word }` для каждого совпадения.
@@ -12,8 +12,9 @@
 Локальные проверки до запроса:
 - `text == null/""` → результат `isClean=true`, без сетевого вызова.
 - `text.Length > 2000` → `ValidationFail`, без сетевого вызова.
+- `groupKey == null`/пустая строка → `ValidationFail`, без сетевого вызова.
 
-`groupName` — имя группы фильтра, настроенной в админке. `null`/пустая строка → используется группа `default`. Неизвестное имя на сервере молча падает на `default` (не возвращает ошибку).
+`groupKey` — ключ группы фильтра, созданной в админке. **Обязателен**: группы `default` на сервере нет, и падать не на что. Неизвестный ключ → `404` (ошибка в `RestApiResult`, а не «чистый» результат).
 
 ## Code
 - `Core/Services/ProfanityFilter/ProfanityFilterService.cs`
@@ -23,7 +24,7 @@
 ## Пример
 
 ```csharp
-var op = MirraCloudSDK.Instance.ProfanityFilter.CheckAsync(userMessage, groupName: "chat-strict");
+var op = MirraCloudSDK.Instance.ProfanityFilter.CheckAsync(userMessage, groupKey: "chat-strict");
 op.UseCompleted(completed =>
 {
     if (!completed.Result.IsSuccess)
