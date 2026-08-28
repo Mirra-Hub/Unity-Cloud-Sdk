@@ -51,7 +51,7 @@ Unity **2022.3 LTS** — the version the SDK is developed and tested against. Pl
 One URL. `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.1.0
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.2.1
 ```
 
 The package is self-contained: the native plugins it needs — a WebView (external sign-in providers
@@ -67,10 +67,17 @@ Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
 <details>
 <summary>Updating and pinning a version</summary>
 
-The `#v0.1.0` at the end of the URL is a release tag. Package Manager locks the exact commit, so
-nothing updates on its own: to move to a newer version, change the tag and add the URL again. You
-can point at a branch instead (`#main`) — then updates arrive through the **Update** button in
-Package Manager.
+The `#v0.2.1` at the end of the URL is a release tag. Package Manager resolves it once, writes the
+commit it resolved to into `Packages/packages-lock.json`, and from then on never asks the remote
+again — nothing updates on its own.
+
+Dropping the tag does not change that. A bare URL resolves the default branch once and is locked the
+same way, which is how a project ends up sitting on a commit from months ago while its manifest
+looks like it follows `main`.
+
+To move to another version, change the tag in `Packages/manifest.json`. If the URL text ends up
+unchanged, also delete the `com.mirrahub.cloud-sdk` entry from `Packages/packages-lock.json` —
+otherwise Unity reuses the commit recorded there and you get the old code back.
 
 The SDK is still `0.x`: the public API can change between minor versions, and breaking changes are
 called out in [`CHANGELOG.md`](Packages/com.mirrahub.cloud-sdk/CHANGELOG.md).

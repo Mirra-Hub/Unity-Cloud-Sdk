@@ -6,7 +6,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
-## [0.1.0] — unreleased
+## [0.2.1] — 2026-08-28
+
+Metadata only — the code is identical to `v0.2.0`.
+
+### Fixed
+
+- The package reports its real version. `version` in `package.json` said `0.1.0` at every tag up to
+  and including `v0.2.0`, so Package Manager displayed `0.1.0` whichever tag you installed. Git tags
+  are only revisions as far as UPM is concerned — the version it shows comes from `package.json`
+  alone, and there is no "resolve the newest tag" for a git URL. Install `v0.2.1` or later to be
+  told the version you actually have.
+
+## [0.2.0] — 2026-08-28
+
+### Fixed
+
+- **Non-ASCII header values are percent-encoded before a request leaves.** `UnityWebRequest` accepts
+  only printable ASCII (`0x20..0x7E`) in a header value, and the account metadata headers carry
+  free-form player text — so a Cyrillic nickname or an emoji made `SetRequestHeader` throw
+  `Header value contains invalid characters` and killed the request coroutine. In practice every
+  authenticated call died as soon as such an account was loaded. Values that are already clean go
+  out byte-identical; the rest are encoded from their UTF-8 bytes and are restored server-side with
+  `Uri.UnescapeDataString`. A null header value is now skipped instead of throwing.
+
+### Changed
+
+- **Showcase — Economy.** The screen was rebuilt, and the currency calls are covered.
+- **Showcase — Groups.** The screen was rebuilt around the full group lifecycle.
+- **Showcase — Assets Storage.** Public assets are marked as public in the catalog.
+- **Showcase — Profanity Filter.** The group key is shown as required, which is what the backend
+  expects.
+
+## [0.1.1] — 2026-08-25
+
+### Fixed
+
+- **The editor talks to the service-account gateway** (`sa.mirracloud.com`) instead of
+  `api.mirracloud.com`. The editor routes are not declared on the client api-gateway: they fell into
+  its `/api/cloud/**` catch-all, where a policy demanding a Cloud client role answered `401` before
+  any backend was reached, and every editor request failed.
+
+## [0.1.0] — 2026-08-25
 
 First public release, and the first one distributed as a UPM package.
 
