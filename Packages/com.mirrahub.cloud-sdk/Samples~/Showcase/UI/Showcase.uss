@@ -1973,6 +1973,16 @@
 }
 
 /* ===== economy ===== */
+/* actions attached to the thing they change: a meter's card, an item's dialog */
+.sc-eco-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 12px;
+}
+.sc-eco-actions .sc-btn { margin-right: 8px; margin-bottom: 8px; }
+.sc-eco-row:hover { background-color: #1F1F24; }
+
 .sc-eco-energy {
     margin-bottom: 12px;
 }

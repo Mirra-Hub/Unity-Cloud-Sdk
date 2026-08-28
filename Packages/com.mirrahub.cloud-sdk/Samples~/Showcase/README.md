@@ -84,7 +84,7 @@ values), so each view only writes the happy-path render.
 | --- | --- |
 | Player Account | Hero card (avatar, nickname/@handle, trait chips, lifetime stat tiles, segments) + sub-profiles |
 | Leaderboard | Tab per board, config chips + ranked table (medal ranks, avatars, scores) |
-| Economy | Wallet tiles + energy meters (fill bar + recharge/cooldown) + item grid |
+| Economy | Wallet listing every defined currency (add/subtract/set per row) + item slots with grant/take/consume/properties + energy meters + catalog |
 | Friends | Counts strip + friends (presence) / incoming / outgoing requests |
 | Assets Storage | Summary stats + by-type breakdown + folders list + assets table |
 | Chats | Lookup by channel/group id → channel header, members, recent messages |
