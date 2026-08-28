@@ -14,7 +14,7 @@ The full description, a quick start and the per-service reference live in the
 One URL — `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.2.1
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.2.2
 ```
 
 The package is self-contained. The native plugins it needs — a WebView for external sign-in and

@@ -1,6 +1,6 @@
 {
   "name": "com.mirrahub.cloud-sdk",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "displayName": "Mirra Cloud SDK",
   "description": "A cloud backend for games: accounts, saves, economy, leaderboards, social systems, LiveOps and analytics. 23 services, no server of your own.\n\nSelf-contained: the native WebView and SQLite plugins it needs ship inside the package, so there is nothing to install alongside it. Do not add net.gree.unity-webview or com.gilzoide.sqlite-net separately — they are already here and would collide.",
   "unity": "2022.3",
