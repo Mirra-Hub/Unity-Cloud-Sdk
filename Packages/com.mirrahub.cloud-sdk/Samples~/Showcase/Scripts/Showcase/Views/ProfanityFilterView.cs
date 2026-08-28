@@ -17,8 +17,8 @@ namespace MirraCloud.Example.Showcase
     public sealed class ProfanityFilterView : ServiceView
     {
         private const string CheckSnippet =
-@"// One call. The group is optional: an unknown or missing name falls back to the project's
-// default group rather than failing.
+@"// One call. The group key is required — there is no project-wide default. A blank key is
+// rejected on the client, an unknown one comes back as a not-found error from the server.
 var op = sdk.ProfanityFilter.CheckAsync(""some user text"", groupKey: ""chat_strict"");
 await op.Task();
 
@@ -82,8 +82,8 @@ if (op.Result.IsSuccess)
             card.WithTitle("Check some text", Meta.Accent);
 
             var hint = new Label("Groups let a project use different rules in different places — a "
-                + "nickname field and an open chat rarely want the same strictness. Leave it blank to "
-                + "use the project default.");
+                + "nickname field and an open chat rarely want the same strictness. Groups are created "
+                + "in the console, and the key is required: there is nothing to fall back on.");
             hint.AddToClassList("sc-fs-hint");
             card.Body.Add(hint);
 
@@ -93,7 +93,7 @@ if (op.Result.IsSuccess)
             _input.label = "Text";
             card.Body.Add(_input);
 
-            _group = new TextField { label = "Group (optional)" };
+            _group = new TextField { label = "Group key *" };
             _group.AddToClassList("sc-field");
             card.Body.Add(_group);
 
@@ -130,6 +130,14 @@ if (op.Result.IsSuccess)
                 if (Toasts != null)
                 {
                     Toasts.Info("Type something to check first");
+                }
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(group))
+            {
+                if (Toasts != null)
+                {
+                    Toasts.Info("Name the group to check against — the key is required");
                 }
                 return;
             }
@@ -277,8 +285,7 @@ if (op.Result.IsSuccess)
                     Header = "GROUP", Grow = 1f,
                     Cell = o =>
                     {
-                        var check = (Check)o;
-                        var label = new Label(string.IsNullOrEmpty(check.Group) ? "default" : check.Group);
+                        var label = new Label(Fmt.OrDash(((Check)o).Group));
                         label.enableRichText = false;
                         return label;
                     },
