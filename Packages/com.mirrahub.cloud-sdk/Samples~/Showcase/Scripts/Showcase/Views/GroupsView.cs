@@ -134,7 +134,8 @@ await sdk.Groups.LeaveAsync(groupId).Task();";
     Visibility = ""public"",
     JoinPolicy = ""open"",
     MaxMembers = 50,
-    CreateChat = true          // asks for a chat channel up front
+    CreateChat = true,         // asks for a chat channel up front
+    AutoJoinMembers = true     // ...and puts everyone who joins the group into it
 });
 await created.Task();
 
@@ -723,6 +724,9 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                         .WithPlaceholder("open joins outright · request needs approval · invite is closed"),
                     FormField.Int("maxMembers", "Max members", 50),
                     FormField.Bool("chat", "Create a chat channel too", true),
+                    FormField.Bool("chatAutoJoin", "Put new members into that chat", true)
+                        .WithPlaceholder("Off means a player joins the group but not its chat, "
+                            + "and cannot post there until they join the channel by hand"),
                 },
                 "Create", CreateGroup);
         }
@@ -737,6 +741,9 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 JoinPolicy = values.Choice("joinPolicy"),
                 MaxMembers = Math.Max(1, values.Int("maxMembers")),
                 CreateChat = values.Bool("chat"),
+                // Group membership and chat membership are separate records on the server: without
+                // this flag everyone who joins the group later stays outside its chat.
+                AutoJoinMembers = values.Bool("chatAutoJoin"),
             });
 
             var outcome = await AwaitData(op, "Groups · create");

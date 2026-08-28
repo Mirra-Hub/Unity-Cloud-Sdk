@@ -6,6 +6,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.2.2] — 2026-08-28
+
+### Changed
+
+- **Showcase — Groups.** Creating a group now offers *Put new members into that chat* and sends
+  `AutoJoinMembers`. The sample never set the flag, so every group it created got a chat that
+  players joining later could not enter: chat membership is a separate record from group
+  membership, and only this flag bridges the two.
+- **Showcase — Chats.** A group chat this profile has not joined is no longer reported as a group
+  without a chat. The row says so and offers **Join**, taking the channel id from the group's chat
+  config because the member-only lookup withholds it. The same refusal on history renders a zero
+  state with a Join action instead of an error line, and joining re-runs the subscribe the server
+  refused earlier — so sending works without reopening the channel.
+
 ## [0.2.1] — 2026-08-28
 
 Metadata only — the code is identical to `v0.2.0`.

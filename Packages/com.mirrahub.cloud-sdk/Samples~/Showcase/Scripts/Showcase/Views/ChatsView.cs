@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using MirraCloud.Core;
 using MirraCloud.Core.Chats.Dto;
 using MirraCloud.Core.Chats.Events;
 using MirraCloud.Core.Chats.Models;
+using MirraCloud.Core.Errors;
 using MirraCloud.Core.Groups.Dto.Response;
 using MirraCloud.Core.Realtime.Protocol;
 using UnityEngine;
@@ -117,6 +119,9 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
         private const string RecentsKey = "sc_showcase_chat_recents";
         private const int RecentsMax = 6;
         private const int HistoryPage = 50;
+
+        /// <summary>Server code behind every "this profile is not in that channel" refusal.</summary>
+        private const string NotChannelMemberCode = "chats.member_not_in_channel";
 
         // Within this many pixels of the bottom, a new message scrolls itself into view. Further up,
         // the reader is reading history and must not be yanked away from it.
@@ -296,6 +301,16 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             if (result == null || !result.IsSuccess || result.Data == null
                 || string.IsNullOrEmpty(result.Data.ChannelId))
             {
+                // A refusal is not the same as an absence: the lookup is member-only, so a group
+                // whose chat this profile never joined answers 403 and withholds the channel id.
+                // That case is one call away from working, so the row offers to join instead of
+                // claiming the group has no chat at all.
+                if (result != null && IsNotChannelMember(result.Error))
+                {
+                    OfferChannelJoin(group, row);
+                    return;
+                }
+
                 if (subtitle != null)
                 {
                     subtitle.text = "no chat for this group";
@@ -310,6 +325,105 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 subtitle.text = result.Data.LastMessageNumber + " messages";
             }
             row.RegisterCallback<ClickEvent>(_ => OpenChannel(channelId));
+        }
+
+        /// <summary>
+        /// Turns a row the player cannot open into one they can act on. The channel id has to come
+        /// from the group itself here, because the member-only lookup refused to hand it over.
+        /// </summary>
+        private async void OfferChannelJoin(GroupListItemDto group, VisualElement row)
+        {
+            var subtitle = row.Q<Label>(className: "sc-chat-channel__sub");
+            if (subtitle != null)
+            {
+                subtitle.text = "you have not joined this chat";
+            }
+
+            var op = Sdk.Groups.GetAsync(group.GroupId);
+            if (op == null)
+            {
+                return;
+            }
+            await op.Task();
+            var result = op.Result;
+            if (Ctx.Log != null && result != null)
+            {
+                Ctx.Log.Record("Group " + Fmt.OrDash(group.Name), result, ChannelsSnippet);
+            }
+
+            if (_closed || row.panel == null)
+            {
+                return;
+            }
+
+            var chat = result != null && result.IsSuccess && result.Data != null
+                ? result.Data.ChatConfig
+                : null;
+            if (chat == null || string.IsNullOrEmpty(chat.ChannelId))
+            {
+                // Nothing to join after all — the group really has no chat.
+                if (subtitle != null)
+                {
+                    subtitle.text = "no chat for this group";
+                }
+                row.SetEnabled(false);
+                return;
+            }
+
+            string channelId = chat.ChannelId;
+            var join = new Button(() => JoinFromList(channelId)) { text = "Join" };
+            join.AddToClassList("sc-btn");
+            row.Add(join);
+        }
+
+        private async void JoinFromList(string channelId)
+        {
+            var op = Sdk.Chats.JoinAsync(channelId);
+            if (op == null)
+            {
+                return;
+            }
+            await op.Task();
+            var result = op.Result;
+            if (Ctx.Log != null && result != null)
+            {
+                Ctx.Log.Record("Join channel", result, MembersSnippet);
+            }
+
+            if (_closed)
+            {
+                return;
+            }
+
+            if (result == null || !result.IsSuccess)
+            {
+                if (Toasts != null)
+                {
+                    Toasts.Fail("Join failed · "
+                        + (result != null && result.Error != null ? Fmt.OrDash(result.Error.Message) : "no response"));
+                }
+                return;
+            }
+
+            if (Toasts != null)
+            {
+                Toasts.Ok("Joined the channel");
+            }
+            OpenChannel(channelId);
+        }
+
+        /// <summary>
+        /// Chat membership is its own record — being in a group does not put a profile in the
+        /// group's channel. The backend says so with this code, and unlike other refusals the
+        /// player can fix it from here, so it is worth telling apart from a plain error.
+        /// </summary>
+        private static bool IsNotChannelMember(RestApiError error)
+        {
+            if (error == null)
+            {
+                return false;
+            }
+            return error.HasCode(NotChannelMemberCode) || error.HttpStatusCode == 403L;
         }
 
         private VisualElement ChannelRow(string title, string subtitle, string channelId, string glyph)
@@ -554,6 +668,15 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 if (result == null || !result.IsSuccess)
                 {
                     _messageScroll.Clear();
+                    if (result != null && IsNotChannelMember(result.Error))
+                    {
+                        _messageScroll.Add(ZeroState.Panel(LucideIcon.Lock, "You are not in this channel",
+                            "The channel is there, this profile just never joined it — chat membership "
+                            + "is a separate record from group membership. Join it to read the history "
+                            + "and post.",
+                            "Join channel", () => JoinLeave(true)));
+                        return;
+                    }
                     _messageScroll.Add(ErrorState.Build(result != null ? result.Error : null));
                     return;
                 }
@@ -1434,6 +1557,10 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 if (join && _channelId == channelId)
                 {
                     LoadHistory(true);
+                    // The subscribe made when the screen opened was refused for a non-member, and
+                    // the connection keeps no memory of it — without asking again every send fails
+                    // with "not subscribed to room".
+                    EnsureConnected();
                 }
                 return;
             }
