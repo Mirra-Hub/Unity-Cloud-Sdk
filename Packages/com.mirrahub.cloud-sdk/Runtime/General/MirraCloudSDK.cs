@@ -113,7 +113,7 @@ namespace MirraCloud.Core
             PlayerAccount = RegisterService(new PlayerAccountService(Authentication, restApiClient, configuration, logger));
             Friends = RegisterService(new FriendsService(configuration, logger, restApiClient));
             Groups = RegisterService(new GroupsService(configuration, logger, restApiClient));
-            Chats = RegisterService(new ChatsService(configuration, logger, restApiClient, jsonService, coroutineRunner));
+            Chats = RegisterService(new ChatsService(configuration, logger, restApiClient, jsonService, coroutineRunner, Authentication));
             Economy = RegisterService(new EconomyService(configuration, logger, restApiClient));
             Entities = RegisterService(new EntitiesService(configuration, logger, restApiClient));
             CloudSave = RegisterService(new CloudSaveService(configuration, logger, jsonService, restApiClient));

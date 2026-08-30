@@ -26,6 +26,9 @@ namespace MirraCloud.Example.Showcase
     /// Realtime callbacks can arrive off the main thread, so every handler marshals through
     /// <c>schedule.Execute</c> before touching the tree, and all of them are detached (and the
     /// channel unsubscribed) when the screen closes — otherwise reopening it would double up.
+    /// The connection itself is left up, which is why this screen seeds its indicator from
+    /// <c>Chats.ConnectionState</c> rather than waiting for an event that a still-connected socket
+    /// has no reason to raise.
     /// </para>
     /// </summary>
     public sealed class ChatsView : ServiceView
@@ -74,6 +77,10 @@ foreach (ChatMessageDto m in op.Result.Data)
 sdk.Chats.OnMessageReceived += m => AppendToUi(m);
 sdk.Chats.OnConnectionStateChanged += state => UpdateIndicator(state);
 
+// That event only fires on a change, and the connection outlives any one screen: a UI built
+// after it came up reads where it stands from the property instead.
+UpdateIndicator(sdk.Chats.ConnectionState);
+
 var connect = sdk.Chats.ConnectAsync();
 await connect.Task();
 
@@ -116,7 +123,9 @@ foreach (ChatMemberDto m in op.Result.Data)
 await sdk.Chats.JoinAsync(channelId).Task();
 await sdk.Chats.LeaveAsync(channelId).Task();";
 
-        private const string RecentsKey = "sc_showcase_chat_recents";
+        // Prefix only: the account id is mixed in, otherwise the next player to sign in on this
+        // device would open the screen looking at someone else's channels.
+        private const string RecentsKeyPrefix = "sc_showcase_chat_recents";
         private const int RecentsMax = 6;
         private const int HistoryPage = 50;
 
@@ -185,6 +194,9 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 .WithRefresh(Refresh);
 
             AttachRealtimeHandlers();
+            // The connection outlives this screen, so reopening it produces no state event to
+            // listen for: read where the connection actually stands instead of assuming offline.
+            _state = Sdk.Chats.ConnectionState;
             SyncStateChip();
             ResolveOwnProfiles();
 
@@ -1722,10 +1734,17 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
 
         // ----- recents and teardown -------------------------------------------------------------
 
-        private static List<string> LoadRecents()
+        private string RecentsKey()
+        {
+            var info = Sdk.PlayerAccount != null ? Sdk.PlayerAccount.PlayerAccountInfo : null;
+            string accountId = info != null ? info.Id : null;
+            return RecentsKeyPrefix + ":" + (string.IsNullOrEmpty(accountId) ? "unknown" : accountId);
+        }
+
+        private List<string> LoadRecents()
         {
             var list = new List<string>();
-            string raw = PlayerPrefs.GetString(RecentsKey, string.Empty);
+            string raw = PlayerPrefs.GetString(RecentsKey(), string.Empty);
             if (string.IsNullOrEmpty(raw))
             {
                 return list;
@@ -1740,7 +1759,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             return list;
         }
 
-        private static void RememberRecent(string channelId)
+        private void RememberRecent(string channelId)
         {
             var list = LoadRecents();
             list.Remove(channelId);
@@ -1749,7 +1768,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             {
                 list.RemoveAt(list.Count - 1);
             }
-            PlayerPrefs.SetString(RecentsKey, string.Join("|", list.ToArray()));
+            PlayerPrefs.SetString(RecentsKey(), string.Join("|", list.ToArray()));
             PlayerPrefs.Save();
         }
 
