@@ -38,6 +38,19 @@ namespace MirraCloud.Json {
             return (T)ReadValueOfType(tokenReader, destinationType);
         }
         
+        /// <summary>
+        /// Hands a freshly parsed value back as <paramref name="destinationType"/>.
+        /// <see cref="Convert.ChangeType(object, Type)"/> can't target a <see cref="Nullable{T}"/> — it throws
+        /// "Invalid cast from 'System.Int32' to 'System.Nullable`1[[System.Int32]]'" — so when the destination is
+        /// nullable we hand back the boxed underlying value instead; reflection assigns that to the field just fine.
+        /// </summary>
+        /// <param name="value">Value already converted to the underlying (non-nullable) type.</param>
+        /// <param name="destinationType">The type the caller asked for, nullable or not.</param>
+        /// <param name="underlyingType">Result of <see cref="Nullable.GetUnderlyingType"/> on the destination type.</param>
+        static object Coerce(object value, Type destinationType, Type underlyingType) {
+            return underlyingType != null ? value : Convert.ChangeType(value, destinationType);
+        }
+
          object ReadValueOfType(JsonTokenReader tokenReader, Type destinationType) {
              if (destinationType == typeof(JsonValue)) {
                  return ReadJsonValue(tokenReader);
@@ -67,16 +80,14 @@ namespace MirraCloud.Json {
                 case JsonToken.String: {
                     string stringValue = tokenReader.ConsumeString();
                     if (Internal.StringValueParsers.TryParse(valueType, stringValue, out var parsedValue)) {
-                        return underlyingType != null ? parsedValue : Convert.ChangeType(parsedValue, destinationType);
+                        return Coerce(parsedValue, destinationType, underlyingType);
                     }
 
                     // String -> enum (supports Nullable<enum> as well)
                     if (valueType.IsEnum) {
                         try {
                             var enumValue = Enum.Parse(valueType, stringValue, ignoreCase: true);
-                            return underlyingType != null
-                                ? enumValue
-                                : Convert.ChangeType(enumValue, destinationType);
+                            return Coerce(enumValue, destinationType, underlyingType);
                         } catch (Exception ex) {
                             throw new InvalidJsonException(
                                 $"{tokenReader.LineColString} Can't parse \"{stringValue}\" as enum {valueType}: {ex.Message}"
@@ -96,7 +107,7 @@ namespace MirraCloud.Json {
 
                         // Integral value can be converted to enum values
                         if (valueType.IsEnum) {
-                            return Convert.ChangeType(Enum.ToObject(valueType, jsonValue), destinationType);
+                            return Coerce(Enum.ToObject(valueType, jsonValue), destinationType, underlyingType);
                         }
                     } else {
                         jsonType = typeof(double);
@@ -128,7 +139,7 @@ namespace MirraCloud.Json {
             }
 
             if (valueType.IsAssignableFrom(jsonType)) {
-                return Convert.ChangeType(Convert.ChangeType(jsonValue, valueType), destinationType);
+                return Coerce(Convert.ChangeType(jsonValue, valueType), destinationType, underlyingType);
             }
 
             // Handle numeric conversions between different primitive numeric types
@@ -142,9 +153,7 @@ namespace MirraCloud.Json {
                  valueType == typeof(decimal))) {
                 try {
                     var converted = Convert.ChangeType(jsonValue, valueType);
-                    return underlyingType != null
-                        ? converted
-                        : Convert.ChangeType(converted, destinationType);
+                    return Coerce(converted, destinationType, underlyingType);
                 } catch {
                     // Fall through and try implicit conversion or throw a detailed exception below
                 }
@@ -214,7 +223,9 @@ namespace MirraCloud.Json {
             for (int i = 0; i < list.Count; ++i) {
                 currentIndex[currentDimension] = i;
                 if (currentDimension == rank - 1) {
-                    result.SetValue(Convert.ChangeType(list[i], elementType), currentIndex);
+                    // Elements arrive already parsed as elementType (or as its underlying type when it is
+                    // nullable, or as null); Array.SetValue takes all three, Convert.ChangeType does not.
+                    result.SetValue(list[i], currentIndex);
                 } else {
                     CopyArray(currentIndex, currentDimension + 1, rank, result, (IList)list[i], elementType);
                 }

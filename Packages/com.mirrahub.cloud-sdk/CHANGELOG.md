@@ -6,6 +6,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.2.4] — 2026-08-31
+
+### Fixed
+
+- **Nullable fields no longer break deserialization when they carry a value.** The JSON reader
+  handed every parsed value to `Convert.ChangeType`, which cannot target a `Nullable<T>` — so a
+  populated `int?`, `bool?`, fractional `double?` or number-encoded `enum?` failed the whole
+  response with ``Invalid cast from 'System.Int32' to 'System.Nullable`1[[System.Int32]]'``. Null
+  values and the other nullable types happened to take branches that already handled this, which is
+  why the hole stayed open. Reading is now routed through one place that knows the rule.
+- **Spending energy no longer fails after the request succeeds.** The server fills
+  `secondsUntilNextRecharge`, `secondsUntilFullRecharge` and `cooldownRemainingSeconds` only once a
+  meter drops below its maximum, so `EnergyBalanceDto` carried nothing but nulls until the first
+  spend — and every read of that meter failed from then on, taking `GetInventoryAsync` with it.
+  Affected `SpendEnergyAsync`, `AddEnergyAsync`, `SetUnlimitedEnergyAsync`, `GetEnergyAsync`,
+  `GetEnergiesAsync` and `GetInventoryAsync`. The same fault reached `finishPosition` on challenge
+  entries and score submissions, `finishersToEnd` on challenge configs, and `trialDays` and
+  `gracePeriodDays` on subscription configs.
+- **Multidimensional arrays of nullable elements now deserialize.** `int?[,]` and friends hit the
+  same `Convert.ChangeType` wall; single-dimension arrays never did, and now both take the same path.
+
 ## [0.2.3] — 2026-08-31
 
 ### Added
