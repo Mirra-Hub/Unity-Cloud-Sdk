@@ -6,7 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
-## [0.2.3] — 2026-08-30
+## [0.2.3] — 2026-08-31
 
 ### Added
 
@@ -24,6 +24,14 @@ The SDK is `0.x`: the public API can change between minor versions. Breaking cha
   in the Showcase, the composer and read receipts — stayed disabled for the rest of the session.
 - **A reconnect that runs out of attempts now publishes `Disconnected`.** The service raised
   `OnError` and stopped, leaving the last published state at `Reconnecting` forever.
+- **The realtime connection no longer outlives the session that opened it.** The server freezes the
+  sender into the socket at the handshake, so a connection kept across a sign-out went on speaking
+  as the player who left: sign in as someone else and their messages were sent, and accepted, under
+  the previous player's name. Signing out now closes the socket — until it did, a signed-out client
+  stayed connected and kept receiving the previous player's messages — and signing in under a
+  different session opens a new one instead of reusing what is already there.
+- **Showcase — Chats.** The list of recently opened channels is stored per account, so the next
+  player to sign in on the same device no longer sees the previous player's channels.
 
 ## [0.2.2] — 2026-08-28
 

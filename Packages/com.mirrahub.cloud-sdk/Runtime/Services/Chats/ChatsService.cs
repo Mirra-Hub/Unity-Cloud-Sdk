@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MirraCloud.Core.Auth;
 using MirraCloud.Core.Chats.Dto;
 using MirraCloud.Core.Chats.Events;
 using MirraCloud.Core.Chats.Models;
@@ -34,6 +35,7 @@ namespace MirraCloud.Core.Chats
         private readonly IRealtimeAuthProvider _realtimeAuthProvider;
         private readonly IRealtimeSubscriptionStore _subscriptions;
         private readonly IRealtimeConnection _connection;
+        private readonly AuthenticationService _authentication;
         private readonly RealtimeReconnectPolicy _reconnectPolicy = new RealtimeReconnectPolicy();
         private readonly Dictionary<string, long> _lastSeenMessageByChannel = new Dictionary<string, long>();
         private readonly RealtimeEventDispatcher _eventDispatcher;
@@ -42,6 +44,15 @@ namespace MirraCloud.Core.Chats
         private bool _reconnectInProgress;
         private CancellationTokenSource _heartbeatCts;
         private RealtimeConnectionState _connectionState = RealtimeConnectionState.Disconnected;
+
+        // The auth session the live socket was minted under. The server freezes the sender into the
+        // connection at the handshake, so a socket outliving its session would keep speaking as the
+        // player who opened it.
+        private string _connectedSessionId;
+
+        // Bumped by every reset. A reconnect loop started under an older generation drops whatever
+        // it managed to open instead of handing the previous player's socket to the current one.
+        private int _realtimeGeneration;
 
         /// <summary>
         /// The current state of the realtime connection: the same value that last went out through
@@ -67,12 +78,14 @@ namespace MirraCloud.Core.Chats
             ILogger logger,
             RestApiClient restApi,
             IJsonService jsonService,
-            ICoroutineRunner coroutineRunner)
+            ICoroutineRunner coroutineRunner,
+            AuthenticationService authentication)
         {
             _configuration = configuration;
             _logger = logger;
             _restApi = restApi;
             _jsonService = jsonService;
+            _authentication = authentication;
 
             _realtimeAuthProvider = new ChatsRealtimeAuthProvider(_restApi, _configuration);
             _subscriptions = new RealtimeSubscriptionStore();
@@ -93,10 +106,22 @@ namespace MirraCloud.Core.Chats
             _connection.OnStateChanged += HandleConnectionStateChanged;
             _connection.OnEvent += HandleRealtimeEvent;
             _connection.OnError += HandleRealtimeError;
+
+            if (_authentication != null)
+            {
+                _authentication.OnSessionExpired += HandleSessionEnded;
+                _authentication.OnLogin += HandleLogin;
+            }
         }
 
         public void CloudSdkDispose()
         {
+            if (_authentication != null)
+            {
+                _authentication.OnSessionExpired -= HandleSessionEnded;
+                _authentication.OnLogin -= HandleLogin;
+            }
+
             _connection.OnStateChanged -= HandleConnectionStateChanged;
             _connection.OnEvent -= HandleRealtimeEvent;
             _connection.OnError -= HandleRealtimeError;
@@ -209,21 +234,49 @@ namespace MirraCloud.Core.Chats
 
         public AsyncOperation<RealtimeResult> ConnectAsync()
         {
+            // An open socket is only reusable while it still belongs to the session that opened it:
+            // the server took the sender from the handshake and will not re-read it per message.
+            var identityMatches = IsCurrentSession();
+
+            if (identityMatches &&
+                (_connection.State == RealtimeConnectionState.Connected ||
+                 _connection.State == RealtimeConnectionState.Connecting))
+            {
+                _shouldBeConnected = true;
+                return AsyncOperation<RealtimeResult>.CreateCompleted(RealtimeResult.Success());
+            }
+
+            if (identityMatches && _reconnectInProgress)
+            {
+                _shouldBeConnected = true;
+                return AsyncOperation<RealtimeResult>.CreateCompleted(RealtimeResult.Success());
+            }
+
+            if (!identityMatches && _connection.State != RealtimeConnectionState.Disconnected)
+            {
+                // The socket belongs to a session that is gone. Tear it down and wait for the close
+                // to land: Connect() returns early while the state still reads Connected, so
+                // starting the new session now would silently hand back the stale socket.
+                var op = new AsyncOperation<RealtimeResult>();
+                WhenCompleted(ResetRealtime(), () =>
+                {
+                    _shouldBeConnected = true;
+                    CreateSessionAndConnect(op);
+                });
+                return op;
+            }
+
             _shouldBeConnected = true;
+            var connectOp = new AsyncOperation<RealtimeResult>();
+            CreateSessionAndConnect(connectOp);
+            return connectOp;
+        }
 
-            if (_connection.State == RealtimeConnectionState.Connected ||
-                _connection.State == RealtimeConnectionState.Connecting)
-            {
-                return AsyncOperation<RealtimeResult>.CreateCompleted(RealtimeResult.Success());
-            }
-
-            if (_reconnectInProgress)
-            {
-                return AsyncOperation<RealtimeResult>.CreateCompleted(RealtimeResult.Success());
-            }
-
-            var op = new AsyncOperation<RealtimeResult>();
-
+        /// <summary>
+        /// Mints a realtime session for whoever is signed in right now and opens the socket with it.
+        /// </summary>
+        private void CreateSessionAndConnect(AsyncOperation<RealtimeResult> op)
+        {
             _logger.Log("[Chats] Creating RT session...");
             var sessionOp = _realtimeAuthProvider.CreateSessionAsync();
             sessionOp.UseCompleted(_ =>
@@ -240,10 +293,68 @@ namespace MirraCloud.Core.Chats
                     return;
                 }
 
+                _connectedSessionId = _authentication?.SessionId;
                 ConnectInternal(sessionOp.Result.Data, op);
             });
+        }
 
-            return op;
+        /// <summary>
+        /// Runs <paramref name="continuation"/> once the operation finishes, including when it
+        /// already has: UseCompleted only stores the callback, so attaching it to a finished
+        /// operation drops it silently — and closing a socket finishes synchronously on WebGL.
+        /// </summary>
+        private static void WhenCompleted<T>(AsyncOperation<T> op, Action continuation)
+        {
+            if (op == null || op.IsDone)
+            {
+                continuation();
+                return;
+            }
+
+            op.UseCompleted(_ => continuation());
+        }
+
+        /// <summary>
+        /// Whether the live socket was minted under the session that is signed in right now.
+        /// </summary>
+        private bool IsCurrentSession()
+            => string.Equals(_connectedSessionId, _authentication?.SessionId, StringComparison.Ordinal);
+
+        /// <summary>
+        /// Drops everything that belonged to the previous session: the socket, its subscriptions and
+        /// the read cursors the recovery pass would otherwise replay for another player's channels.
+        /// Returns the close operation — callers that reconnect must wait for it (see ConnectAsync).
+        /// </summary>
+        private AsyncOperation<RealtimeCommandResult> ResetRealtime()
+        {
+            _realtimeGeneration++;
+            _shouldBeConnected = false;
+            _connectedSessionId = null;
+            StopHeartbeat();
+            _subscriptions.Clear();
+            _lastSeenMessageByChannel.Clear();
+
+            var closing = _connection.Disconnect();
+            PublishState(RealtimeConnectionState.Disconnected);
+            return closing;
+        }
+
+        private void HandleSessionEnded()
+        {
+            // Sign-out has to close the socket right here rather than at the next ConnectAsync: it
+            // stays authenticated as the player who left, heartbeat and all, and keeps delivering
+            // their messages to whoever signs in next.
+            ResetRealtime();
+        }
+
+        private void HandleLogin(GetAuthDataDto authData)
+        {
+            // OnLogin also fires when an account is linked, which keeps the same session — only a
+            // genuinely different session invalidates the socket.
+            if (_connectedSessionId != null && !IsCurrentSession())
+            {
+                ResetRealtime();
+            }
         }
 
         public AsyncOperation<RealtimeResult> DisconnectAsync()
@@ -579,10 +690,17 @@ namespace MirraCloud.Core.Chats
             PublishState(RealtimeConnectionState.Reconnecting);
             var reconnected = false;
 
+            // The loop outlives a sign-out or a switch of player, and both bump the generation.
+            // Everything it opens after that belongs to nobody and has to be closed, not handed over.
+            var generation = _realtimeGeneration;
+
             try
             {
                 for (var attempt = 1; attempt <= _reconnectPolicy.MaxAttempts && _shouldBeConnected; attempt++)
                 {
+                    if (generation != _realtimeGeneration)
+                        return;
+
                     var sessionResult = await AwaitOperation(_realtimeAuthProvider.CreateSessionAsync());
                     if (!sessionResult.IsSuccess || sessionResult.Data == null)
                     {
@@ -597,7 +715,7 @@ namespace MirraCloud.Core.Chats
                         continue;
                     }
 
-                    if (!_shouldBeConnected)
+                    if (!_shouldBeConnected || generation != _realtimeGeneration)
                         return;
 
                     var connectResult = await AwaitOperation(_connection.Connect(wsUrl));
@@ -607,9 +725,15 @@ namespace MirraCloud.Core.Chats
                         continue;
                     }
 
-                    if (!_shouldBeConnected)
+                    if (!_shouldBeConnected || generation != _realtimeGeneration)
+                    {
+                        // A socket was opened for a session that is no longer current: close it
+                        // instead of leaving it live and unowned.
+                        _connection.Disconnect();
                         return;
+                    }
 
+                    _connectedSessionId = _authentication?.SessionId;
                     await RestoreSubscriptionsAndHistoryAsync();
                     reconnected = true;
                     return;
@@ -619,7 +743,7 @@ namespace MirraCloud.Core.Chats
             {
                 _reconnectInProgress = false;
 
-                if (!reconnected && _shouldBeConnected)
+                if (!reconnected && _shouldBeConnected && generation == _realtimeGeneration)
                 {
                     // State before the error: a listener that renders a banner from OnError reads
                     // ConnectionState while it does, and it must not still say "Reconnecting".

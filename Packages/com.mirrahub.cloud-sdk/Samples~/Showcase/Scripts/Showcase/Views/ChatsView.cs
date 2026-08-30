@@ -123,7 +123,9 @@ foreach (ChatMemberDto m in op.Result.Data)
 await sdk.Chats.JoinAsync(channelId).Task();
 await sdk.Chats.LeaveAsync(channelId).Task();";
 
-        private const string RecentsKey = "sc_showcase_chat_recents";
+        // Prefix only: the account id is mixed in, otherwise the next player to sign in on this
+        // device would open the screen looking at someone else's channels.
+        private const string RecentsKeyPrefix = "sc_showcase_chat_recents";
         private const int RecentsMax = 6;
         private const int HistoryPage = 50;
 
@@ -1732,10 +1734,17 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
 
         // ----- recents and teardown -------------------------------------------------------------
 
-        private static List<string> LoadRecents()
+        private string RecentsKey()
+        {
+            var info = Sdk.PlayerAccount != null ? Sdk.PlayerAccount.PlayerAccountInfo : null;
+            string accountId = info != null ? info.Id : null;
+            return RecentsKeyPrefix + ":" + (string.IsNullOrEmpty(accountId) ? "unknown" : accountId);
+        }
+
+        private List<string> LoadRecents()
         {
             var list = new List<string>();
-            string raw = PlayerPrefs.GetString(RecentsKey, string.Empty);
+            string raw = PlayerPrefs.GetString(RecentsKey(), string.Empty);
             if (string.IsNullOrEmpty(raw))
             {
                 return list;
@@ -1750,7 +1759,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             return list;
         }
 
-        private static void RememberRecent(string channelId)
+        private void RememberRecent(string channelId)
         {
             var list = LoadRecents();
             list.Remove(channelId);
@@ -1759,7 +1768,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             {
                 list.RemoveAt(list.Count - 1);
             }
-            PlayerPrefs.SetString(RecentsKey, string.Join("|", list.ToArray()));
+            PlayerPrefs.SetString(RecentsKey(), string.Join("|", list.ToArray()));
             PlayerPrefs.Save();
         }
 
