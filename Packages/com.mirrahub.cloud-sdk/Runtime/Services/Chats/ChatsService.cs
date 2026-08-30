@@ -41,6 +41,15 @@ namespace MirraCloud.Core.Chats
         private bool _shouldBeConnected;
         private bool _reconnectInProgress;
         private CancellationTokenSource _heartbeatCts;
+        private RealtimeConnectionState _connectionState = RealtimeConnectionState.Disconnected;
+
+        /// <summary>
+        /// The current state of the realtime connection: the same value that last went out through
+        /// <see cref="OnConnectionStateChanged"/>. The connection lives for the whole session and
+        /// outlives any one screen, so a listener that subscribes later has to read the state from
+        /// here — there is no event for "nothing changed".
+        /// </summary>
+        public RealtimeConnectionState ConnectionState => _connectionState;
 
         public event Action<RealtimeConnectionState> OnConnectionStateChanged;
         public event Action<string> OnSubscribedChannel;
@@ -97,6 +106,11 @@ namespace MirraCloud.Core.Chats
             _shouldBeConnected = false;
             StopHeartbeat();
             _connection.Disconnect();
+
+            // The state handler is detached above, so the disconnect below never reaches
+            // HandleConnectionStateChanged: settle the published state by hand instead of leaving
+            // ConnectionState claiming a connection that is gone.
+            PublishState(RealtimeConnectionState.Disconnected);
         }
 
         /// <summary>
@@ -526,7 +540,7 @@ namespace MirraCloud.Core.Chats
 
         private void HandleConnectionStateChanged(RealtimeConnectionState state)
         {
-            OnConnectionStateChanged?.Invoke(state);
+            PublishState(state);
 
             if (state == RealtimeConnectionState.Connected)
             {
@@ -541,13 +555,28 @@ namespace MirraCloud.Core.Chats
             }
         }
 
+        /// <summary>
+        /// The single exit for a connection state, so <see cref="ConnectionState"/> and
+        /// <see cref="OnConnectionStateChanged"/> can never disagree: the service publishes states
+        /// of its own (<see cref="RealtimeConnectionState.Reconnecting"/>) that the transport never
+        /// reaches, and the getter has to carry those too.
+        /// </summary>
+        private void PublishState(RealtimeConnectionState state)
+        {
+            if (_connectionState == state)
+                return;
+
+            _connectionState = state;
+            OnConnectionStateChanged?.Invoke(state);
+        }
+
         private async Task StartReconnectLoopAsync()
         {
             if (_reconnectInProgress)
                 return;
 
             _reconnectInProgress = true;
-            OnConnectionStateChanged?.Invoke(RealtimeConnectionState.Reconnecting);
+            PublishState(RealtimeConnectionState.Reconnecting);
             var reconnected = false;
 
             try
@@ -592,6 +621,10 @@ namespace MirraCloud.Core.Chats
 
                 if (!reconnected && _shouldBeConnected)
                 {
+                    // State before the error: a listener that renders a banner from OnError reads
+                    // ConnectionState while it does, and it must not still say "Reconnecting".
+                    PublishState(RealtimeConnectionState.Disconnected);
+
                     OnError?.Invoke(new ChatErrorEvent
                     {
                         Code = "reconnect_failed",

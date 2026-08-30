@@ -6,6 +6,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.2.3] — 2026-08-30
+
+### Added
+
+- **`ChatsService.ConnectionState`.** The realtime connection's state is now readable, not only
+  observable: the property carries the same value that last went out through
+  `OnConnectionStateChanged`. The connection lives for the whole session, so a listener that
+  subscribes after it came up — a chat screen opened a second time, a UI built lazily — never
+  receives an event and, until now, had no way to learn it was already connected.
+
+### Fixed
+
+- **Reopening a chat screen no longer reports the connection as offline.** With no way to read the
+  state, a fresh listener assumed `Disconnected`; `ConnectAsync` on an already-open socket completes
+  without changing state, so no event ever corrected it. Anything gated on the connection —
+  in the Showcase, the composer and read receipts — stayed disabled for the rest of the session.
+- **A reconnect that runs out of attempts now publishes `Disconnected`.** The service raised
+  `OnError` and stopped, leaving the last published state at `Reconnecting` forever.
+
 ## [0.2.2] — 2026-08-28
 
 ### Changed

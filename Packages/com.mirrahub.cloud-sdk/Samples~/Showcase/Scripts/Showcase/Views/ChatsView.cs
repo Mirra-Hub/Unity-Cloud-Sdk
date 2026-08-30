@@ -26,6 +26,9 @@ namespace MirraCloud.Example.Showcase
     /// Realtime callbacks can arrive off the main thread, so every handler marshals through
     /// <c>schedule.Execute</c> before touching the tree, and all of them are detached (and the
     /// channel unsubscribed) when the screen closes — otherwise reopening it would double up.
+    /// The connection itself is left up, which is why this screen seeds its indicator from
+    /// <c>Chats.ConnectionState</c> rather than waiting for an event that a still-connected socket
+    /// has no reason to raise.
     /// </para>
     /// </summary>
     public sealed class ChatsView : ServiceView
@@ -73,6 +76,10 @@ foreach (ChatMessageDto m in op.Result.Data)
 // realtime command fails with code ""not_connected"".
 sdk.Chats.OnMessageReceived += m => AppendToUi(m);
 sdk.Chats.OnConnectionStateChanged += state => UpdateIndicator(state);
+
+// That event only fires on a change, and the connection outlives any one screen: a UI built
+// after it came up reads where it stands from the property instead.
+UpdateIndicator(sdk.Chats.ConnectionState);
 
 var connect = sdk.Chats.ConnectAsync();
 await connect.Task();
@@ -185,6 +192,9 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 .WithRefresh(Refresh);
 
             AttachRealtimeHandlers();
+            // The connection outlives this screen, so reopening it produces no state event to
+            // listen for: read where the connection actually stands instead of assuming offline.
+            _state = Sdk.Chats.ConnectionState;
             SyncStateChip();
             ResolveOwnProfiles();
 
