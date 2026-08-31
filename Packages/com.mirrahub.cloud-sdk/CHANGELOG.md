@@ -6,6 +6,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.2.5] — 2026-09-01
+
+### Added
+
+- **Error codes for background package installs.** Installing or updating a package in the console
+  is now an accepted-then-polled operation rather than one long request, and it can be refused with
+  `cloud_packages.install_in_progress` (another install already holds the project),
+  `cloud_packages.install_queue_full` or `cloud_packages.install_unavailable`. A task that a service
+  restart cut short reports `cloud_packages.install_interrupted`. Mirrored here because
+  `CloudErrorCodes` is a complete copy of the backend catalogue; the SDK itself exposes no package
+  API, so nothing else changes for games.
+
 ## [0.2.4] — 2026-08-31
 
 ### Fixed
