@@ -99,6 +99,13 @@ namespace MirraCloud.Core.Errors
         public const string CloudPackagesInstallationNotFound = "cloud_packages.installation_not_found";
         public const string CloudPackagesInstallationWrongPackage = "cloud_packages.installation_wrong_package";
         public const string CloudPackagesInstallationWrongProject = "cloud_packages.installation_wrong_project";
+        public const string CloudPackagesInstallInProgress = "cloud_packages.install_in_progress";
+
+        /// <summary>Task-only: carried in a finished install task's errorCode, never returned as an HTTP error.</summary>
+        public const string CloudPackagesInstallInterrupted = "cloud_packages.install_interrupted";
+
+        public const string CloudPackagesInstallQueueFull = "cloud_packages.install_queue_full";
+        public const string CloudPackagesInstallUnavailable = "cloud_packages.install_unavailable";
         public const string CloudPackagesInvalidInstallationId = "cloud_packages.invalid_installation_id";
         public const string CloudPackagesInvalidPackageId = "cloud_packages.invalid_package_id";
         public const string CloudPackagesInvalidSourceBranchId = "cloud_packages.invalid_source_branch_id";
