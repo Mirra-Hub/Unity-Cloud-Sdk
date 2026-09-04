@@ -583,8 +583,8 @@ bool servedAnonymously = op.Result.IsSuccess;";
                 new DataColumn
                 {
                     Header = "ACCESS", Grow = 1f,
-                    // A folder has no visibility of its own, so folders sort together, below files.
-                    SortKey = o => o is FolderDto ? 0 : (((AssetDto)o).isPublic ? 2 : 1),
+                    // A folder is listed as a container here, so folders sort together, below files.
+                    SortKey = o => o is FolderDto ? 0 : (IsServedAnonymously((AssetDto)o) ? 2 : 1),
                     Cell = o =>
                     {
                         var folder = o as FolderDto;
@@ -593,7 +593,7 @@ bool servedAnonymously = op.Result.IsSuccess;";
                             return new Label(Fmt.Dash);
                         }
                         var asset = (AssetDto)o;
-                        return asset.isPublic
+                        return IsServedAnonymously(asset)
                             ? (VisualElement)new Chip("Public", ChipTone.Ok)
                             : new Label("Private");
                     },
@@ -670,7 +670,7 @@ bool servedAnonymously = op.Result.IsSuccess;";
                 {
                     var hitAsset = (AssetDto)hit;
                     row.SetTrailing(new Chip(Fmt.Bytes(hitAsset.size), ChipTone.Neutral));
-                    if (hitAsset.isPublic)
+                    if (IsServedAnonymously(hitAsset))
                     {
                         var publicChip = new Chip("Public", ChipTone.Ok);
                         publicChip.style.marginLeft = 6f;
@@ -764,7 +764,7 @@ bool servedAnonymously = op.Result.IsSuccess;";
             chips.AddToClassList("sc-chip-row");
             chips.Add(new Chip(asset.type.ToString(), ToneFor(asset.type)));
             chips.Add(new Chip(Fmt.Bytes(asset.size), ChipTone.Neutral));
-            if (asset.isPublic)
+            if (IsServedAnonymously(asset))
             {
                 chips.Add(new Chip("Public", ChipTone.Ok));
             }
@@ -975,7 +975,7 @@ bool servedAnonymously = op.Result.IsSuccess;";
             kv.Add(Kv("Internal id", Fmt.OrDash(asset.id), asset.id));
             kv.Add(Kv("Path", Fmt.OrDash(asset.path), asset.path));
             kv.Add(Kv("Type", asset.type.ToString(), null));
-            kv.Add(Kv("Visibility", asset.isPublic ? "Public" : "Private", null));
+            kv.Add(Kv("Visibility", VisibilityLabel(asset), null));
             kv.Add(Kv("MIME", Fmt.OrDash(asset.mimeType), null));
             kv.Add(Kv("Extension", Fmt.OrDash(asset.extension), null));
             kv.Add(Kv("Size", Fmt.Bytes(asset.size), null));
@@ -984,7 +984,7 @@ bool servedAnonymously = op.Result.IsSuccess;";
             kv.Add(Kv("Updated", Fmt.DateTime2(asset.updatedAt), null));
             body.Add(kv);
 
-            if (asset.isPublic)
+            if (IsServedAnonymously(asset))
             {
                 body.Add(new SectionHeader("Anonymous access"));
                 body.Add(BuildAnonymousRow(asset));
@@ -1194,9 +1194,27 @@ bool servedAnonymously = op.Result.IsSuccess;";
         // ----- anonymous access -----------------------------------------------------------------
 
         /// <summary>
+        /// Whether the anonymous routes will serve this asset. Either flag is enough: publishing a
+        /// folder publishes everything inside it, so an asset can be downloadable without a player
+        /// session while its own <c>isPublic</c> was never set.
+        /// </summary>
+        private static bool IsServedAnonymously(AssetDto asset) =>
+            asset.isPublic || asset.isPublicInherited;
+
+        private static string VisibilityLabel(AssetDto asset)
+        {
+            if (asset.isPublic)
+            {
+                return "Public";
+            }
+
+            return asset.isPublicInherited ? "Public (from folder)" : "Private";
+        }
+
+        /// <summary>
         /// The one place the sample calls the anonymous route. It is offered only for an asset the
-        /// server marks public, so pressing it proves the route works instead of demonstrating the
-        /// 403 a private asset would answer with.
+        /// server actually serves anonymously — published on its own or through its folder — so
+        /// pressing it proves the route works instead of demonstrating the 403 a private one answers.
         /// </summary>
         private VisualElement BuildAnonymousRow(AssetDto asset)
         {

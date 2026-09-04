@@ -20,8 +20,13 @@ namespace MirraCloud.Core.AssetsStorage
         public AssetType type;
         public string extension;
 
-        /// <summary>Whether the anonymous <c>LoadPublic*</c> routes will serve this asset; a private
-        /// one answers 403 there.</summary>
+        /// <summary>Whether this asset was published on its own. Not the whole answer to "will the
+        /// anonymous routes serve it" — see <see cref="isPublicInherited"/> and
+        /// <see cref="Asset.IsEffectivelyPublic"/>.</summary>
         public bool isPublic;
+
+        /// <summary>Whether the folder this asset sits in publishes it. Set by publishing a folder,
+        /// which cascades to everything inside it.</summary>
+        public bool isPublicInherited;
     }
 }
