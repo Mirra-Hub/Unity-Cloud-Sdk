@@ -6,6 +6,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.2.6] — 2026-09-04
+
+### Added
+
+- **Folder-inherited asset visibility.** A folder can now be published in the console, which publishes
+  everything inside it at every depth. `Asset` and `Folder` gained `IsPublicInherited` alongside
+  `IsPublic`, plus `IsEffectivelyPublic` combining the two — that is what decides whether the
+  anonymous `LoadPublic*` routes will serve an asset. Code that tested `asset.IsPublic` to predict
+  those routes should now test `IsEffectivelyPublic`: an asset published through its folder has
+  `IsPublic == false` and still downloads without a player session.
+
+### Fixed
+
+- **Addressing an asset by path.** The by-path routes matched nothing at all, because the stored path
+  carries a leading slash and the route never does. Both forms now resolve. This is what makes a
+  published folder usable as a Unity Addressables Remote Load Path: the folder's URL with a file name
+  appended is a working asset URL.
+
 ## [0.2.5] — 2026-09-01
 
 ### Added
