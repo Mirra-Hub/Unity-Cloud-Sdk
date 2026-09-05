@@ -13,8 +13,16 @@
         public readonly AssetType Type;
         public readonly string Extension;
 
-        /// <summary>Whether the anonymous <c>LoadPublic*</c> routes will serve it.</summary>
+        /// <summary>Whether this asset was published on its own.</summary>
         public readonly bool IsPublic;
+
+        /// <summary>Whether the folder this asset sits in publishes it.</summary>
+        public readonly bool IsPublicInherited;
+
+        /// <summary>Whether the anonymous <c>LoadPublic*</c> routes will serve it — either flag is
+        /// enough. Publishing a folder publishes everything inside it, so an asset can be servable
+        /// anonymously without <see cref="IsPublic"/> ever having been set on it.</summary>
+        public bool IsEffectivelyPublic => IsPublic || IsPublicInherited;
 
         public Asset(AssetDto dto) : base(dto)
         {
@@ -26,6 +34,7 @@
             Type = dto.type; 
             Extension = dto.extension;
             IsPublic = dto.isPublic;
+            IsPublicInherited = dto.isPublicInherited;
         }
     }
 }
