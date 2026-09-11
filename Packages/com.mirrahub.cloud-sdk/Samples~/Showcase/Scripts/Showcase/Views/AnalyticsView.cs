@@ -51,8 +51,8 @@ sdk.Analytics.EnqueueEvent(""shot_fired"",
     new List<string> { ""combat"" });
 
 // Nothing is returned and nothing is awaited: the call hands the event to the buffer.
-// Buffering only runs while a session is being tracked, which the SDK starts on login —
-// before that the event is dropped with an error in the log, so use SendEventAsync.";
+// Buffering only runs while analytics is tracking, which the SDK starts on sign-in or when
+// it restores a saved session — before that the event is dropped, so use SendEventAsync.";
 
         private const string BatchSnippet =
 @"// The request the tracker itself makes when it flushes: many events in one round trip,
@@ -72,8 +72,9 @@ var op = sdk.Analytics.SendBatchAsync(events);
 await op.Task();";
 
         private const string SessionSnippet =
-@"// A session boundary. The SDK already sends this once when Authentication.OnLogin fires,
-// so a game only calls it by hand when its own notion of a session differs.
+@"// A session start. The SDK already sends exactly one per play session (sdk.Analytics.SessionId):
+// one per entry into the game (sign-in or session restore at launch, another account).
+// A call by hand counts the current play session twice.
 var op = sdk.Analytics.SendSessionStartedAsync();
 await op.Task();";
 
@@ -111,7 +112,7 @@ await op.Task();";
                 "Returns nothing — the event goes into the tracker's buffer."));
             DeclareCall(new SdkCall("Send a batch", BatchSnippet));
             DeclareCall(new SdkCall("Report a session start", SessionSnippet,
-                "The SDK already fires this on login."));
+                "The SDK already sends one per play session."));
             DeclareCall(new SdkCall("Report playtime", PlaytimeSnippet));
 
             UseToolbar().WithSpacer().WithRefresh(Refresh);
@@ -352,8 +353,8 @@ await op.Task();";
                 .OnRun("Send batch", SendBatch));
 
             col.Add(new ActionCard("Report a session start",
-                    "Marks the beginning of a play session. The SDK already sends this once on login, "
-                    + "so a game only repeats it for its own session boundaries.", LucideIcon.CirclePlay)
+                    "Marks the beginning of a play session. The SDK already sends one per play session, "
+                    + "so a manual call here counts the current session twice.", LucideIcon.CirclePlay)
                 .WithSnippet(SessionSnippet)
                 .OnRun("Send", SendSession));
 
@@ -426,7 +427,8 @@ await op.Task();";
             }
             return Task.FromResult(ActionOutcome.Success(
                 "Buffered. The tracker sends it with its next flush, so there is no per-event result "
-                + "to report. Buffering needs a tracked session, which the SDK starts on login."));
+                + "to report. Buffering needs analytics to be tracking, which the SDK starts on sign-in or "
+                + "session restore."));
         }
 
         private async Task<ActionOutcome> SendBatch(FormValues values)
