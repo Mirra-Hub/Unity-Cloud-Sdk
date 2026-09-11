@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using MirraCloud.Core.Storage;
 using MirraCloud.Core.Auth.OpenId;
 using MirraCloud.Core.WebView;
+using MirraCloud.Json;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -41,6 +42,9 @@ namespace MirraCloud.Core.Auth
         private string _refreshToken;
         private DateTime _sessionExpiresAt;
 
+        private string _refreshingToken;
+        private List<AsyncOperation<RestApiResult>> _refreshWaiters;
+
         public bool IsAuth { get; private set; }
         public string SessionId => _sessionId;
 
@@ -48,6 +52,14 @@ namespace MirraCloud.Core.Auth
         public event Action<GetAuthDataDto> OnAuthConflict;
         public event Action OnSessionRefreshed;
         public event Action OnSessionExpired;
+
+        /// <summary>
+        /// The account snapshot that came with a successful session refresh — the restore in
+        /// <see cref="InitializeAsync"/> as well as a refresh after a 401. Raised right before
+        /// <see cref="OnSessionRefreshed"/>, and only when the response carried an account. A restored
+        /// session never raises <see cref="OnLogin"/>, so this is how PlayerAccountService learns the account.
+        /// </summary>
+        internal event Action<AccountDto> OnSessionAccountRefreshed;
 
         public AuthenticationService(Configuration configuration, Logger.ILogger logger, IStorage storage, RestApiClient restApi, WebViewService webView)
         {
@@ -458,6 +470,10 @@ namespace MirraCloud.Core.Auth
 
         #region Session
 
+        /// <summary>
+        /// Exchanges the refresh token for a new access token. Calls made while a refresh of the same token
+        /// is in flight do not send another request: they wait for that one and get its outcome.
+        /// </summary>
         public AsyncOperation<RestApiResult> RefreshSessionAsync()
         {
             if (string.IsNullOrEmpty(_refreshToken))
@@ -466,39 +482,124 @@ namespace MirraCloud.Core.Auth
                 return AsyncOperation<RestApiResult>.CreateCompleted(RestApiResult.ValidationFail("Refresh token is empty."));
             }
 
+            var resultOp = new AsyncOperation<RestApiResult>();
+
+            if (_refreshWaiters != null && _refreshingToken == _refreshToken)
+            {
+                _refreshWaiters.Add(resultOp);
+                return resultOp;
+            }
+
             // Refresh URL does NOT include branchId — the server reads branch/environment from the Session.
             var route = $"{SessionScope()}/session/refresh";
             var dto = new RefreshSessionDto { RefreshToken = _refreshToken };
 
-            var refreshOp = _restApi.PostAsync<SessionRefreshResultDto>(route, dto, new RestRequestConfig { NoAuth = true, DisableRetry = true });
-            var resultOp = new AsyncOperation<RestApiResult>();
+            var refreshOp = _restApi.PostAsync<SessionRefreshResultDto>(route, dto, new RestRequestConfig { NoAuth = true, DisableRetry = true }, ReadRefreshResult);
+
+            var waiters = new List<AsyncOperation<RestApiResult>> { resultOp };
+            _refreshWaiters = waiters;
+            _refreshingToken = _refreshToken;
 
             refreshOp.UseCompleted(completed =>
             {
-                if (!completed.Result.IsSuccess || completed.Result.Data?.Session == null)
+                if (ReferenceEquals(_refreshWaiters, waiters))
                 {
-                    HandleSessionExpired();
-                    resultOp.Complete(completed.Result.IsSuccess
-                        ? RestApiResult.Fail(RestApiError.Validation("Refresh response without session."))
-                        : completed.Result);
-                    return;
+                    _refreshWaiters = null;
+                    _refreshingToken = null;
                 }
 
-                // The refresh response carries a fresh access token; without adopting it the
-                // interceptor would keep sending the expired one and every authed call would 401.
-                if (!string.IsNullOrEmpty(completed.Result.Data.Token))
+                var result = ApplyRefreshResult(completed.Result);
+                foreach (var waiter in waiters)
                 {
-                    SetAuthToken(completed.Result.Data.Token);
+                    try
+                    {
+                        waiter.Complete(result);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e);
+                    }
                 }
-
-                ApplySession(completed.Result.Data.Session);
-                IsAuth = true;
-                SaveSessionToStorage();
-                OnSessionRefreshed?.Invoke();
-                resultOp.Complete(RestApiResult.Success());
             });
 
             return resultOp;
+        }
+
+        private RestApiResult ApplyRefreshResult(RestApiResult<SessionRefreshResultDto> response)
+        {
+            if (!response.IsSuccess || response.Data?.Session == null)
+            {
+                HandleSessionExpired();
+                return response.IsSuccess
+                    ? RestApiResult.Fail(RestApiError.Validation("Refresh response without session."))
+                    : response;
+            }
+
+            // The refresh response carries a fresh access token; without adopting it the
+            // interceptor would keep sending the expired one and every authed call would 401.
+            if (!string.IsNullOrEmpty(response.Data.Token))
+            {
+                SetAuthToken(response.Data.Token);
+            }
+
+            ApplySession(response.Data.Session);
+            IsAuth = true;
+            SaveSessionToStorage();
+
+            if (response.Data.PlayerInfo != null)
+            {
+                OnSessionAccountRefreshed?.Invoke(response.Data.PlayerInfo);
+            }
+
+            OnSessionRefreshed?.Invoke();
+            return RestApiResult.Success();
+        }
+
+        /// <summary>
+        /// Reads the refresh response. The account in it is extra: if this build cannot read it — an enum
+        /// value it does not know yet, say — the refresh goes through without it, because a refresh that
+        /// fails signs the player out. Anything wrong with the token or session still fails as before.
+        /// </summary>
+        private SessionRefreshResultDto ReadRefreshResult(UnityWebRequest request)
+        {
+            var body = request.downloadHandler?.text;
+            if (string.IsNullOrEmpty(body))
+            {
+                return null;
+            }
+
+            Exception accountError;
+            try
+            {
+                return _restApi.JsonService.FromJson<SessionRefreshResultDto>(body);
+            }
+            catch (Exception e)
+            {
+                accountError = e;
+            }
+
+            var withoutAccount = _restApi.JsonService.FromJson<SessionRefreshWithoutAccountDto>(body);
+            _logger.Error($"Session refresh: the account in the response could not be read and was skipped. {accountError.Message}");
+
+            return withoutAccount == null
+                ? null
+                : new SessionRefreshResultDto
+                {
+                    AccountId = withoutAccount.AccountId,
+                    ProjectId = withoutAccount.ProjectId,
+                    Token = withoutAccount.Token,
+                    Session = withoutAccount.Session
+                };
+        }
+
+        /// <summary><see cref="SessionRefreshResultDto"/> minus the account, for <see cref="ReadRefreshResult"/>'s fallback.</summary>
+        [Serializable]
+        private sealed class SessionRefreshWithoutAccountDto
+        {
+            [JsonNameCamel] public string AccountId;
+            [JsonNameCamel] public string ProjectId;
+            [JsonNameCamel] public string Token;
+            [JsonNameCamel] public SessionInfoDto Session;
         }
 
         public AsyncOperation<RestApiResult> LogoutAsync()

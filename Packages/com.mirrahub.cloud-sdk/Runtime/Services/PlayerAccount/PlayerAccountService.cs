@@ -39,6 +39,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
             _configuration = configuration;
 
             _authenticationService.OnLogin += OnAuthLogin;
+            _authenticationService.OnSessionAccountRefreshed += OnSessionAccountRefreshed;
             _restApi.UseRequestInterceptor(MetaDataHeadersInterceptor);
         }
 
@@ -52,6 +53,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
         public void CloudSdkDispose()
         {
             _authenticationService.OnLogin -= OnAuthLogin;
+            _authenticationService.OnSessionAccountRefreshed -= OnSessionAccountRefreshed;
         }
         
         private readonly string _deviceModel = SystemInfo.deviceModel;
@@ -145,6 +147,11 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
                 return;
             }
 
+            PlayerAccountInfo = new PlayerAccountInfo(account);
+        }
+
+        private void OnSessionAccountRefreshed(AccountDto account)
+        {
             PlayerAccountInfo = new PlayerAccountInfo(account);
         }
 

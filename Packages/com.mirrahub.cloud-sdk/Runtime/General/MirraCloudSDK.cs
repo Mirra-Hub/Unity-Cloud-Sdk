@@ -132,14 +132,14 @@ namespace MirraCloud.Core
             ProfanityFilter = RegisterService(new ProfanityFilterService(restApiClient, configuration, logger));
             PromoCodes = RegisterService(new PromoCodesService(configuration, restApiClient));
 
-            
             _analyticsTracker = AnalyticsTracker.CreateInstance();
             Analytics.SetTracker(_analyticsTracker);
-            Authentication.OnLogin += _ =>
-            {
-                Analytics.SendSessionStartedAsync();
-                _analyticsTracker.StartTracking(Analytics);
-            };
+
+            Authentication.OnLogin += data =>
+                _analyticsTracker.TrackSignIn(Analytics, (data?.CurrentAccount ?? data?.PlayerInfo)?.Id);
+            Authentication.OnSessionRefreshed += () =>
+                _analyticsTracker.TrackSessionRefresh(Analytics, PlayerAccount.PlayerAccountInfo?.Id);
+            Authentication.OnSessionExpired += _analyticsTracker.StopTracking;
 
             foreach (var cloudSdkInitializable in _initializables)
             {
