@@ -82,22 +82,22 @@ var op = MirraCloudSDK.Authentication.LoginOpenIdAsync(providerId, options);
 ## Сессии
 
 - `InitializeAsync()` — инициализация с сохранённым refresh token
-- `RefreshSessionAsync()` — обновление сессии
+- `RefreshSessionAsync()` — обновление сессии. Один запрос на refresh token: вызовы, пришедшие во время обновления (например, несколько одновременных 401), ждут его результата, а не тратят тот же токен повторно — сервер отклонил бы повтор и разлогинил игрока.
 - `LogoutAsync()` — выход из текущей сессии
 - `LogoutAllAsync()` — выход из всех сессий
 
 ## Свойства
 
 - `AuthToken` — текущий токен
-- `SessionId` — ID текущей сессии
+- `SessionId` — ID текущей auth-сессии (не путать с игровой сессией аналитики `Analytics.SessionId`)
 - `IsAuth` — авторизован ли
 
 ## События
 
-- `OnLogin` — успешный вход
+- `OnLogin` — успешный вход (и успешная привязка провайдера / разрешение конфликта)
 - `OnAuthConflict` — конфликт при привязке
-- `OnSessionRefreshed` — сессия обновлена
-- `OnSessionExpired` — сессия истекла
+- `OnSessionRefreshed` — сессия обновлена: восстановление в `InitializeAsync` или refresh после 401
+- `OnSessionExpired` — сессия закончилась (выход, `ClearLocalSession`, unlink, неудачный refresh)
 
 ## Code
 - `Core/Services/Auth/*`

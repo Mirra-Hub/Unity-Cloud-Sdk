@@ -6,6 +6,69 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.3.0] — 2026-09-11
+
+### Added
+
+- **`AnalyticsService.SessionId` — a play session for analytics.** One per entry into the game: each
+  launch (a restored session or a sign-in), a sign-in after signing out, a sign-in as another account.
+  Coming back from the background continues the same session; the next launch starts a new one. Every
+  analytics request — session starts, playtime, batches, `SendEventAsync` — carries it in the
+  `AnalyticsSessionId` header, and the server files events under it; servers that predate the header
+  ignore it. It is deliberately not `Authentication.SessionId`: that is the auth session, which a
+  restored login keeps for as long as the refresh token lives — for a game that signs in once and
+  restores ever after, a single id per install that never ends. `SessionId` is `null` until
+  analytics starts and again after sign-out.
+- **`AnalyticsTracker.StopTracking()`**, which the SDK now calls when the player session ends.
+
+### Changed
+
+- **Breaking — `SessionsStarted` counts play sessions.** The SDK sends exactly one per play session — on
+  sign-in or session restore, on a switch to another account — so the number of starts is the number
+  of entries into the game. It used to go out on every `OnLogin`, account links
+  included, and never for a restored session. `SendSessionStartedAsync()` still sends one on demand,
+  which now counts the current session twice.
+- **On WebGL and desktop, losing focus counts as being away** for playtime, not only a pause: a player
+  who switches to another tab or window leaves without the app being paused, and the playtime
+  heartbeat now holds while the app has no focus. Mobile goes on relying on the pause alone: the
+  on-screen keyboard, the notification shade and system dialogs take focus while the player is still
+  in the game.
+- **Breaking —** `AnalyticsTracker.StartTracking` opens a play session itself — it reports
+  `SessionsStarted` — and stops tracking that is already running first, dropping its buffered events.
+  The SDK drives the tracker; games normally never call it.
+
+### Fixed
+
+- **Analytics starts for returning players.** Only `OnLogin` started it, and restoring a saved
+  session in `InitializeAsync` raises `OnSessionRefreshed` instead — so a player who was already
+  signed in reported no session start and no playtime, and every `EnqueueEvent` was dropped without
+  a word. A restore now starts analytics; the refresh that follows a 401 mid-play leaves it alone.
+- **Linking a provider no longer restarts analytics.** A link raises `OnLogin` for the account that
+  is already signed in. It used to send another `SessionsStarted` and reset the heartbeat, losing up
+  to five minutes of playtime each time. Only a different account starts a new session.
+- **Signing out stops analytics.** Nothing stopped the tracker on `LogoutAsync`, `LogoutAllAsync`,
+  `ClearLocalSession`, an unlink or an expired session, so it went on sending playtime and batches
+  with no token. Events still buffered at that point are dropped with a warning: they were recorded
+  as the player who has just left, and the token they would need is gone.
+- **`PlayerAccountInfo` is filled in after a session restore.** It was set only from `OnLogin`, so
+  for returning players it stayed `null` — and with it the account headers every request carries
+  (`Country`, `LanguageCode`, `Nickname`, `IconKey`, `Age`, `TimeZone`, `Status`, segments). The
+  refresh response has always contained the account; `SessionRefreshResultDto.PlayerInfo` now reads
+  it, and every successful refresh updates `PlayerAccountInfo` from it. An account this build cannot
+  read is skipped with an error instead of failing the refresh, which would sign the player out.
+- **Requests that come back 401 together share one session refresh.** Each started its own with the
+  same refresh token. The server replaces the token on the first refresh and refuses it after that, and
+  a refused refresh signs the player out and deletes the saved session. Any two requests in flight when
+  the access token ran out could trigger it, for instance a game's calls on resume or the playtime
+  report and batch flush at a pause. `RefreshSessionAsync` now sends one request per refresh token, and
+  calls that arrive while it is in flight get its outcome.
+- **Time away from the app no longer counts as playtime.** The heartbeat clock kept running while
+  the app was suspended or its tab hidden, so the first heartbeat after coming back could report the
+  whole absence — hours, for an app left in the background overnight.
+- **Rejected batch events are logged.** `events/batch` answers 200 even when it rejects every event,
+  listing the failures in the body, and the SDK looked only at the status. It now logs a warning with
+  how many were rejected and the index, event name, error code and reason of the first three.
+
 ## [0.2.6] — 2026-09-04
 
 ### Added
