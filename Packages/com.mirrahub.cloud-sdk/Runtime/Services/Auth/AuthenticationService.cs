@@ -44,6 +44,7 @@ namespace MirraCloud.Core.Auth
 
         private string _refreshingToken;
         private List<AsyncOperation<RestApiResult>> _refreshWaiters;
+        private bool _refreshSignsOutOnTransientFailure;
 
         public bool IsAuth { get; private set; }
         public string SessionId => _sessionId;
@@ -474,7 +475,16 @@ namespace MirraCloud.Core.Auth
         /// Exchanges the refresh token for a new access token. Calls made while a refresh of the same token
         /// is in flight do not send another request: they wait for that one and get its outcome.
         /// </summary>
-        public AsyncOperation<RestApiResult> RefreshSessionAsync()
+        public AsyncOperation<RestApiResult> RefreshSessionAsync() => RefreshSessionAsync(signOutOnTransientFailure: true);
+
+        /// <summary>
+        /// <paramref name="signOutOnTransientFailure"/>: whether a refresh that failed for want of the server
+        /// (no connection, a timeout, a 5xx) signs the player out. A refresh the SDK starts on its own — after a
+        /// profile switch — passes false: the session is still valid, only this attempt did not get through, and
+        /// the next 401 refreshes again. A refresh token the server rejects signs the player out either way. When
+        /// calls share one request, it signs out if any of them would.
+        /// </summary>
+        internal AsyncOperation<RestApiResult> RefreshSessionAsync(bool signOutOnTransientFailure)
         {
             if (string.IsNullOrEmpty(_refreshToken))
             {
@@ -487,6 +497,7 @@ namespace MirraCloud.Core.Auth
             if (_refreshWaiters != null && _refreshingToken == _refreshToken)
             {
                 _refreshWaiters.Add(resultOp);
+                _refreshSignsOutOnTransientFailure |= signOutOnTransientFailure;
                 return resultOp;
             }
 
@@ -499,16 +510,18 @@ namespace MirraCloud.Core.Auth
             var waiters = new List<AsyncOperation<RestApiResult>> { resultOp };
             _refreshWaiters = waiters;
             _refreshingToken = _refreshToken;
+            _refreshSignsOutOnTransientFailure = signOutOnTransientFailure;
 
             refreshOp.UseCompleted(completed =>
             {
+                var signOut = _refreshSignsOutOnTransientFailure;
                 if (ReferenceEquals(_refreshWaiters, waiters))
                 {
                     _refreshWaiters = null;
                     _refreshingToken = null;
                 }
 
-                var result = ApplyRefreshResult(completed.Result);
+                var result = ApplyRefreshResult(completed.Result, signOut);
                 foreach (var waiter in waiters)
                 {
                     try
@@ -525,8 +538,14 @@ namespace MirraCloud.Core.Auth
             return resultOp;
         }
 
-        private RestApiResult ApplyRefreshResult(RestApiResult<SessionRefreshResultDto> response)
+        private RestApiResult ApplyRefreshResult(RestApiResult<SessionRefreshResultDto> response,
+            bool signOutOnTransientFailure)
         {
+            if (!response.IsSuccess && !signOutOnTransientFailure && IsTransient(response.Error))
+            {
+                return response;
+            }
+
             if (!response.IsSuccess || response.Data?.Session == null)
             {
                 HandleSessionExpired();
@@ -554,6 +573,13 @@ namespace MirraCloud.Core.Auth
             OnSessionRefreshed?.Invoke();
             return RestApiResult.Success();
         }
+
+        /// <summary>A failure that says nothing about the session: the request did not get a real answer.</summary>
+        private static bool IsTransient(RestApiError error) =>
+            error != null &&
+            (error.Type == RestApiErrorType.Network ||
+             error.Type == RestApiErrorType.Cancelled ||
+             (error.Type == RestApiErrorType.Http && error.HttpStatusCode >= 500));
 
         /// <summary>
         /// Reads the refresh response. The account in it is extra: if this build cannot read it — an enum

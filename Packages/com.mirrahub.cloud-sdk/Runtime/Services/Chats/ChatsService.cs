@@ -339,6 +339,25 @@ namespace MirraCloud.Core.Chats
             return closing;
         }
 
+        /// <summary>
+        /// The account now plays as another profile. The socket was opened as the previous one — the server takes
+        /// the sender from the handshake — so it is replaced, if the game wanted a connection. Subscriptions are
+        /// dropped with it: channels belong to the profile, and the game re-subscribes once Connected is published.
+        /// </summary>
+        internal void HandleProfileChanged()
+        {
+            if (!_shouldBeConnected && _connection.State == RealtimeConnectionState.Disconnected)
+            {
+                return;
+            }
+
+            WhenCompleted(ResetRealtime(), () =>
+            {
+                _shouldBeConnected = true;
+                CreateSessionAndConnect(new AsyncOperation<RealtimeResult>());
+            });
+        }
+
         private void HandleSessionEnded()
         {
             // Sign-out has to close the socket right here rather than at the next ConnectAsync: it

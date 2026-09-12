@@ -116,6 +116,38 @@ namespace Plugins.MirraCloud.Core.Services.Analytics
             Restart(analytics, accountId);
         }
 
+        /// <summary>
+        /// Before the selected profile changes: sends the buffered events and the playtime not yet reported while
+        /// the token still carries the old profile, so they are counted for the profile that produced them.
+        /// </summary>
+        internal void FlushForProfileSwitch()
+        {
+            if (!_isTracking) return;
+
+            float elapsed = UnreportedPlaytime();
+            // Playtime is reported in whole minutes and at least one: under half a minute would be over-reported.
+            if (elapsed >= 30f)
+            {
+                ReportPlaytime(elapsed);
+                _lastReportTime = Time.realtimeSinceStartup;
+            }
+
+            FlushBuffer();
+            _lastBatchFlushTime = Time.realtimeSinceStartup;
+        }
+
+        /// <summary>
+        /// After the token carries a newly selected profile: a new play session for it, like signing in as another
+        /// account — for figures by profile the new profile is another player. The account stays the same.
+        /// </summary>
+        internal void RestartPlaySession()
+        {
+            if (!_isTracking || _analytics == null) return;
+
+            _analytics.EndSession();
+            BeginPlaySession();
+        }
+
         private void Restart(AnalyticsService analytics, string accountId)
         {
             if (analytics == null)
@@ -145,13 +177,14 @@ namespace Plugins.MirraCloud.Core.Services.Analytics
             _analytics.StartSession();
         }
 
-        public void EnqueueEvent(string eventName, Dictionary<string, string> parameters = null, List<string> tags = null)
+        public void EnqueueEvent(string eventKey, Dictionary<string, string> parameters = null, List<string> tags = null)
         {
             if (!_isTracking) return;
 
             var item = new BatchEventItemDto
             {
-                EventName = eventName,
+                EventKey = eventKey,
+                EventName = eventKey,
                 Date = DateTime.UtcNow.ToString("O")
             };
 

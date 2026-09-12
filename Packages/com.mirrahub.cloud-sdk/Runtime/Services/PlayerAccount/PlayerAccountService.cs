@@ -29,7 +29,20 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
 
         public event Action<IReadOnlyList<ProfileInfo>> OnProfilesChanged;
         public event Action<ProfileInfo> OnProfileUpdated;
+        /// <summary>
+        /// Raised once the switch is complete — including the session refresh that makes profile-scoped
+        /// services act for the new profile, so calls made from a handler already go out as it.
+        /// </summary>
         public event Action<string> OnProfileSelected;
+
+        /// <summary>
+        /// The selected profile is about to change while the token still carries the old one: whatever was
+        /// recorded for the old profile has to go out now (analytics flushes its buffer and playtime).
+        /// </summary>
+        internal event Action OnProfileSwitching;
+
+        /// <summary>The token now carries the newly selected profile (the refresh after a switch succeeded).</summary>
+        internal event Action<string> OnSelectedProfileApplied;
 
         public PlayerAccountService(AuthenticationService authenticationService, RestApiClient restApi, Configuration configuration, ILogger logger)
         {
@@ -389,22 +402,46 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
             return _restApi.GetAsync<ProfileInfo[]>(route);
         }
 
+        /// <summary>
+        /// Creates a profile. With <paramref name="autoSelect"/> the server also selects it, and the operation
+        /// completes only after the session was refreshed for it — see <see cref="SelectProfileAsync"/>.
+        /// </summary>
         public AsyncOperation<RestApiResult<ProfileInfo>> CreateProfileAsync(CreateProfileDto dto, bool autoSelect = false)
         {
             var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles?autoSelect={autoSelect}";
-            var op = _restApi.PostAsync<ProfileInfo>(route, dto);
 
-            op.UseCompleted(completed =>
+            if (autoSelect)
             {
-                if (completed.Result.IsSuccess && completed.Result.Data != null)
+                OnProfileSwitching?.Invoke();
+            }
+
+            // The game gets its own operation: UseCompleted replaces the callback, so hooking the one returned
+            // to the game would let the game's own UseCompleted silently drop the SDK's bookkeeping.
+            var raw = _restApi.PostAsync<ProfileInfo>(route, dto);
+            var result = new AsyncOperation<RestApiResult<ProfileInfo>>();
+
+            raw.UseCompleted(completed =>
+            {
+                if (!completed.Result.IsSuccess || completed.Result.Data == null)
                 {
-                    _profiles.Add(completed.Result.Data);
-                    OnProfilesChanged?.Invoke(Profiles);
-                    OnProfileUpdated?.Invoke(completed.Result.Data);
+                    result.Complete(completed.Result);
+                    return;
                 }
+
+                _profiles.Add(completed.Result.Data);
+                OnProfilesChanged?.Invoke(Profiles);
+                OnProfileUpdated?.Invoke(completed.Result.Data);
+
+                if (!autoSelect)
+                {
+                    result.Complete(completed.Result);
+                    return;
+                }
+
+                ApplySelectedProfile(completed.Result.Data.Id, () => result.Complete(completed.Result));
             });
 
-            return op;
+            return result;
         }
 
         public AsyncOperation<RestApiResult> DeleteProfileAsync(string profileId)
@@ -873,21 +910,81 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
             }
         }
 
+        /// <summary>
+        /// Selects the profile the account plays as. The server answers without a new token, and until the token
+        /// carries the new profile every profile-scoped service — economy, saves, purchases, rewards, analytics —
+        /// would keep acting for the old one, for up to the token's 30 minutes. So the operation completes only
+        /// after the session was refreshed. Analytics recorded for the old profile is sent before the switch, and
+        /// a new play session starts for the new one; chats reconnect as it.
+        /// </summary>
         public AsyncOperation<RestApiResult> SelectProfileAsync(string profileId)
         {
             var route = $"{ACCOUNTS_ROUTE}/{_configuration.ProjectId}/accounts/profile";
             var dto = new { ProfileId = profileId };
-            var op = _restApi.PatchAsync(route, dto);
 
-            op.UseCompleted(completed =>
+            OnProfileSwitching?.Invoke();
+
+            // Its own operation for the game, for the reason given in CreateProfileAsync.
+            var raw = _restApi.PatchAsync(route, dto);
+            var result = new AsyncOperation<RestApiResult>();
+
+            raw.UseCompleted(completed =>
             {
-                if (completed.Result.IsSuccess)
+                if (!completed.Result.IsSuccess)
                 {
-                    OnProfileSelected?.Invoke(profileId);
+                    result.Complete(completed.Result);
+                    return;
                 }
+
+                ApplySelectedProfile(profileId, () => result.Complete(completed.Result));
             });
 
-            return op;
+            return result;
+        }
+
+        /// <summary>
+        /// The server has switched the profile; refreshes the session so the token carries it. A refresh that
+        /// did not get through does not sign the player out: the switch stands on the server, and the next 401
+        /// refreshes again — until then profile-scoped calls still go out as the old profile.
+        /// </summary>
+        private void ApplySelectedProfile(string profileId, Action done)
+        {
+            if (PlayerAccountInfo != null)
+            {
+                PlayerAccountInfo.SelectedProfileId = profileId;
+            }
+
+            var refresh = _authenticationService.RefreshSessionAsync(signOutOnTransientFailure: false);
+            WhenCompleted(refresh, () =>
+            {
+                if (refresh.Result.IsSuccess)
+                {
+                    OnSelectedProfileApplied?.Invoke(profileId);
+                }
+                else
+                {
+                    _logger.Error($"Profile {profileId} is selected, but the session could not be refreshed for it " +
+                                  $"({refresh.Result.Error?.Message}); calls go out as the previous profile until the next refresh.");
+                }
+
+                OnProfileSelected?.Invoke(profileId);
+                done();
+            });
+        }
+
+        /// <summary>
+        /// Runs <paramref name="continuation"/> when the operation completes — also when it already has, which
+        /// UseCompleted alone would miss (a refresh without a refresh token completes at once).
+        /// </summary>
+        private static void WhenCompleted<T>(AsyncOperation<T> op, Action continuation)
+        {
+            if (op.IsDone)
+            {
+                continuation();
+                return;
+            }
+
+            op.UseCompleted(_ => continuation());
         }
 
         #endregion

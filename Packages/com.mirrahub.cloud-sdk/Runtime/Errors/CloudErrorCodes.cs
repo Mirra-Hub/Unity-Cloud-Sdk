@@ -351,6 +351,8 @@ namespace MirraCloud.Core.Errors
         public const string GameAnalyticsEventHasNoParameters = "game_analytics.event_has_no_parameters";
         public const string GameAnalyticsEventIdOrNameRequired = "game_analytics.event_id_or_name_required";
         public const string GameAnalyticsEventIdsRequired = "game_analytics.event_ids_required";
+        public const string GameAnalyticsEventKeyDuplicate = "game_analytics.event_key_duplicate";
+        public const string GameAnalyticsEventKeyRequired = "game_analytics.event_key_required";
         public const string GameAnalyticsEventNameRequired = "game_analytics.event_name_required";
         public const string GameAnalyticsEventNotFound = "game_analytics.event_not_found";
         public const string GameAnalyticsEventParameterNotFound = "game_analytics.event_parameter_not_found";
@@ -364,6 +366,7 @@ namespace MirraCloud.Core.Errors
         public const string GameAnalyticsInvalidDashboardName = "game_analytics.invalid_dashboard_name";
         public const string GameAnalyticsInvalidDateRange = "game_analytics.invalid_date_range";
         public const string GameAnalyticsInvalidEventId = "game_analytics.invalid_event_id";
+        public const string GameAnalyticsInvalidEventKey = "game_analytics.invalid_event_key";
         public const string GameAnalyticsInvalidEventName = "game_analytics.invalid_event_name";
         public const string GameAnalyticsInvalidEventParameterValue = "game_analytics.invalid_event_parameter_value";
         public const string GameAnalyticsInvalidFunnelIdForWidget = "game_analytics.invalid_funnel_id_for_widget";
@@ -381,12 +384,24 @@ namespace MirraCloud.Core.Errors
         public const string GameAnalyticsMetricTemplateNotFound = "game_analytics.metric_template_not_found";
         public const string GameAnalyticsMetricValueRequired = "game_analytics.metric_value_required";
         public const string GameAnalyticsParameterNotInEvent = "game_analytics.parameter_not_in_event";
+        /// <summary>The request carries no account id (the <c>PlayerId</c> header).</summary>
         public const string GameAnalyticsPlayerIdHeaderRequired = "game_analytics.player_id_header_required";
+        /// <summary>The request carries no selected profile id; sign in again to get a token with one.</summary>
+        public const string GameAnalyticsProfileIdHeaderRequired = "game_analytics.profile_id_header_required";
         public const string GameAnalyticsQuantileRange = "game_analytics.quantile_range";
         public const string GameAnalyticsQueryBuilderNotFound = "game_analytics.query_builder_not_found";
         public const string GameAnalyticsQueryFailed = "game_analytics.query_failed";
         public const string GameAnalyticsSerializationFailed = "game_analytics.serialization_failed";
         public const string GameAnalyticsSessionIdHeaderRequired = "game_analytics.session_id_header_required";
+        public const string GameAnalyticsSyntheticBatchTooLarge = "game_analytics.synthetic_batch_too_large";
+        public const string GameAnalyticsSyntheticEventBeforePlayerCreated = "game_analytics.synthetic_event_before_player_created";
+        public const string GameAnalyticsSyntheticFieldInvalid = "game_analytics.synthetic_field_invalid";
+        public const string GameAnalyticsSyntheticPlayerForbidden = "game_analytics.synthetic_player_forbidden";
+        public const string GameAnalyticsSyntheticPlayerIdentityAmbiguous = "game_analytics.synthetic_player_identity_ambiguous";
+        public const string GameAnalyticsSyntheticPlayerLookupUnavailable = "game_analytics.synthetic_player_lookup_unavailable";
+        public const string GameAnalyticsSyntheticPlayerNotFound = "game_analytics.synthetic_player_not_found";
+        public const string GameAnalyticsSyntheticRealAccountNotAllowed = "game_analytics.synthetic_real_account_not_allowed";
+        public const string GameAnalyticsSyntheticValidationFailed = "game_analytics.synthetic_validation_failed";
         public const string GameAnalyticsSystemEventNotDeletable = "game_analytics.system_event_not_deletable";
         public const string GameAnalyticsSystemEventNotRenamable = "game_analytics.system_event_not_renamable";
         public const string GameAnalyticsSystemFilterColumnRequired = "game_analytics.system_filter_column_required";
