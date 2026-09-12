@@ -82,7 +82,7 @@ var op = MirraCloudSDK.Authentication.LoginOpenIdAsync(providerId, options);
 ## Сессии
 
 - `InitializeAsync()` — инициализация с сохранённым refresh token
-- `RefreshSessionAsync()` — обновление сессии. Один запрос на refresh token: вызовы, пришедшие во время обновления (например, несколько одновременных 401), ждут его результата, а не тратят тот же токен повторно — сервер отклонил бы повтор и разлогинил игрока.
+- `RefreshSessionAsync()` — обновление сессии. Один запрос на refresh token: вызовы, пришедшие во время обновления (например, несколько одновременных 401), ждут его результата, а не тратят тот же токен повторно — сервер отклонил бы повтор и разлогинил игрока. Неудачный refresh завершает сессию (`OnSessionExpired`); исключение — refresh после смены профиля (`PlayerAccount.SelectProfileAsync`): его сетевой сбой или 5xx игрока не разлогинивает, отказ сервера (4xx) — разлогинивает как обычно.
 - `LogoutAsync()` — выход из текущей сессии
 - `LogoutAllAsync()` — выход из всех сессий
 
@@ -100,4 +100,4 @@ var op = MirraCloudSDK.Authentication.LoginOpenIdAsync(providerId, options);
 - `OnSessionExpired` — сессия закончилась (выход, `ClearLocalSession`, unlink, неудачный refresh)
 
 ## Code
-- `Core/Services/Auth/*`
+- `Packages/com.mirrahub.cloud-sdk/Runtime/Services/Auth/*`

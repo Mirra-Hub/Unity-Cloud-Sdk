@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using MirraCloud;
 using MirraCloud.Core;
+using MirraCloud.Core.Errors;
 using MirraCloud.Core.Logger;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
 using Plugins.MirraCloud.Core.Services.Analytics.Dto;
@@ -82,11 +83,15 @@ namespace Plugins.MirraCloud.Core.Services.Analytics
             return SubmitEventAsync(metricId, parameters);
         }
 
-        public void EnqueueEvent(string eventName, Dictionary<string, string> parameters = null, List<string> tags = null)
+        /// <summary>
+        /// Buffers an event for the next batch. <paramref name="eventKey"/> is the event's key as set in the console
+        /// — it stays when the event is renamed there.
+        /// </summary>
+        public void EnqueueEvent(string eventKey, Dictionary<string, string> parameters = null, List<string> tags = null)
         {
             if (_tracker != null)
             {
-                _tracker.EnqueueEvent(eventName, parameters, tags);
+                _tracker.EnqueueEvent(eventKey, parameters, tags);
                 return;
             }
 
@@ -136,18 +141,30 @@ namespace Plugins.MirraCloud.Core.Services.Analytics
         private AsyncOperation<RestApiResult> PostWithErrorLogging(string route, object body, Action<RestApiResult> onSuccess = null)
         {
             var config = SessionId != null ? _sessionRequestConfig : null;
-            var response = _restApi.PostAsync(route, body, config);
-            response.UseCompleted(completed =>
+            var raw = _restApi.PostAsync(route, body, config);
+
+            // The game gets its own operation: UseCompleted replaces the callback, so the logging hooked onto the
+            // one returned to the game would be dropped the moment the game used UseCompleted on it.
+            var result = new AsyncOperation<RestApiResult>();
+            raw.UseCompleted(completed =>
             {
                 if (!completed.Result.IsSuccess)
                 {
-                    _logger.Error(completed.Result.Error?.Message ?? "Analytics request failed.");
-                    return;
+                    // The cloud code says what went wrong (a missing claim, an unknown event, a rejected parameter);
+                    // the transport message alone only gives the HTTP status.
+                    var cloudError = completed.Result.Error.FirstCloudError();
+                    _logger.Error(cloudError != null
+                        ? $"Analytics request failed: {cloudError.Code} — {cloudError.Message}"
+                        : completed.Result.Error?.Message ?? "Analytics request failed.");
+                }
+                else
+                {
+                    onSuccess?.Invoke(completed.Result);
                 }
 
-                onSuccess?.Invoke(completed.Result);
+                result.Complete(completed.Result);
             });
-            return response;
+            return result;
         }
 
         /// <summary>
@@ -197,7 +214,8 @@ namespace Plugins.MirraCloud.Core.Services.Analytics
 
                 if (events != null && error.Index >= 0 && error.Index < events.Count && events[error.Index] != null)
                 {
-                    message.Append(" '").Append(events[error.Index].EventName).Append('\'');
+                    var item = events[error.Index];
+                    message.Append(" '").Append(string.IsNullOrEmpty(item.EventKey) ? item.EventName : item.EventKey).Append('\'');
                 }
 
                 if (!string.IsNullOrEmpty(error.Code))

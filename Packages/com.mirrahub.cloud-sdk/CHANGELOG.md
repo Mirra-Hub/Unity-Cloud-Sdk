@@ -6,6 +6,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.4.0] — 2026-09-12
+
+### Added
+
+- **`PlayerAccountInfo.SelectedProfileId`** — the profile the account plays as, read from the sign-in
+  and refresh responses and updated by `SelectProfileAsync`.
+- **Error codes** in `CloudErrorCodes` for event keys (`GameAnalyticsEventKeyRequired`,
+  `GameAnalyticsInvalidEventKey`, `GameAnalyticsEventKeyDuplicate`), for a token without a selected
+  profile (`GameAnalyticsProfileIdHeaderRequired`) and for synthetic analytics data
+  (`GameAnalyticsSynthetic*`).
+- **`BatchEventItemDto.EventKey`.** Batched events are named by the event's key from the console, which
+  stays the same when the event is renamed there. `EventName` is still sent with the same value for
+  servers that predate keys.
+
+### Changed
+
+- **Breaking — `SelectProfileAsync` completes after the session is refreshed.** The server switches the
+  profile without issuing a token, and every profile-scoped service — economy, saves, purchases,
+  rewards, analytics — kept acting for the old profile until the next refresh, up to the token's
+  30 minutes. The SDK now refreshes right away, and the operation (and `OnProfileSelected`) completes
+  once the token carries the new profile. `CreateProfileAsync(dto, autoSelect: true)` does the same.
+  A refresh that fails for want of the server (no connection, a 5xx) does not sign the player out: the
+  switch stands, an error is logged, and calls go out as the old profile until the next refresh.
+- **A profile switch is a new play session for analytics.** Buffered events and unreported playtime go
+  out before the switch, under the old profile; after it a new `Analytics.SessionId` starts with one
+  `SessionsStarted`. The account stays the same, so figures by account see one player.
+- **Chats reconnect as the new profile** after a switch.
+- `EnqueueEvent`'s first parameter is named `eventKey`; it always was the event's key.
+- A failed analytics request is logged with its cloud error code, not only the HTTP status.
+
+### Fixed
+
+- `SelectProfileAsync`, `CreateProfileAsync` and the analytics calls return their own operation: a
+  game's `UseCompleted` on it no longer replaces the SDK's own bookkeeping (`UseCompleted` replaces the
+  callback), which had silently dropped `OnProfileSelected`, the profile list update and the logging of
+  rejected batch events.
+
 ## [0.3.0] — 2026-09-11
 
 ### Added
