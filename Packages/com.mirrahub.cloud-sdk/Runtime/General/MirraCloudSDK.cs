@@ -141,6 +141,15 @@ namespace MirraCloud.Core
                 _analyticsTracker.TrackSessionRefresh(Analytics, PlayerAccount.PlayerAccountInfo?.Id);
             Authentication.OnSessionExpired += _analyticsTracker.StopTracking;
 
+            // A profile switch: what the old profile recorded goes out first, then — once the token carries the new
+            // profile — a new play session and a chat socket opened as it.
+            PlayerAccount.OnProfileSwitching += _analyticsTracker.FlushForProfileSwitch;
+            PlayerAccount.OnSelectedProfileApplied += _ =>
+            {
+                _analyticsTracker.RestartPlaySession();
+                Chats.HandleProfileChanged();
+            };
+
             foreach (var cloudSdkInitializable in _initializables)
             {
                 cloudSdkInitializable.CloudSdkInitialize();

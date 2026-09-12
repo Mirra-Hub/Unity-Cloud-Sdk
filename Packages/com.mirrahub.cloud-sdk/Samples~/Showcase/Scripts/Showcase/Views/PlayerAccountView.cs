@@ -13,8 +13,9 @@ namespace MirraCloud.Example.Showcase
     /// the toolbar reloads the screen and opens the <c>&lt;/&gt;</c> code drawer, and two tabs split
     /// the identity (Overview) from the sub-profiles the account owns (Profiles).
     /// <para>
-    /// Read-only on purpose. Everything this service can change — nickname, username, gender, icon,
-    /// segments — arrives later as actions; nothing on this screen writes.
+    /// Read-only apart from one thing: switching the profile the account plays as, from a profile's
+    /// card. Everything else this service can change — nickname, username, gender, icon, segments —
+    /// arrives later as actions.
     /// </para>
     /// </summary>
     public sealed class PlayerAccountView : ServiceView
@@ -46,6 +47,19 @@ if (result.IsSuccess)
         // p.Id, p.Nickname, p.Username, p.Gender, p.IconUrl,
         // p.RoleKeys, p.SegmentKeys, p.AbTestKeys, p.LastLogin
     }
+}";
+
+        private const string SelectSnippet =
+@"// Play as another profile of the account. The operation completes once the session has been
+// refreshed for it, so economy, saves, purchases and analytics already act as the new profile.
+var op = sdk.PlayerAccount.SelectProfileAsync(profileId);
+await op.Task();
+
+if (op.Result.IsSuccess)
+{
+    // sdk.PlayerAccount.PlayerAccountInfo.SelectedProfileId == profileId
+    // Analytics: what the old profile recorded was sent before the switch, and a new play
+    // session (sdk.Analytics.SessionId) started for the new one.
 }";
 
         private const string PresenceSnippet =
@@ -91,6 +105,8 @@ if (result != null && result.IsSuccess)
             DeclareCall(new SdkCall("List the account's profiles", ProfilesSnippet));
             DeclareCall(new SdkCall("Read a profile's presence", PresenceSnippet,
                 "Issued once per row and cached, so re-sorting the table does not ask the server again."));
+            DeclareCall(new SdkCall("Switch profile", SelectSnippet,
+                "Opened from a profile's card. Completes after the session is refreshed for the new profile."));
 
             // The account cached at login paints the chip immediately; the Overview load overwrites
             // it with the freshly fetched one a moment later.
@@ -296,6 +312,7 @@ if (result != null && result.IsSuccess)
             list.Add(Kv("Updated", Fmt.DateTime2(a.UpdatedDate)));
             list.Add(Kv("Time zone", a.TimeZone));
             list.Add(KvCopy("Account ID", a.Id));
+            list.Add(KvCopy("Selected profile", a.SelectedProfileId));
             list.Add(KvCopy("Scope", a.ScopeId));
             card.Body.Add(list);
             return card;
@@ -389,13 +406,29 @@ if (result != null && result.IsSuccess)
             return av;
         }
 
-        private static VisualElement NicknameCell(object row)
+        private VisualElement NicknameCell(object row)
         {
             var p = Row(row);
             var l = new Label(Fmt.OrDash(p != null ? p.Nickname : null));
             l.enableRichText = false;
             l.AddToClassList("sc-pa-cell--strong");
-            return l;
+            if (!IsSelected(p))
+            {
+                return l;
+            }
+
+            var box = new VisualElement();
+            box.AddToClassList("sc-chip-row");
+            box.Add(l);
+            box.Add(new Chip("playing", ChipTone.Ok));
+            return box;
+        }
+
+        /// <summary>Whether the account currently plays as this profile — the one its token carries.</summary>
+        private bool IsSelected(ProfileInfo p)
+        {
+            var account = Sdk.PlayerAccount.PlayerAccountInfo;
+            return p != null && account != null && !string.IsNullOrEmpty(p.Id) && p.Id == account.SelectedProfileId;
         }
 
         private static VisualElement UsernameCell(object row)
@@ -586,10 +619,19 @@ if (result != null && result.IsSuccess)
             {
                 chips.Add(new Chip(p.Status, ChipTone.Ok));
             }
+            if (IsSelected(p))
+            {
+                chips.Add(new Chip("playing", ChipTone.Ok));
+            }
             id.Add(chips);
 
             top.Add(id);
             root.Add(top);
+
+            if (!IsSelected(p) && !string.IsNullOrEmpty(p.Id))
+            {
+                root.Add(SwitchButton(p));
+            }
 
             // The dialog does not scroll on its own, and a profile with roles, segments and tests
             // is taller than a short screen.
@@ -614,6 +656,65 @@ if (result != null && result.IsSuccess)
 
             root.Add(scroll);
             return root;
+        }
+
+        /// <summary>
+        /// Plays as this profile. The button stays disabled until the switch — including the session
+        /// refresh — is over, then the card closes and the screen reloads to show the new selection.
+        /// </summary>
+        private VisualElement SwitchButton(ProfileInfo p)
+        {
+            var host = new VisualElement();
+            host.AddToClassList("sc-pa-block");
+
+            var status = new Label();
+            status.enableRichText = false;
+            status.AddToClassList("sc-pa-note");
+
+            var button = new Button { text = "Play as this profile" };
+            button.AddToClassList("sc-btn");
+            button.AddToClassList("sc-btn--primary");
+            button.clicked += () =>
+            {
+                button.SetEnabled(false);
+                status.text = "Switching…";
+                SwitchProfile(p, button, status);
+            };
+
+            host.Add(button);
+            host.Add(status);
+            return host;
+        }
+
+        private async void SwitchProfile(ProfileInfo p, Button button, Label status)
+        {
+            var op = Sdk.PlayerAccount.SelectProfileAsync(p.Id);
+            await op.Task();
+            var result = op.Result;
+
+            if (Log != null && result != null)
+            {
+                Log.Record("Select profile", result, SelectSnippet);
+            }
+
+            if (result == null || !result.IsSuccess)
+            {
+                button.SetEnabled(true);
+                status.text = result != null && result.Error != null && !string.IsNullOrEmpty(result.Error.Message)
+                    ? result.Error.Message
+                    : "The profile could not be selected.";
+                return;
+            }
+
+            if (Toasts != null)
+            {
+                Toasts.Ok("Playing as " + Fmt.OrDash(p.Nickname));
+            }
+            if (Popup != null)
+            {
+                Popup.Close();
+            }
+            Refresh();
         }
 
         // ----- shared pieces ------------------------------------------------------------------

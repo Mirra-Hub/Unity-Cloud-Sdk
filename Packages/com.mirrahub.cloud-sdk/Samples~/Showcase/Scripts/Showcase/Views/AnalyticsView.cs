@@ -45,7 +45,8 @@ await sdk.Analytics.SendEventAsync(""level_completed"").Task();";
 
         private const string EnqueueSnippet =
 @"// Fire-and-forget into the SDK's own tracker instead of one request per event. The tracker
-// flushes on a timer, once 100 events are buffered, and on pause or quit.
+// flushes on a timer, once 100 events are buffered, on pause or quit, and before the player
+// switches profile. The first argument is the event's key from the console.
 sdk.Analytics.EnqueueEvent(""shot_fired"",
     new Dictionary<string, string> { { ""weapon"", ""bow"" } },
     new List<string> { ""combat"" });
@@ -56,12 +57,13 @@ sdk.Analytics.EnqueueEvent(""shot_fired"",
 
         private const string BatchSnippet =
 @"// The request the tracker itself makes when it flushes: many events in one round trip,
-// each carrying its own timestamp.
+// each carrying its own timestamp. Events are named by their key from the console, which
+// stays the same when the event is renamed there.
 var events = new List<BatchEventItemDto>
 {
     new BatchEventItemDto
     {
-        EventName = ""level_start"",
+        EventKey = ""level_start"",
         Date = DateTime.UtcNow.ToString(""O""),
         Parameters = new Dictionary<string, string> { { ""level"", ""7"" } },
         Tags = new List<string> { ""progression"" }
@@ -69,11 +71,15 @@ var events = new List<BatchEventItemDto>
 };
 
 var op = sdk.Analytics.SendBatchAsync(events);
-await op.Task();";
+await op.Task();
+
+// 200 even when the server rejected items: the body is { published, errors }, and the SDK
+// logs a warning for the rejected ones.";
 
         private const string SessionSnippet =
 @"// A session start. The SDK already sends exactly one per play session (sdk.Analytics.SessionId):
-// one per entry into the game (sign-in or session restore at launch, another account).
+// one per entry into the game (sign-in or session restore at launch, another account, another
+// profile of the account).
 // A call by hand counts the current play session twice.
 var op = sdk.Analytics.SendSessionStartedAsync();
 await op.Task();";
@@ -173,6 +179,8 @@ await op.Task();";
             scope.AddToClassList("sc-an-scope");
             col.Add(scope);
 
+            col.Add(Identity());
+
             if (_history.Count == 0)
             {
                 col.Add(ZeroState.Panel(LucideIcon.ChartLine, "Analytics only writes",
@@ -199,6 +207,44 @@ await op.Task();";
             table.Bind(_history, o => !((Shot)o).Ok);
             col.Add(table);
             return col;
+        }
+
+        /// <summary>
+        /// Who the events are filed under. Every row carries both ids, and the console counts players
+        /// either by profile or by account — switching profiles makes a new player by profile but not
+        /// by account.
+        /// </summary>
+        private VisualElement Identity()
+        {
+            var account = Sdk.PlayerAccount.PlayerAccountInfo;
+
+            var card = new Card();
+            card.WithTitle("Filed under");
+
+            var list = new VisualElement();
+            list.AddToClassList("sc-kv-list");
+            list.Add(Kv("Account", account != null ? account.Id : null));
+            list.Add(Kv("Profile", account != null ? account.SelectedProfileId : null));
+            list.Add(Kv("Play session", Sdk.Analytics.SessionId));
+            card.Body.Add(list);
+            return card;
+        }
+
+        private static VisualElement Kv(string key, string value)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sc-kv");
+
+            var k = new Label(key);
+            k.enableRichText = false;
+            k.AddToClassList("sc-kv__k");
+            row.Add(k);
+
+            var v = new Label(Fmt.OrDash(value));
+            v.enableRichText = false;
+            v.AddToClassList("sc-kv__v");
+            row.Add(v);
+            return row;
         }
 
         /// <summary>Busiest event names first — a dictionary's order is an implementation detail, and
@@ -335,7 +381,7 @@ await op.Task();";
                     + "flushes on a timer, at 100 events, and on pause or quit — which is what a "
                     + "high-frequency gameplay event wants.", LucideIcon.Hourglass)
                 .WithFields(
-                    FormField.Text("eventName", "Event name", "shot_fired", true),
+                    FormField.Text("eventName", "Event key", "shot_fired", true),
                     FormField.Json("parameters", "Parameters", "{\n  \"weapon\": \"bow\"\n}"),
                     FormField.Text("tags", "Tags (comma-separated)", "combat"))
                 .WithSnippet(EnqueueSnippet)
@@ -345,7 +391,7 @@ await op.Task();";
                     "Several events in one request, each stamped with its own time. This is the call "
                     + "the tracker makes for you when its buffer flushes.", LucideIcon.Layers)
                 .WithFields(
-                    FormField.Text("names", "Event names (comma-separated)",
+                    FormField.Text("names", "Event keys (comma-separated)",
                         "level_start, level_completed", true),
                     FormField.Json("parameters", "Parameters shared by every event", "{\n  \"level\": 7\n}"),
                     FormField.Text("tags", "Tags (comma-separated)"))
@@ -452,7 +498,7 @@ await op.Task();";
             {
                 var item = new BatchEventItemDto
                 {
-                    EventName = name,
+                    EventKey = name,
                     // The item's own Date is what the report groups by, so it is stamped per event
                     // in the round-trip format the backend parses.
                     Date = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
@@ -470,11 +516,29 @@ await op.Task();";
                 events.Add(item);
             }
 
-            var outcome = await Await(Sdk.Analytics.SendBatchAsync(events), "Analytics · batch");
+            var op = Sdk.Analytics.SendBatchAsync(events);
+            var outcome = await Await(op, "Analytics · batch");
+            string note = names.Count + " event" + (names.Count == 1 ? "" : "s") + " · " + Describe(parameters);
+
+            // A 200 does not mean delivered: the body lists the items the server turned down.
+            if (outcome.Ok)
+            {
+                int published;
+                string firstError;
+                int rejected = Rejected(op.Result, out published, out firstError);
+                if (rejected > 0 && published == 0)
+                {
+                    outcome.Ok = false;
+                    outcome.Message = "every event was rejected: " + firstError;
+                }
+                else if (rejected > 0)
+                {
+                    note = published + " of " + (published + rejected) + " accepted · " + firstError;
+                }
+            }
+
             string title = names.Count == 1 ? names[0] : names.Count + " events";
-            Record(title, "batch", outcome,
-                names.Count + " event" + (names.Count == 1 ? "" : "s") + " · " + Describe(parameters),
-                names);
+            Record(title, "batch", outcome, note, names);
             return Finish(outcome, "Sent " + title);
         }
 
@@ -571,6 +635,62 @@ await op.Task();";
                 Toasts.Ok(success);
             }
             return ActionOutcome.Success(success + " · " + outcome.Ms + " ms round trip");
+        }
+
+        /// <summary>
+        /// Reads the <c>{ published, errors }</c> body of a batch. Returns how many items were rejected,
+        /// with the first reason; an unreadable or empty body counts as nothing rejected.
+        /// </summary>
+        private static int Rejected(RestApiResult result, out int published, out string firstError)
+        {
+            published = 0;
+            firstError = null;
+            if (result == null || string.IsNullOrEmpty(result.ResponseBody))
+            {
+                return 0;
+            }
+
+            JsonValue body;
+            try
+            {
+                body = new JsonService().FromJson<JsonValue>(result.ResponseBody);
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
+            if (body == null || body.Type != JsonValueType.Object)
+            {
+                return 0;
+            }
+
+            var map = (IDictionary<string, JsonValue>)body;
+            JsonValue value;
+            if (map.TryGetValue("published", out value) && value != null && value.Type == JsonValueType.Int)
+            {
+                published = (int)value;
+            }
+            if (!map.TryGetValue("errors", out value) || value == null || value.Type != JsonValueType.Array)
+            {
+                return 0;
+            }
+
+            var errors = (IList<JsonValue>)value;
+            if (errors.Count > 0 && errors[0] != null && errors[0].Type == JsonValueType.Object)
+            {
+                var first = (IDictionary<string, JsonValue>)errors[0];
+                JsonValue text;
+                if (first.TryGetValue("code", out text) && text != null && text.Type == JsonValueType.String)
+                {
+                    firstError = (string)text;
+                }
+                else if (first.TryGetValue("error", out text) && text != null && text.Type == JsonValueType.String)
+                {
+                    firstError = (string)text;
+                }
+            }
+            firstError = firstError ?? "no reason given";
+            return errors.Count;
         }
 
         // ----- input parsing --------------------------------------------------------------------

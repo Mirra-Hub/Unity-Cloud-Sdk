@@ -7,6 +7,13 @@ namespace Plugins.MirraCloud.Core.Services.Analytics.Dto
     [Serializable]
     public class BatchEventItemDto
     {
+        /// <summary>The event's key, as set in the console.</summary>
+        public string EventKey;
+
+        /// <summary>
+        /// The same key again, for servers that predate event keys and only read this field. Newer servers read
+        /// <see cref="EventKey"/> first.
+        /// </summary>
         public string EventName;
         public Dictionary<string, string> Parameters = new Dictionary<string, string>();
         public List<string> Tags = new List<string>();

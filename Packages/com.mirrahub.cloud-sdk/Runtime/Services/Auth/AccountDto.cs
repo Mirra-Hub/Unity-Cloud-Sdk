@@ -23,6 +23,8 @@ namespace MirraCloud.Core.Auth
     {
         [JsonNameCamel] public string Id;
         [JsonNameCamel] public string ScopeId;
+        /// <summary>The profile the account plays as; analytics and every profile-scoped service use it.</summary>
+        [JsonNameCamel] public string SelectedProfileId;
         [JsonNameCamel] public AccountNicknameDto Nickname;
         /// <summary>Mutable, project-unique public handle (stored with the acc_ prefix).</summary>
         [JsonNameCamel] public string Username;
