@@ -33,6 +33,7 @@ Packages/com.mirrahub.cloud-sdk/
 - [Entities](services/Entities.md) — конфигурации сущностей (templates, components)
 - [RemoteConfig](services/RemoteConfig.md) — удалённая конфигурация
 - [Segments](services/Segments.md) — сегменты игроков
+- [Events](services/Events.md) — идущие LiveOps-ивенты: баннеры, отсчёты, гейт контента
 - [Deployment](services/Deployment.md) — резолв веток для окружения
 
 ### Player Data

@@ -23,6 +23,7 @@ using Plugins.MirraCloud.Core.General.LifeCycle;
 using Plugins.MirraCloud.Core.Services.Analytics;
 using Plugins.MirraCloud.Core.Services.Deployment;
 using Plugins.MirraCloud.Core.Services.PlayerAccount;
+using MirraCloud.Core.Events;
 using Plugins.MirraCloud.Core.Services.Segments;
 using MirraCloud.Core.WebView;
 using Plugins.MirraCloud.Core.Services.Challenges;
@@ -49,6 +50,7 @@ namespace MirraCloud.Core
         public AssetsStorageService AssetsStorage { get; private set; }
         public CloudCodeService CloudCode { get; private set; }
         public SegmentService Segments { get; private set; }
+        public EventsService Events { get; private set; }
         public AnalyticsService Analytics { get; private set; }
         public DeploymentService Deployment { get; private set; }
         public GroupsService Groups { get; private set; }
@@ -126,6 +128,7 @@ namespace MirraCloud.Core
             Deployment = RegisterService(new DeploymentService(configuration, logger, restApiClient));
             CloudCode = RegisterService(new CloudCodeService(configuration, logger, restApiClient));
             Segments = RegisterService(new SegmentService(configuration, logger, restApiClient));
+            Events = RegisterService(new EventsService(configuration, logger, restApiClient));
             DailyRewards = RegisterService(new DailyRewardsService(configuration, restApiClient));
             Challenges = RegisterService(new ChallengesService(configuration, PlayerAccount, restApiClient));
             Purchases = RegisterService(new PurchasesService(configuration, logger, restApiClient, WebView, coroutineRunner));
@@ -137,6 +140,8 @@ namespace MirraCloud.Core
 
             Authentication.OnLogin += data =>
                 _analyticsTracker.TrackSignIn(Analytics, (data?.CurrentAccount ?? data?.PlayerInfo)?.Id);
+            // A different player has a different audience.
+            Authentication.OnLogin += _ => Events.Clear();
             Authentication.OnSessionRefreshed += () =>
                 _analyticsTracker.TrackSessionRefresh(Analytics, PlayerAccount.PlayerAccountInfo?.Id);
             Authentication.OnSessionExpired += _analyticsTracker.StopTracking;
@@ -148,6 +153,9 @@ namespace MirraCloud.Core
             {
                 _analyticsTracker.RestartPlaySession();
                 Chats.HandleProfileChanged();
+                // Which events apply is decided per profile, so the cached answer now describes
+                // somebody else. Dropped rather than refetched: the game decides when it needs it.
+                Events.Clear();
             };
 
             foreach (var cloudSdkInitializable in _initializables)
