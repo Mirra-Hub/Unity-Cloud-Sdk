@@ -2985,6 +2985,80 @@
 /* the two helper cards under the search results */
 .sc-grp-panel { margin-top: 16px; }
 
+/* ===== events =====
+   The Effect tab is two readings of one number side by side, so the pair has to read as a pair:
+   same box, same type scale, the arrow between them carrying the "and then the server..." beat.
+   No font-family here — the sheet ships two faces (LiberationSans, lucide) and code-ish text is
+   spelled out with letter-spacing the same way .sc-code does. */
+.sc-evt-title {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #E6EAF2;
+}
+
+.sc-evt-key {
+    font-size: 11px;
+    color: #9AA4B8;
+    letter-spacing: 0.5px;
+}
+
+.sc-evt-note {
+    font-size: 12px;
+    color: #9AA4B8;
+    white-space: normal;
+    margin-top: 4px;
+    margin-bottom: 6px;
+}
+
+.sc-evt-compare {
+    margin-top: 6px;
+    margin-bottom: 4px;
+}
+
+.sc-evt-side {
+    flex-grow: 1;
+    flex-basis: 0;
+    padding-top: 10px;
+    padding-right: 10px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    border-radius: 8px;
+    background-color: #0E1116;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: #232A36;
+    border-right-color: #232A36;
+    border-bottom-color: #232A36;
+    border-left-color: #232A36;
+}
+
+.sc-evt-side-caption {
+    font-size: 11px;
+    color: #9AA4B8;
+}
+
+.sc-evt-side-value {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: #E6EAF2;
+    margin-top: 2px;
+}
+
+.sc-evt-side-source {
+    font-size: 11px;
+    color: #788496;
+    letter-spacing: 0.5px;
+}
+
+.sc-evt-arrow {
+    font-size: 18px;
+    color: #A855F7;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
 /* ===== lucide icon labels =====
    Applied to any Label whose text is a LucideIcon codepoint. Declared last in the
    sheet so its font-style wins over the bold set by the per-context glyph classes
