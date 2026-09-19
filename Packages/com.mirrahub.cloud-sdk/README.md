@@ -1,7 +1,7 @@
 # Mirra Cloud SDK
 
 A cloud backend for games — accounts, saves, economy, leaderboards, social systems, LiveOps and
-analytics. 23 services, no server of your own.
+analytics. 24 services, no server of your own.
 
 The full description, a quick start and the per-service reference live in the
 [repository README](https://github.com/Mirra-Hub/Unity-Cloud-Sdk#readme) and in the
@@ -14,7 +14,7 @@ The full description, a quick start and the per-service reference live in the
 One URL — `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.4.0
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.5.0
 ```
 
 The package is self-contained. The native plugins it needs — a WebView for external sign-in and

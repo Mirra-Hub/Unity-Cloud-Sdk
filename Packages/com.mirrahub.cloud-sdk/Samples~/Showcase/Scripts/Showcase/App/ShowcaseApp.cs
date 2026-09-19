@@ -280,6 +280,9 @@ namespace MirraCloud.Example.Showcase
                 case "segments":
                     view = new SegmentsView(m, back, _ctx);
                     break;
+                case "events":
+                    view = new EventsView(m, back, _ctx);
+                    break;
                 case "entities":
                     view = new EntitiesView(m, back, _ctx);
                     break;
