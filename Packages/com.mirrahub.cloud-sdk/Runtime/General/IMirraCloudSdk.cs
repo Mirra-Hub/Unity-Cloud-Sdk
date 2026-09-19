@@ -18,6 +18,7 @@ using Plugins.MirraCloud.Core.Services.Analytics;
 using Plugins.MirraCloud.Core.Services.Challenges;
 using Plugins.MirraCloud.Core.Services.Deployment;
 using Plugins.MirraCloud.Core.Services.PlayerAccount;
+using MirraCloud.Core.Events;
 using Plugins.MirraCloud.Core.Services.Segments;
 using MirraCloud.Core.WebView;
 using Plugins.MirraCloud.Core.Services.Tournaments;
@@ -41,6 +42,7 @@ namespace MirraCloud.Core
         AssetsStorageService AssetsStorage { get; }
         CloudCodeService CloudCode { get; }
         SegmentService Segments { get; }
+        EventsService Events { get; }
         AnalyticsService Analytics { get; }
         DeploymentService Deployment { get; }
         DailyRewardsService DailyRewards { get; }

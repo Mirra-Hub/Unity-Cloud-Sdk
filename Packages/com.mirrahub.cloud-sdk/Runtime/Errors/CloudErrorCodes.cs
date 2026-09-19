@@ -316,17 +316,22 @@ namespace MirraCloud.Core.Errors
 
         // === events ===
         public const string EventsActiveEventsCapReached = "events.active_events_cap_reached";
+        public const string EventsBranchNotEditable = "events.branch_not_editable";
         public const string EventsConfigInstanceNotFound = "events.config_instance_not_found";
-        public const string EventsEventBranchMismatch = "events.event_branch_mismatch";
+        public const string EventsEventKeyConflict = "events.event_key_conflict";
+        public const string EventsEventKeyInvalid = "events.event_key_invalid";
         public const string EventsEventNotFound = "events.event_not_found";
+        public const string EventsEventNotInBranch = "events.event_not_in_branch";
         public const string EventsInvalidInstanceStableId = "events.invalid_instance_stable_id";
-        public const string EventsOverrideBranchMismatch = "events.override_branch_mismatch";
+        public const string EventsOverrideConflict = "events.override_conflict";
         public const string EventsOverrideHandlerNotRegistered = "events.override_handler_not_registered";
         public const string EventsOverrideNotFound = "events.override_not_found";
+        public const string EventsOverrideNotInBranch = "events.override_not_in_branch";
         public const string EventsOverridePayloadInvalid = "events.override_payload_invalid";
         public const string EventsScheduleInvalidRange = "events.schedule_invalid_range";
         public const string EventsScheduleRecurrenceRequired = "events.schedule_recurrence_required";
         public const string EventsScheduleRequired = "events.schedule_required";
+        public const string EventsTargetingRuleNotFound = "events.targeting_rule_not_found";
 
         // === friends ===
         public const string FriendsInvalidPlayerId = "friends.invalid_player_id";

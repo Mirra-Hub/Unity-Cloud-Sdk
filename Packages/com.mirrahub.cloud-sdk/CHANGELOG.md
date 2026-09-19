@@ -6,6 +6,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.5.0] — 2026-09-19
+
+### Added
+
+- **`Events` service.** The LiveOps events running for this player: `GetActiveEventsAsync()` plus
+  cached lookups — `MyEvents`, `TryGetEvent`, `IsEventActive(key)`, `GetTimeLeft(key)`,
+  `GetTimeUntilNextOccurrence(key)`.
+
+  This does not make events work. While an event runs the server already hands the player different
+  economy values, and a game that calls nothing here still gets them. What it could not do before is
+  *say so* — put up a banner, count down to the end of the offer, or open a screen only to the
+  audience an event targets.
+
+  Events are addressed by the key set in the console. `IsEventActive(key)` answers "running **and**
+  for this player": an event can be genuinely running and still not apply here, and a gate that
+  forgets the difference opens seasonal content to everyone.
+
+  Not part of a splash-screen warm-up, unlike the config services: the answer depends on the player
+  and is only true for minutes. `IsStale` says when the server expects it to change; nothing
+  refetches on its own.
+
+  All times are absolute UTC. The service records the offset between the server's clock and the
+  device's on each fetch and counts down from `ServerUtcNow`, because device clocks are wrong often
+  enough for a countdown built on them to visibly lie.
+
+- **`CloudErrorCodes`** gained the seven Events codes the backend actually returns
+  (`EventsEventNotInBranch`, `EventsOverrideNotInBranch`, `EventsBranchNotEditable`,
+  `EventsEventKeyConflict`, `EventsEventKeyInvalid`, `EventsOverrideConflict`,
+  `EventsTargetingRuleNotFound`).
+
+### Changed
+
+- **The cached event list is dropped on sign-in and on a profile switch.** Which events apply is
+  decided per profile, so the previous answer describes somebody else. It is dropped rather than
+  refetched — the game decides when it needs it.
+
+### Removed
+
+- **`CloudErrorCodes.EventsEventBranchMismatch` and `EventsOverrideBranchMismatch`.** No such codes
+  exist on the backend; nothing could ever have matched them.
+
 ## [0.4.0] — 2026-09-12
 
 ### Added
