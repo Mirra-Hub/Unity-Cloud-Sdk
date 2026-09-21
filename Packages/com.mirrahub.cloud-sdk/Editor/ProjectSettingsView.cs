@@ -432,6 +432,13 @@ namespace MirraCloud.Editor
             var op = _apiService.GetPlatformsAsync(projectId);
             op.OnCompleted += _ =>
             {
+                // The project was switched while this was in flight: the list belongs to the previous one, and
+                // applying it would write that project's platform key into the configuration of this one.
+                if (_configuration.ProjectId != projectId)
+                {
+                    return;
+                }
+
                 _isLoadingPlatforms = false;
                 if (op.Result.IsSuccess)
                 {

@@ -20,13 +20,15 @@ https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer#1.1
 ```
 
 1. Import the sample: `Package Manager → Mirra Cloud SDK → Samples → Showcase → Import`.
-2. Connect the project: `Tools → Mirra Cloud → Manager`. That writes
-   `Assets/MirraCloud/Resources/Configuration.asset`, which the sample reads like any other game.
+2. Connect the project: `Tools → Mirra Cloud → Manager`, including the **Platform** the build signs
+   in on. That writes `Assets/MirraCloud/Resources/Configuration.asset`, which the sample reads like
+   any other game.
 3. Open `Assets/Samples/Mirra Cloud SDK/<version>/Showcase/Scenes/MC_Showcase.unity` and press
    **Play**.
 
-You start on the **auth screen**: pick a provider (Guest / Device / Email, or an external
-provider via in-app WebView/OpenID). On success you move to the **services screen** — a grid of
+You start on the **auth screen**: pick one of the sign-in methods the platform has switched on
+(Guest / Device / Email / Username, or an external provider via in-app WebView/OpenID). On success
+you move to the **services screen** — a grid of
 all SDK modules. Tap any card to open its detail view.
 
 > Dev tip: the `ShowcaseInstaller` component on `ShowcaseRoot` has a `_devForceServices` toggle

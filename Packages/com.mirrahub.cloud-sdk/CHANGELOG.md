@@ -36,6 +36,12 @@ platform in the console, switch on its sign-in methods, pick it in `Tools → Mi
   legal info). Purchases codes the mirror had missed are in too (`PurchasesBranchNotEditable`,
   `Purchases*NotInBranch`, `PurchasesProviderConfigAlreadyExists`,
   `PurchasesProviderMappingReferenceMissing`).
+- **`CloudErrorCodes` covers the whole backend catalogue.** The codes the mirror had missed are in:
+  new sections `CloudActions*`, `CloudServices*`, `Organizations*`, `Projects*`, `PromoCodes*`, and
+  the key / branch codes of existing ones (`*BranchNotEditable`, `*InvalidKey`, `*KeyAlreadyExists`,
+  `*KeyImmutable`, `*NotInBranch` for AB tests, challenges, chats, daily rewards, economy,
+  leaderboards, profanity filter, rules, segments and tournaments; `Deployment` scope codes;
+  `AssetsStorageAssetReferencedByEntities`, `ProjectStatisticsPeriodTooLong`, `TariffsPlan*`).
 - **`LinkAuthProviderDto`** carries the credentials of every provider (`GuestId`, `DeviceId`, `Email`,
   `UserId`, `Login`, `Password`), so `ResolveLinkConflictAsync` can resolve more than store conflicts.
 - **`CloudErrorCodes`** mirrors the new Integrations module (`Integrations*`: key, field and usage

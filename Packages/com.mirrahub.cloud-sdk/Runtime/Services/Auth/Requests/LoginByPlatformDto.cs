@@ -5,8 +5,8 @@ namespace MirraCloud.Core.Auth
 {
     /// <summary>
     /// Unified DTO for /login/platform and /link/platform: the store's proof of who the player is (AuthCode for
-    /// OAuth flows, PlatformToken for native SDK signatures, Extra for VK / Yandex Games launch params and the
-    /// Game Center signature).
+    /// Google Play, Extra for VK / Yandex Games launch params and the Game Center signature). No store reads
+    /// PlatformToken today.
     /// </summary>
     /// <remarks>
     /// Names no platform: the store is the single store sign-in of the platform the request is made on

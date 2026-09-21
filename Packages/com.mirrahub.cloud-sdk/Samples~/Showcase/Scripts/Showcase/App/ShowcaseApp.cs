@@ -222,6 +222,8 @@ namespace MirraCloud.Example.Showcase
             catch (Exception e)
             {
                 Debug.LogWarning("[Showcase] loading the sign-in methods failed: " + e.Message);
+                // Leave the screen on its Retry button, not on the loading line.
+                auth.ShowError(null);
                 return;
             }
 
