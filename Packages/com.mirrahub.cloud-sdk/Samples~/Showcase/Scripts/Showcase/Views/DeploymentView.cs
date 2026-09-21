@@ -85,7 +85,7 @@ if (op.Result.IsSuccess)
                     project = config.ProjectId;
                     branch = config.BranchId;
                     url = config.Url;
-                    platform = config.AnalyticsPlatformId;
+                    platform = config.PlatformKey;
                 }
             }
             catch (Exception e)
@@ -100,7 +100,7 @@ if (op.Result.IsSuccess)
             card.WithTitle("Configuration asset", Meta.Accent);
 
             var hint = new Label("Read from Resources/Configuration.asset at startup. Everything the SDK "
-                + "sends is scoped to this project and branch.");
+                + "sends is scoped to this project and branch; sign-in and analytics also name the platform.");
             hint.AddToClassList("sc-fs-hint");
             card.Body.Add(hint);
 
@@ -109,7 +109,7 @@ if (op.Result.IsSuccess)
             kv.Add(Kv("Project id", project, project));
             kv.Add(Kv("Branch", branch, branch));
             kv.Add(Kv("Backend URL", url, url));
-            kv.Add(Kv("Analytics platform", platform, platform));
+            kv.Add(Kv("Platform key", platform, platform));
             kv.Add(Kv("Client version", Application.version, Application.version));
             card.Body.Add(kv);
 

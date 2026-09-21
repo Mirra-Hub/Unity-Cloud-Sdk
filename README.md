@@ -104,10 +104,13 @@ No code, done once — [full walkthrough ↗](https://mirrahub.com/documentation
 
 1. In the dashboard: **Organization settings → Service accounts** → create an account (give it a
    role or explicit project permissions) and issue a **key** — it is shown once.
-2. In Unity: `Tools → Mirra Cloud → Manager` → paste the key into **Service Account Key** →
+2. In the dashboard: **Platforms** → create the platform the game runs on (for example `android`)
+   and switch on its sign-in methods. A project without a platform refuses every sign-in.
+3. In Unity: `Tools → Mirra Cloud → Manager` → paste the key into **Service Account Key** →
    **Connect**.
-3. Pick a **Project**, **Branch** and **API Token** (you can create a token right there with
-   **+ Create Token**).
+4. Pick a **Project**, **Branch**, **Platform** and **API Token** (you can create a token right
+   there with **+ Create Token**). The platform's key goes with every sign-in and analytics
+   request; a game that ships to several platforms picks the matching one before each build.
 
 The choice is saved to `Assets/MirraCloud/Resources/Configuration.asset` — the asset is created for
 you and belongs to your project, not to the package.
@@ -330,7 +333,7 @@ How it is put together is covered in
 
 | Tool | Where | What for |
 | --- | --- | --- |
-| **Manager** | `Tools → Mirra Cloud → Manager` | sign in with a service account key, pick project / branch / token, create tokens |
+| **Manager** | `Tools → Mirra Cloud → Manager` | sign in with a service account key, pick project / branch / platform / token, create tokens |
 | **Request Inspector** | `MirraCloud → Request Inspector` | tracing the SDK's HTTP requests while debugging |
 | **Developer Settings** | `Create → Mirra Cloud → Developer Settings` in any `Resources` folder | optional asset: environment profiles that override the API hosts for local development |
 

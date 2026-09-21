@@ -405,6 +405,8 @@
 .sc-auth__divider { flex-direction: row; align-items: center; justify-content: center; margin-top: 6px; margin-bottom: 14px; }
 .sc-auth__divider-label { color: #6E6E77; font-size: 12px; }
 .sc-auth__footer { flex-direction: row; flex-wrap: wrap; justify-content: center; margin-top: 18px; }
+.sc-auth__status { color: #8A8A92; font-size: 13px; white-space: normal; -unity-text-align: middle-center; margin-bottom: 12px; }
+.sc-auth__status--error { color: #F0808A; }
 
 .sc-config-chip {
     flex-direction: row; align-items: center;

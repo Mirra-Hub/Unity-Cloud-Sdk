@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using MirraCloud.Core.Storage;
 using MirraCloud.Core.Auth.OpenId;
+using MirraCloud.Core.Errors;
 using MirraCloud.Core.WebView;
 using MirraCloud.Json;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
@@ -27,6 +28,10 @@ namespace MirraCloud.Core.Auth
         private const string UNLINK_ROUTE = "/players/unlink/v1/projects";
         private const string OPENID_RESULT_ROUTE = "/players/auth/v1/openid/result";
 
+        // The platform the player signs in on. The server reads it on every sign-in call (login, OpenID begin,
+        // login-methods); on link it takes the platform from the session instead and the gateway drops this header.
+        private const string PLATFORM_KEY_HEADER = "PlatformKey";
+
         private const string GUESTID_KEY = "GuestId";
         private const string REFRESH_TOKEN_KEY = "RefreshToken";
         private const string SESSIONID_KEY = "SessionId";
@@ -45,6 +50,7 @@ namespace MirraCloud.Core.Auth
         private string _refreshingToken;
         private List<AsyncOperation<RestApiResult>> _refreshWaiters;
         private bool _refreshSignsOutOnTransientFailure;
+        private bool _missingPlatformKeyReported;
 
         public bool IsAuth { get; private set; }
         public string SessionId => _sessionId;
@@ -151,17 +157,26 @@ namespace MirraCloud.Core.Auth
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
+        /// <summary>
+        /// Signs in with the store of this build's platform (<see cref="Configuration.PlatformKey"/>): Google Play Games,
+        /// VK Games, Yandex Games or Apple Game Center, whichever store sign-in the platform has. Pass the store's
+        /// proof: <paramref name="extra"/> for the VK / Yandex Games launch params (with their signature) and the Game
+        /// Center signature (<c>publicKeyUrl</c>, <c>signature</c>, <c>salt</c>, <c>timestamp</c>),
+        /// <paramref name="authCode"/> for Google Play (the server auth code).
+        /// </summary>
+        /// <param name="platformToken">Not read by any of today's stores; kept for the request shape.</param>
+        /// <param name="externalUserId">Read only by Game Center (its <c>teamPlayerID</c>); every other store takes the
+        /// player's id from the verified proof.</param>
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginPlatformAsync(
-            string platformId,
-            string externalUserId,
+            Dictionary<string, string> extra = null,
             string authCode = null,
             string platformToken = null,
-            Dictionary<string, string> extra = null,
+            string externalUserId = null,
             bool createAccount = true,
             string nickname = null)
         {
             var route = $"{AuthLoginScope()}/platform";
-            var dto = BuildPlatformDto(platformId, externalUserId, authCode, platformToken, extra, createAccount);
+            var dto = BuildPlatformDto(externalUserId, authCode, platformToken, extra, createAccount);
             dto.Nickname = nickname;
             return PostAuthAsync(route, dto, noAuth: true);
         }
@@ -191,10 +206,15 @@ namespace MirraCloud.Core.Auth
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
-        public AsyncOperation<RestApiResult> StartOpenIdLoginAsync(int providerId, string successUrl)
+        /// <summary>
+        /// Begins a browser sign-in and opens its page in the system browser. <paramref name="providerKey"/> is the
+        /// <see cref="LoginMethodDto.IntegrationKey"/> of an <c>openid</c>, <c>google</c>, <c>apple</c> or
+        /// <c>yandex</c> method from <see cref="GetLoginMethodsAsync"/>. Finish it with <see cref="CompleteOpenIdLoginAsync"/>.
+        /// </summary>
+        public AsyncOperation<RestApiResult> StartOpenIdLoginAsync(string providerKey, string successUrl)
         {
             var op = new AsyncOperation<RestApiResult>();
-            var urlOp = BeginOpenIdLoginUrlAsync(providerId, successUrl);
+            var urlOp = BeginOpenIdLoginUrlAsync(providerKey, successUrl);
             urlOp.UseCompleted(_ =>
             {
                 if (!urlOp.Result.IsSuccess)
@@ -226,18 +246,38 @@ namespace MirraCloud.Core.Auth
             return GetAuthAsync($"{OPENID_RESULT_ROUTE}/{openIdKey}", noAuth: true);
         }
 
-        public AsyncOperation<RestApiResult<string>> BeginOpenIdLoginUrlAsync(int providerId, string successUrl)
+        /// <summary>
+        /// Begins a browser sign-in and returns the provider's page to open (low-level step 1).
+        /// <paramref name="providerKey"/> is the <see cref="LoginMethodDto.IntegrationKey"/> of the method.
+        /// </summary>
+        public AsyncOperation<RestApiResult<string>> BeginOpenIdLoginUrlAsync(string providerKey, string successUrl)
         {
-            var route = $"{AuthLoginScope()}/openid/{providerId}";
-            return BeginOpenIdLoginUrlAsync(route, successUrl);
+            if (string.IsNullOrWhiteSpace(providerKey))
+            {
+                return AsyncOperation<RestApiResult<string>>.CreateCompleted(RestApiResult<string>.ValidationFail("OpenId provider key is empty."));
+            }
+
+            var route = $"{AuthLoginScope()}/openid/{Uri.EscapeDataString(providerKey)}";
+            return RequestOpenIdLoginUrlAsync(route, successUrl);
         }
 
-        public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginOpenIdAsync(int providerId, OpenIdLoginOptions options = null)
+        /// <summary>
+        /// Signs in through a provider's page (OpenID, or Google / Apple / Yandex ID without their native SDK) and
+        /// waits for the player to come back. <paramref name="providerKey"/> is the
+        /// <see cref="LoginMethodDto.IntegrationKey"/> of the method from <see cref="GetLoginMethodsAsync"/>: a platform
+        /// may offer several OpenID providers, and the key picks one.
+        /// </summary>
+        public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginOpenIdAsync(string providerKey, OpenIdLoginOptions options = null)
         {
-            return LoginOpenIdAsync(successUrl => BeginOpenIdLoginUrlAsync(providerId, successUrl), options);
+            if (string.IsNullOrWhiteSpace(providerKey))
+            {
+                return AsyncOperation<RestApiResult<GetAuthDataDto>>.CreateCompleted(RestApiResult<GetAuthDataDto>.ValidationFail("OpenId provider key is empty."));
+            }
+
+            return RunOpenIdLoginAsync(successUrl => BeginOpenIdLoginUrlAsync(providerKey, successUrl), options);
         }
 
-        private AsyncOperation<RestApiResult<string>> BeginOpenIdLoginUrlAsync(string route, string successUrl)
+        private AsyncOperation<RestApiResult<string>> RequestOpenIdLoginUrlAsync(string route, string successUrl)
         {
             if (string.IsNullOrWhiteSpace(successUrl))
             {
@@ -245,18 +285,14 @@ namespace MirraCloud.Core.Auth
             }
 
             var dto = new RegisterOpenIdProviderDto { SuccessUrl = successUrl };
-            var config = new RestRequestConfig
-            {
-                NoAuth = true,
-                DisableRetry = true,
-                RedirectLimit = 0,
-                AllowedHttpStatusCodes = new long[] { 301, 302, 303, 307, 308 }
-            };
+            var config = AuthRequestConfig(noAuth: true);
+            config.RedirectLimit = 0;
+            config.AllowedHttpStatusCodes = new long[] { 301, 302, 303, 307, 308 };
 
             return _restApi.PostAsync<string>(route, dto, config, ExtractRedirectLocation);
         }
 
-        private AsyncOperation<RestApiResult<GetAuthDataDto>> LoginOpenIdAsync(Func<string, AsyncOperation<RestApiResult<string>>> beginLoginUrlAsync, OpenIdLoginOptions options)
+        private AsyncOperation<RestApiResult<GetAuthDataDto>> RunOpenIdLoginAsync(Func<string, AsyncOperation<RestApiResult<string>>> beginLoginUrlAsync, OpenIdLoginOptions options)
         {
             var op = new AsyncOperation<RestApiResult<GetAuthDataDto>>();
 
@@ -321,6 +357,22 @@ namespace MirraCloud.Core.Auth
             return request.GetResponseHeader("Location") ?? request.GetResponseHeader("location");
         }
 
+        /// <summary>
+        /// The sign-in methods this build's platform (<see cref="Configuration.PlatformKey"/>) offers right now, in the
+        /// order set in the console — draw the sign-in buttons from it. Needs no session.
+        /// </summary>
+        /// <remarks>
+        /// A platform the project does not know or has switched off answers 403 with
+        /// <c>platforms.platform_unknown</c> / <c>platforms.platform_disabled</c> (<c>platforms.platform_key_required</c>
+        /// when the key is not set, <c>platforms.platform_not_configured</c> when the project has no platform yet) —
+        /// the same refusals every sign-in call would get.
+        /// </remarks>
+        public AsyncOperation<RestApiResult<LoginMethodsDto>> GetLoginMethodsAsync()
+        {
+            var route = $"{SessionScope()}/login-methods";
+            return _restApi.GetAsync<LoginMethodsDto>(route, AuthRequestConfig(noAuth: true));
+        }
+
         #endregion
 
         #region Link
@@ -366,16 +418,19 @@ namespace MirraCloud.Core.Auth
             return PostAuthAsync(route, dto);
         }
 
+        /// <summary>
+        /// Links the store sign-in of the platform the current session signed in on. Takes the same proof as
+        /// <see cref="LoginPlatformAsync"/>.
+        /// </summary>
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkPlatformAsync(
-            string platformId,
-            string externalUserId,
+            Dictionary<string, string> extra = null,
             string authCode = null,
             string platformToken = null,
-            Dictionary<string, string> extra = null,
+            string externalUserId = null,
             bool createAccount = false)
         {
             var route = $"{LinkScope()}/platform";
-            var dto = BuildPlatformDto(platformId, externalUserId, authCode, platformToken, extra, createAccount);
+            var dto = BuildPlatformDto(externalUserId, authCode, platformToken, extra, createAccount);
             return PostAuthAsync(route, dto);
         }
 
@@ -420,35 +475,33 @@ namespace MirraCloud.Core.Auth
             return DeleteAsync(route, dto);
         }
 
-        public AsyncOperation<RestApiResult> UnlinkPlatformAsync(
-            string platformId, string externalUserId, string authCode = null,
-            string platformToken = null, Dictionary<string, string> extra = null)
+        /// <summary>
+        /// Removes a store sign-in from the account. It is addressed by the platform it was made on and the player's id
+        /// at the store, so it can be removed from any platform, including one switched off since.
+        /// </summary>
+        public AsyncOperation<RestApiResult> UnlinkPlatformAsync(string platformKey, string externalUserId)
         {
             var route = $"{UnlinkScope()}/platform";
-            var dto = BuildPlatformDto(platformId, externalUserId, authCode, platformToken, extra, createAccount: false);
+            var dto = new UnlinkPlatformDto { PlatformKey = platformKey, ExternalUserId = externalUserId };
             return DeleteAsync(route, dto);
         }
 
-        public AsyncOperation<RestApiResult> UnlinkGoogleSignInAsync(
-            string externalUserId, string idToken = null, string authCode = null,
-            Dictionary<string, string> extra = null)
-            => DeleteSignInAsync("google-sign-in", externalUserId, idToken, authCode, extra);
+        /// <summary>Removes the Google sign-in with this Google user id (<c>sub</c>) from the account.</summary>
+        public AsyncOperation<RestApiResult> UnlinkGoogleSignInAsync(string externalUserId)
+            => DeleteSignInAsync("google-sign-in", externalUserId);
 
-        public AsyncOperation<RestApiResult> UnlinkSignInWithAppleAsync(
-            string externalUserId, string idToken = null, string authCode = null,
-            Dictionary<string, string> extra = null)
-            => DeleteSignInAsync("sign-in-with-apple", externalUserId, idToken, authCode, extra);
+        /// <summary>Removes the Sign in with Apple sign-in with this Apple user id (<c>sub</c>) from the account.</summary>
+        public AsyncOperation<RestApiResult> UnlinkSignInWithAppleAsync(string externalUserId)
+            => DeleteSignInAsync("sign-in-with-apple", externalUserId);
 
-        public AsyncOperation<RestApiResult> UnlinkYandexSignInAsync(
-            string externalUserId, string idToken = null, string authCode = null,
-            Dictionary<string, string> extra = null)
-            => DeleteSignInAsync("yandex-sign-in", externalUserId, idToken, authCode, extra);
+        /// <summary>Removes the Yandex ID sign-in with this Yandex user id from the account.</summary>
+        public AsyncOperation<RestApiResult> UnlinkYandexSignInAsync(string externalUserId)
+            => DeleteSignInAsync("yandex-sign-in", externalUserId);
 
-        private AsyncOperation<RestApiResult> DeleteSignInAsync(
-            string suffix, string externalUserId, string idToken, string authCode, Dictionary<string, string> extra)
+        private AsyncOperation<RestApiResult> DeleteSignInAsync(string suffix, string externalUserId)
         {
             var route = $"{UnlinkScope()}/{suffix}";
-            var dto = BuildSignInDto(externalUserId, idToken, authCode, extra, createAccount: false);
+            var dto = new UnlinkSignInProviderDto { ExternalUserId = externalUserId };
             return DeleteAsync(route, dto);
         }
 
@@ -672,11 +725,10 @@ namespace MirraCloud.Core.Auth
         #region Internal handlers
 
         private static LoginByPlatformDto BuildPlatformDto(
-            string platformId, string externalUserId, string authCode, string platformToken,
+            string externalUserId, string authCode, string platformToken,
             Dictionary<string, string> extra, bool createAccount)
             => new LoginByPlatformDto
             {
-                PlatformId = platformId,
                 ExternalUserId = externalUserId,
                 AuthCode = authCode,
                 PlatformToken = platformToken,
@@ -698,19 +750,44 @@ namespace MirraCloud.Core.Auth
 
         private AsyncOperation<RestApiResult<GetAuthDataDto>> PostAuthAsync(string route, object dto, bool noAuth = false)
         {
-            var config = noAuth ? new RestRequestConfig { NoAuth = true, DisableRetry = true } : null;
-            var op = _restApi.PostAsync<GetAuthDataDto>(route, dto, config);
+            var op = _restApi.PostAsync<GetAuthDataDto>(route, dto, AuthRequestConfig(noAuth));
             op.UseCompleted(HandleAuthCompleted);
             return op;
         }
 
         private AsyncOperation<RestApiResult<GetAuthDataDto>> GetAuthAsync(string route, bool noAuth = false)
         {
-            var config = noAuth ? new RestRequestConfig { NoAuth = true, DisableRetry = true } : null;
-            var operation = _restApi.GetAsync<GetAuthDataDto>(route, config);
+            var operation = _restApi.GetAsync<GetAuthDataDto>(route, AuthRequestConfig(noAuth));
 
             operation.UseCompleted(HandleAuthCompleted);
             return operation;
+        }
+
+        /// <summary>
+        /// The config of every sign-in and link call, carrying the <c>PlatformKey</c> header. It has to be set here:
+        /// sign-in calls are <c>NoAuth</c>, and the request interceptors skip those. Refresh and logout do not come
+        /// through here — the server takes their platform from the session.
+        /// </summary>
+        private RestRequestConfig AuthRequestConfig(bool noAuth)
+        {
+            var config = noAuth ? new RestRequestConfig { NoAuth = true, DisableRetry = true } : new RestRequestConfig();
+
+            var platformKey = _configuration.ResolvedPlatformKey;
+            if (platformKey != null)
+            {
+                config.Headers = new Dictionary<string, string> { [PLATFORM_KEY_HEADER] = platformKey };
+            }
+            else if (noAuth && _missingPlatformKeyReported == false)
+            {
+                // Only a sign-in needs it: a link takes the platform from the session.
+                _missingPlatformKeyReported = true;
+                _logger.Error(
+                    "Configuration.PlatformKey is empty, so the server refuses every sign-in " +
+                    $"({CloudErrorCodes.PlatformsPlatformKeyRequired}). Pick the platform of this build in " +
+                    "Tools > Mirra Cloud > Manager.");
+            }
+
+            return config;
         }
 
         private void HandleAuthCompleted(IAsyncOperation<RestApiResult<GetAuthDataDto>> operation)
@@ -720,7 +797,10 @@ namespace MirraCloud.Core.Auth
 
             if (!result.IsSuccess)
             {
-                _logger.Error(result.Error?.Message ?? "Auth request failed.");
+                var cloudError = result.Error.FirstCloudError();
+                _logger.Error(cloudError != null
+                    ? $"{cloudError.Code} — {cloudError.Message}"
+                    : result.Error?.Message ?? "Auth request failed.");
                 return;
             }
 

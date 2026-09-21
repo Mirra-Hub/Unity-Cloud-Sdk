@@ -18,15 +18,20 @@ namespace MirraCloud.Editor
 
         private List<EditorProjectDto> _projects;
         private List<EditorBranchDto> _branches;
+        private List<EditorPlatformDto> _platforms;
         private List<EditorApiTokenDto> _tokens;
 
         private int _selectedProjectIndex = -1;
         private int _selectedBranchIndex = -1;
+        private int _selectedPlatformIndex = -1;
         private int _selectedTokenIndex = -1;
 
         private bool _isLoadingProjects;
         private bool _isLoadingBranches;
+        private bool _isLoadingPlatforms;
         private bool _isLoadingTokens;
+
+        private string _platformsError;
 
         private bool _isCreatingToken;
         private string _newTokenName = "";
@@ -59,6 +64,9 @@ namespace MirraCloud.Editor
             DrawBranchDropdown();
             GUILayout.Space(4);
 
+            DrawPlatformDropdown();
+            GUILayout.Space(4);
+
             DrawTokenDropdown();
             GUILayout.Space(12);
 
@@ -86,6 +94,7 @@ namespace MirraCloud.Editor
             _selectedProjectIndex = -1;
             _selectedBranchIndex = -1;
             _selectedTokenIndex = -1;
+            ResetPlatforms();
             ResetCreateToken();
             _repaint();
 
@@ -115,6 +124,7 @@ namespace MirraCloud.Editor
             _selectedProjectIndex = -1;
             _selectedBranchIndex = -1;
             _selectedTokenIndex = -1;
+            ResetPlatforms();
             ResetCreateToken();
         }
 
@@ -182,6 +192,71 @@ namespace MirraCloud.Editor
             {
                 ApplyBranch();
             }
+        }
+
+        /// <summary>
+        /// The platform this build runs on. Its key goes with every sign-in and analytics request, so it decides which
+        /// sign-in methods the player gets; a project without platforms refuses every sign-in.
+        /// </summary>
+        private void DrawPlatformDropdown()
+        {
+            EditorGUILayout.LabelField("Platform", EditorStyles.label);
+
+            if (_isLoadingPlatforms)
+            {
+                EditorGUILayout.LabelField("Loading platforms...", EditorStyles.miniLabel);
+                return;
+            }
+
+            if (_selectedProjectIndex < 0)
+            {
+                EditorGUILayout.LabelField("Select a project first", EditorStyles.miniLabel);
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(_platformsError))
+            {
+                EditorGUILayout.HelpBox(_platformsError, MessageType.Warning);
+                return;
+            }
+
+            if (_platforms == null || _platforms.Count == 0)
+            {
+                EditorGUILayout.HelpBox(
+                    "This project has no platforms yet, so every sign-in is refused. Create one in the Cloud " +
+                    "console (Platforms), then press Refresh.",
+                    MessageType.Warning);
+                return;
+            }
+
+            var names = new string[_platforms.Count];
+            for (int i = 0; i < _platforms.Count; i++)
+            {
+                var p = _platforms[i];
+                names[i] = p.isEnabled ? $"{p.name} ({p.key})" : $"{p.name} ({p.key}) — disabled";
+            }
+
+            var currentIndex = FindCurrentIndex(_platforms, _configuration.PlatformKey, p => p.key);
+            if (_selectedPlatformIndex < 0) _selectedPlatformIndex = currentIndex;
+
+            EditorGUI.BeginChangeCheck();
+            _selectedPlatformIndex = EditorGUILayout.Popup(_selectedPlatformIndex, names);
+            if (EditorGUI.EndChangeCheck())
+            {
+                ApplyPlatform();
+            }
+
+            if (_selectedPlatformIndex >= 0 && _selectedPlatformIndex < _platforms.Count && !_platforms[_selectedPlatformIndex].isEnabled)
+            {
+                EditorGUILayout.HelpBox(
+                    "This platform is switched off in the console: sign-in on it is refused until it is switched on.",
+                    MessageType.Warning);
+            }
+
+            EditorGUILayout.LabelField(
+                "Sent with every sign-in and analytics request of this build. A game that ships to several " +
+                "platforms picks the matching one before each build.",
+                EditorStyles.wordWrappedMiniLabel);
         }
 
         private void DrawTokenDropdown()
@@ -318,9 +393,11 @@ namespace MirraCloud.Editor
             _tokens = null;
             _selectedBranchIndex = -1;
             _selectedTokenIndex = -1;
+            ResetPlatforms();
             ResetCreateToken();
 
             LoadBranches(project.id);
+            LoadPlatforms(project.id);
             LoadTokens(project.id);
         }
 
@@ -345,6 +422,44 @@ namespace MirraCloud.Editor
                 }
                 _repaint();
             };
+        }
+
+        private void LoadPlatforms(string projectId)
+        {
+            _isLoadingPlatforms = true;
+            _repaint();
+
+            var op = _apiService.GetPlatformsAsync(projectId);
+            op.OnCompleted += _ =>
+            {
+                _isLoadingPlatforms = false;
+                if (op.Result.IsSuccess)
+                {
+                    _platforms = op.Result.Data?.items ?? new List<EditorPlatformDto>();
+                    var idx = FindCurrentIndex(_platforms, _configuration.PlatformKey, p => p.key);
+                    _selectedPlatformIndex = idx >= 0 ? idx : (_platforms.Count > 0 ? 0 : -1);
+                    if (_selectedPlatformIndex >= 0)
+                    {
+                        ApplyPlatform();
+                    }
+                }
+                else
+                {
+                    _platformsError = op.Result.HttpStatusCode == 403
+                        ? "The service account may not read this project's platforms (it needs the platforms.viewer " +
+                          "permission). Grant it, or type the platform key into the Configuration asset by hand."
+                        : $"Could not load the platforms: {op.Result.Error?.Message ?? "unknown error"}.";
+                }
+                _repaint();
+            };
+        }
+
+        private void ResetPlatforms()
+        {
+            _platforms = null;
+            _selectedPlatformIndex = -1;
+            _isLoadingPlatforms = false;
+            _platformsError = null;
         }
 
         private void LoadTokens(string projectId)
@@ -377,6 +492,13 @@ namespace MirraCloud.Editor
         {
             if (_branches == null || _selectedBranchIndex < 0 || _selectedBranchIndex >= _branches.Count) return;
             _configuration.BranchId = _branches[_selectedBranchIndex].name;
+            SaveConfiguration();
+        }
+
+        private void ApplyPlatform()
+        {
+            if (_platforms == null || _selectedPlatformIndex < 0 || _selectedPlatformIndex >= _platforms.Count) return;
+            _configuration.PlatformKey = _platforms[_selectedPlatformIndex].key;
             SaveConfiguration();
         }
 

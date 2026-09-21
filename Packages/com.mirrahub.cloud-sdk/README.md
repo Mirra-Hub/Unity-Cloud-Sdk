@@ -31,7 +31,11 @@ Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
 ## Connecting a project
 
 `Tools → Mirra Cloud → Manager` → paste your service account key → **Connect** → pick a **Project**,
-**Branch** and **API Token**.
+**Branch**, **Platform** and **API Token**.
+
+The platform comes from the console (**Platforms**) and decides which sign-in methods the game gets:
+its key goes with every sign-in and analytics request. A project without a platform refuses every
+sign-in, so create one first.
 
 The choice is saved to `Assets/MirraCloud/Resources/Configuration.asset` — the asset is created for
 you and belongs to your project, not to the package. **It holds your project API token: do not

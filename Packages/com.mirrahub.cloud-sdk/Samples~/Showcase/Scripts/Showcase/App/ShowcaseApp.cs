@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MirraCloud.Core;
 using MirraCloud.Core.Auth;
 using MirraCloud.Core.Auth.OpenId;
@@ -35,6 +36,10 @@ namespace MirraCloud.Example.Showcase
         // Set when the player links an account or dismisses the link prompt. Keeps us from
         // re-offering linking for the rest of this app run (per-session, not persisted).
         private bool _linkPromptDismissed;
+
+        // The sign-in kinds the platform offered on the auth screen. The link prompt offers only these: a link is
+        // made on the session's platform, which refuses any other kind. Null until the auth screen loaded them.
+        private HashSet<LoginMethodKind> _loginKinds;
 
         public ShowcaseApp(IMirraCloudSdk sdk, UIDocument document, RemoteImageLoader images, ShowcaseOptions options)
         {
@@ -181,7 +186,7 @@ namespace MirraCloud.Example.Showcase
                 {
                     project = cfg.ProjectId;
                     branch = cfg.BranchId;
-                    platform = cfg.AnalyticsPlatformId;
+                    platform = cfg.PlatformKey;
                 }
             }
             catch (Exception e)
@@ -193,12 +198,52 @@ namespace MirraCloud.Example.Showcase
             auth.GuestRequested += () => RunAuth("Guest", _sdk.Authentication.LoginGuestAsync());
             auth.DeviceRequested += () => RunAuth("Device", _sdk.Authentication.LoginDeviceAsync(SystemInfo.deviceUniqueIdentifier));
             auth.EmailLoginRequested += (email, pass) => RunAuth("Email", _sdk.Authentication.LoginEmailAsync(email, pass));
-            auth.OpenIdRequested += id =>
+            auth.UsernameLoginRequested += (user, pass) => RunAuth("Username", _sdk.Authentication.LoginUsernameAsync(user, pass));
+            auth.OpenIdRequested += providerKey =>
             {
                 _toasts.Info("Opening provider…");
-                RunAuth("Provider", _sdk.Authentication.LoginOpenIdAsync(id, new OpenIdLoginOptions { UseInAppWebView = true }));
+                RunAuth("Provider", _sdk.Authentication.LoginOpenIdAsync(providerKey, new OpenIdLoginOptions { UseInAppWebView = true }));
             };
+            auth.RetryRequested += () => LoadLoginMethods(auth);
             _nav.SetRoot(auth);
+            LoadLoginMethods(auth);
+        }
+
+        // The buttons come from the platform: whatever it has switched on in the console, in its order.
+        private async void LoadLoginMethods(AuthView auth)
+        {
+            auth.ShowLoading();
+
+            var op = _sdk.Authentication.GetLoginMethodsAsync();
+            try
+            {
+                await op.Task();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Showcase] loading the sign-in methods failed: " + e.Message);
+                return;
+            }
+
+            var r = op.Result;
+            _log.Record("Login methods", r, "var op = sdk.Authentication.GetLoginMethodsAsync();\nawait op.Task();");
+
+            if (r != null && r.IsSuccess && r.Data != null)
+            {
+                _loginKinds = new HashSet<LoginMethodKind>();
+                foreach (var method in r.Data.Methods ?? new List<LoginMethodDto>())
+                {
+                    if (method != null)
+                    {
+                        _loginKinds.Add(method.Kind);
+                    }
+                }
+                auth.ShowMethods(r.Data);
+            }
+            else
+            {
+                auth.ShowError(r);
+            }
         }
 
         private void ShowServices()
@@ -378,7 +423,7 @@ namespace MirraCloud.Example.Showcase
                 return;
             }
 
-            var view = new LinkPromptView(ShowcaseAuthConfig.OpenIdProviders.Length > 0);
+            var view = new LinkPromptView(_loginKinds);
             view.EmailLinkRequested += (email, pass) => RunLink("Email", _sdk.Authentication.LinkEmailAsync(email, pass));
             view.UsernameLinkRequested += (user, pass) => RunLink("Username", _sdk.Authentication.LinkUsernameAsync(user, pass));
             view.DeviceLinkRequested += () => RunLink("Device", _sdk.Authentication.LinkDeviceAsync(SystemInfo.deviceUniqueIdentifier));

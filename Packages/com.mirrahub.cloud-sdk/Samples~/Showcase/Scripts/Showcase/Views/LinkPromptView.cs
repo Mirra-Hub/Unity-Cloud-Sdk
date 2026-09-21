@@ -1,11 +1,15 @@
 using System;
+using System.Collections.Generic;
+using MirraCloud.Core.Auth;
 using UnityEngine.UIElements;
 
 namespace MirraCloud.Example.Showcase
 {
     /// <summary>
     /// Post-login "link your account" dialog content. Offers the sign-in methods the SDK can link
-    /// from a plain client (email / username / device) — each maps to Authentication.Link*Async.
+    /// from a plain client (email / username / device) — each maps to Authentication.Link*Async —
+    /// and only those the platform has switched on: a link is made on the session's platform, and
+    /// the server refuses a method the platform does not offer.
     /// Raises intents; the app layer performs the SDK calls and reports the result.
     ///
     /// Social / OpenID providers are intentionally not offered here: the in-app WebView OpenID flow
@@ -23,10 +27,14 @@ namespace MirraCloud.Example.Showcase
 
         private readonly VisualElement _body;
         private readonly bool _showSocialNote;
+        private readonly ICollection<LoginMethodKind> _available;
 
-        public LinkPromptView(bool showSocialNote)
+        /// <param name="available">The kinds the platform offers (from GetLoginMethodsAsync); null when they are not
+        /// known, which offers all three.</param>
+        public LinkPromptView(ICollection<LoginMethodKind> available)
         {
-            _showSocialNote = showSocialNote;
+            _available = available;
+            _showSocialNote = available != null && HasSocial(available);
             AddToClassList("sc-form");
 
             var intro = new Label("You're signed in. Link a sign-in method so you can log back in later — on this or another device.");
@@ -44,9 +52,26 @@ namespace MirraCloud.Example.Showcase
         {
             _body.Clear();
 
-            _body.Add(Block("Link email & password", "sc-btn--primary", ShowEmailForm));
-            _body.Add(Block("Link username & password", null, ShowUsernameForm));
-            _body.Add(Block("Link this device", null, () => DeviceLinkRequested?.Invoke()));
+            var offered = 0;
+            if (Offers(LoginMethodKind.Email))
+            {
+                _body.Add(Block("Link email & password", offered++ == 0 ? "sc-btn--primary" : null, ShowEmailForm));
+            }
+            if (Offers(LoginMethodKind.Username))
+            {
+                _body.Add(Block("Link username & password", offered++ == 0 ? "sc-btn--primary" : null, ShowUsernameForm));
+            }
+            if (Offers(LoginMethodKind.Device))
+            {
+                _body.Add(Block("Link this device", offered++ == 0 ? "sc-btn--primary" : null, () => DeviceLinkRequested?.Invoke()));
+            }
+
+            if (offered == 0)
+            {
+                var none = new Label("This platform offers no email, username or device sign-in to link.");
+                none.AddToClassList("sc-chat-hint");
+                _body.Add(none);
+            }
 
             if (_showSocialNote)
             {
@@ -59,6 +84,21 @@ namespace MirraCloud.Example.Showcase
             var later = Block("Maybe later", null, () => SkipRequested?.Invoke());
             later.style.marginTop = 6;
             _body.Add(later);
+        }
+
+        private bool Offers(LoginMethodKind kind) => _available == null || _available.Contains(kind);
+
+        private static bool HasSocial(ICollection<LoginMethodKind> kinds)
+        {
+            foreach (var kind in kinds)
+            {
+                if (kind == LoginMethodKind.OpenId || kind == LoginMethodKind.Google || kind == LoginMethodKind.Apple
+                    || kind == LoginMethodKind.Yandex || LoginMethodKinds.IsStore(kind))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void ShowEmailForm()

@@ -68,7 +68,7 @@ Packages/com.mirrahub.cloud-sdk/
 ```
 MirraCloudEditorWindow          — оркестратор (OnGUI, переключение views)
 ├── LoginView                   — авторизация по SA ключу
-├── ProjectSettingsView         — проект, ветка, токен, создание токенов
+├── ProjectSettingsView         — проект, ветка, платформа, токен, создание токенов
 └── EditorApiService            — API клиент + ISessionRefresher
 ```
 
@@ -89,6 +89,10 @@ SA Key → POST /api/cloud/public/auth/service-account/token → JWT + OrgId
 
 - **Project** — выбор проекта из списка организации
 - **Branch** — выбор ветки (авто-выбор первой доступной при смене проекта)
+- **Platform** — платформа сборки: её ключ пишется в `Configuration.PlatformKey` и уходит с каждым входом и запросом
+  аналитики (авто-выбор первой доступной, если сохранённого ключа нет в проекте). Список — client-роут платформ
+  через sa-gateway; сервисному аккаунту нужно право `platforms.viewer`. Проект без платформ — предупреждение: вход
+  в нём отклоняется, пока платформу не заведут в консоли
 - **API Token** — выбор токена для SDK (авто-выбор первого доступного)
 - **Create Token** — создание Game-токена прямо из редактора (`POST /organizations/{orgId}/projects/{projectId}/tokens`)
 
@@ -101,6 +105,7 @@ SA Key → POST /api/cloud/public/auth/service-account/token → JWT + OrgId
 | `ExchangeKeyAsync(saKey)` | Обмен SA ключа на JWT |
 | `GetProjectsAsync(orgId)` | Список проектов организации |
 | `GetBranchesAsync(projectId)` | Список веток проекта |
+| `GetPlatformsAsync(projectId)` | Платформы проекта (`GET /api/cloud/client/platforms/v1/projects/{projectId}/platforms`) |
 | `GetTokensAsync(orgId, projectId)` | Список API токенов |
 | `CreateTokenAsync(orgId, projectId, name)` | Создание Game-токена |
 | `RefreshSessionAsync()` | ISessionRefresher — переобмен SA ключа |

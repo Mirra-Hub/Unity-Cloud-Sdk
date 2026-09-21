@@ -8,8 +8,36 @@ The SDK is `0.x`: the public API can change between minor versions. Breaking cha
 
 ## [Unreleased]
 
+Sign-in now happens on a **platform** of the project (console → Platforms): the platform decides
+which sign-in methods a player gets, and the SDK names it with every sign-in. Upgrade steps: create a
+platform in the console, switch on its sign-in methods, pick it in `Tools → Mirra Cloud → Manager`
+(new **Platform** dropdown), then fix the compile errors from the breaking changes below.
+
 ### Added
 
+- **`Authentication.GetLoginMethodsAsync()`** — the sign-in methods the build's platform offers right
+  now, in the order set in the console, so a game draws only buttons that work. Needs no session.
+  Returns `LoginMethodsDto { PlatformKey, Methods }`; each `LoginMethodDto` has `Kind`
+  (`LoginMethodKind`: `Guest`, `Device`, `Email`, `Username`, `OpenId`, `Google`, `Apple`, `Yandex`,
+  `GooglePlay`, `VkGames`, `YandexGames`, `AppleGameCenter`, or `Unknown` for a kind a newer server
+  adds — the raw value stays in `KindKey`), `IntegrationKey` (for `OpenId` / `Google` / `Apple` /
+  `Yandex`: the key for `LoginOpenIdAsync`) and `DisplayName` (for `OpenId`: the button label).
+- **Platform dropdown in `Tools → Mirra Cloud → Manager`.** It lists the project's platforms and writes
+  the chosen key into `Configuration.PlatformKey`. It needs the service account to hold
+  `platforms.viewer`; a project without platforms gets a warning, because it refuses every sign-in.
+- **`CloudErrorCodes`** for sign-in on a platform — `PlatformsPlatformKeyRequired`,
+  `PlatformsPlatformUnknown`, `PlatformsPlatformDisabled`, `PlatformsPlatformNotConfigured` (all 403),
+  `PlayerAccountsProviderNotOnPlatform`, `PlayerAccountsProviderDisabledOnPlatform`,
+  `PlayerAccountsAuthIntegrationUnavailable`, `PlayerAccountsPlatformMarketplaceProviderMissing` — for
+  password rules set on the platform (`PlayerAccountsPasswordTooShort`,
+  `PlayerAccountsPasswordPatternMismatch`, `PlayerAccountsPasswordPatternInvalid`), for unlinking a store
+  sign-in (`PlayerAccountsPlatformKeyRequired`), for analytics (`GameAnalyticsInvalidPlatformKey`) and the
+  rest of the Platforms console catalogue (keys, platform types, sign-in / payment / integration links,
+  legal info). Purchases codes the mirror had missed are in too (`PurchasesBranchNotEditable`,
+  `Purchases*NotInBranch`, `PurchasesProviderConfigAlreadyExists`,
+  `PurchasesProviderMappingReferenceMissing`).
+- **`LinkAuthProviderDto`** carries the credentials of every provider (`GuestId`, `DeviceId`, `Email`,
+  `UserId`, `Login`, `Password`), so `ResolveLinkConflictAsync` can resolve more than store conflicts.
 - **`CloudErrorCodes`** mirrors the new Integrations module (`Integrations*`: key, field and usage
   errors from the console API, plus `IntegrationsIntegrationTypeMismatch` and
   `IntegrationsSecretUnreadable`, which reach a game only through another module that reads an
@@ -21,6 +49,43 @@ The SDK is `0.x`: the public API can change between minor versions. Breaking cha
 
 ### Changed
 
+- **Breaking — `Configuration.PlatformKey` replaces `Configuration.AnalyticsPlatformId`.** One field
+  for both uses: the SDK sends it in the `PlatformKey` header of every sign-in call (`Login*`, the start
+  of an OpenID sign-in, `GetLoginMethodsAsync`) and puts it in the analytics routes. It holds the
+  platform's **key** from the console, not an id. The old value is **not carried over**: it was the
+  platform's internal id, which no route accepts any more, so every `Configuration.asset` starts with an
+  empty key — pick the platform in the Manager (it fills the key in for you when it loads the project's
+  platforms). While it is empty the SDK logs one error, the server refuses sign-in with
+  `platforms.platform_key_required`, and analytics sends nothing. Refresh and logout do not send it (the
+  server takes the platform from the session); link goes on the session's platform.
+- **Breaking — `LoginPlatformAsync` and `LinkPlatformAsync` take no platform id.** The store is the one
+  of the build's platform (link: of the session's platform). The parameters are reordered so that an
+  old call fails to compile instead of shifting its arguments: `LoginPlatformAsync(extra, authCode,
+  platformToken, externalUserId, createAccount, nickname)`, `LinkPlatformAsync(extra, authCode,
+  platformToken, externalUserId, createAccount)`. The player is always the id the server verified;
+  `externalUserId` is read only by Game Center. `LoginByPlatformDto.PlatformId` and
+  `LinkAuthProviderDto.PlatformId` are removed.
+- **Breaking — `UnlinkPlatformAsync(platformKey, externalUserId)`.** A store sign-in is addressed by the
+  key of the platform it was made on and the player's id at the store; the body is
+  `{ platformKey, externalUserId }`. The `authCode` / `platformToken` / `extra` parameters are gone —
+  nothing verifies them on unlink.
+- **Breaking — `UnlinkGoogleSignInAsync` / `UnlinkSignInWithAppleAsync` / `UnlinkYandexSignInAsync`
+  take only `externalUserId`.** The sign-in is addressed by the player's id at the provider, which is now
+  required; the server no longer reads `idToken` / `authCode` / `extra` there.
+- **Breaking — OpenID sign-in by key.** `LoginOpenIdAsync(string providerKey, options)`,
+  `BeginOpenIdLoginUrlAsync(string providerKey, successUrl)` and `StartOpenIdLoginAsync(string providerKey,
+  successUrl)` take the `IntegrationKey` of an `OpenId` / `Google` / `Apple` / `Yandex` method from
+  `GetLoginMethodsAsync()` instead of the numeric provider id. A platform may offer several OpenID
+  providers; the key picks one. An empty key fails validation without a request.
+- **Analytics routes name the platform by key** (`…/platforms/{PlatformKey}/…`). A malformed key is
+  refused with 422 `game_analytics.invalid_platform_key`; an unknown one is not checked, so a typo files
+  the events under a platform that does not exist.
+- **Showcase:** the auth screen draws its buttons from `GetLoginMethodsAsync()` (buttons for Guest /
+  Device / Email / Username, WebView tiles for OpenID / Google / Apple / Yandex ID, a note for store
+  sign-ins) and shows why when the platform refuses; the link prompt offers only the methods the platform
+  has. The hard-coded OpenID provider ids are gone.
+- A failed sign-in is logged with its cloud error code (`platforms.platform_unknown — …`), not only the
+  transport message.
 - **A 401/403 refreshes the session only when the session is what was refused.** An authenticated
   call used to refresh the session and go out again on any 401/403. Login, link and profile endpoints
   now answer with typed refusals — a wrong password is a 401, a forbidden link or a disabled avatar
@@ -29,7 +94,16 @@ The SDK is `0.x`: the public API can change between minor versions. Breaking cha
   `common.unauthorized`, `purchases.selected_profile_required`, `player_accounts.session_expired`,
   `player_accounts.session_mismatch`, `player_accounts.session_project_mismatch`. Any other code is
   the endpoint's answer and comes back at once, without a refresh or a resend. Sign-in calls are
-  unchanged.
+  unchanged. The platform refusals above are final as well: a refreshed token carries the same
+  platform.
+
+### Removed
+
+- **Breaking — `CloudErrorCodes` entries the backend no longer has:** `PlayerAccountsProviderNotEnabled`
+  (replaced by `PlayerAccountsProviderNotOnPlatform` / `PlayerAccountsProviderDisabledOnPlatform`),
+  `PlayerAccountsPlatformIdInvalid`, `PlayerAccountsMarketplaceSettingsMissing`,
+  `PlayerAccountsMarketplaceUnsupported`, `PlatformsMarketplaceTypeMismatch`,
+  `PlatformsMarketplaceSettingsTypeMismatch`, `PurchasesPlatformIdInvalid`.
 
 ### Fixed
 
