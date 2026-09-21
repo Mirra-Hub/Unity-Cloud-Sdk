@@ -25,8 +25,8 @@ namespace MirraCloud.Core.Errors
     [Serializable]
     public sealed class CloudApiError
     {
-        public string Code;
-        public string Message;
-        public Dictionary<string, JsonValue> Data;
+        [JsonNameCamel] public string Code;
+        [JsonNameCamel] public string Message;
+        [JsonNameCamel] public Dictionary<string, JsonValue> Data;
     }
 }

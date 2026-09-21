@@ -19,6 +19,26 @@ The SDK is `0.x`: the public API can change between minor versions. Breaking cha
   `PlayerAccountsAvatarChangeDisabled`. Two older codes the mirror had missed are in too:
   `PlayerAccountsBranchNotEditable`, `PlayerAccountsAccountOptionInvalid`.
 
+### Changed
+
+- **A 401/403 refreshes the session only when the session is what was refused.** An authenticated
+  call used to refresh the session and go out again on any 401/403. Login, link and profile endpoints
+  now answer with typed refusals — a wrong password is a 401, a forbidden link or a disabled avatar
+  change a 403 — and each of those cost a session rotation and a second request for the same answer.
+  The refresh now follows only a gateway's refusal of the token (no error code in the body) or
+  `common.unauthorized`, `purchases.selected_profile_required`, `player_accounts.session_expired`,
+  `player_accounts.session_mismatch`, `player_accounts.session_project_mismatch`. Any other code is
+  the endpoint's answer and comes back at once, without a refresh or a resend. Sign-in calls are
+  unchanged.
+
+### Fixed
+
+- **`RestApiError.Errors` is filled from real responses.** Every Cloud host writes the error envelope
+  in camelCase (`{"errors":[{"code":…}]}`), the SDK's JSON mapper matches member names
+  case-sensitively, and the error DTOs expected `Errors` / `Code`. So the envelope was never read:
+  `HasCode`, `GetByCode` and `FirstCloudError` matched nothing, and failed analytics requests were
+  logged without their code. They now see what the server sent.
+
 ## [0.5.0] — 2026-09-19
 
 ### Added

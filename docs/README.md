@@ -83,7 +83,7 @@ SA Key → POST /api/cloud/public/auth/service-account/token → JWT + OrgId
 - SA ключ сохраняется в `EditorPrefs` (`MirraCloud_SA_Key`)
 - JWT + expiry кешируются в `EditorPrefs`
 - **Авто-коннект**: при открытии окна, если SA ключ сохранён, автоматически обменивается на JWT
-- **Авто-рефреш**: `EditorApiService` реализует `ISessionRefresher` — при 401 автоматически переобменивает SA ключ на новый JWT и повторяет запрос
+- **Авто-рефреш**: `EditorApiService` реализует `ISessionRefresher` — при 401/403, который отказывает самой сессии (ответ шлюза без кода ошибки или `common.unauthorized`), автоматически переобменивает SA ключ на новый JWT и повторяет запрос; отказ эндпоинта с другим кодом возвращается сразу
 
 ### Управление проектом
 

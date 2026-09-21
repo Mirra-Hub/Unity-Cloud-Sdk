@@ -83,6 +83,7 @@ var op = MirraCloudSDK.Authentication.LoginOpenIdAsync(providerId, options);
 
 - `InitializeAsync()` — инициализация с сохранённым refresh token
 - `RefreshSessionAsync()` — обновление сессии. Один запрос на refresh token: вызовы, пришедшие во время обновления (например, несколько одновременных 401), ждут его результата, а не тратят тот же токен повторно — сервер отклонил бы повтор и разлогинил игрока. Неудачный refresh завершает сессию (`OnSessionExpired`); исключение — refresh после смены профиля (`PlayerAccount.SelectProfileAsync`): его сетевой сбой или 5xx игрока не разлогинивает, отказ сервера (4xx) — разлогинивает как обычно.
+- Автоматический refresh на 401/403: вызов с токеном SDK повторяет один раз после refresh сессии, только если отказ касается самой сессии — ответ шлюза без кода ошибки (нет/битый/просроченный JWT) или код `common.unauthorized`, `purchases.selected_profile_required`, `player_accounts.session_expired` / `session_mismatch` / `session_project_mismatch`. Отказ самого эндпоинта (`player_accounts.invalid_credentials`, `external_auth_invalid_id_token`, `provider_not_enabled`, `avatar_change_disabled`, `common.forbidden` и любой другой код) возвращается сразу: без refresh и без повторной отправки. Вызовы входа (`NoAuth`) сессию не обновляют, как и раньше.
 - `LogoutAsync()` — выход из текущей сессии
 - `LogoutAllAsync()` — выход из всех сессий
 
