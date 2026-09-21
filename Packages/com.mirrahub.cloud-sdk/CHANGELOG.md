@@ -6,7 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
-## [Unreleased]
+## [0.6.0] — 2026-09-21
 
 Sign-in now happens on a **platform** of the project (console → Platforms): the platform decides
 which sign-in methods a player gets, and the SDK names it with every sign-in. Upgrade steps: create a
