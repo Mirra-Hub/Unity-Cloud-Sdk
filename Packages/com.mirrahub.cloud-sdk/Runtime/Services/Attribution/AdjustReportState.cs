@@ -19,8 +19,8 @@ namespace MirraCloud.Core.Attribution
         Sent = 4,
 
         /// <summary>
-        /// The last attempt did not get through (no connection, 5xx, the session ended). Sent again on the next
-        /// sign-in, session refresh or report — the SDK does not retry on a timer.
+        /// The last attempt did not get through (no connection, 5xx, the session ended, the request could not start).
+        /// Sent again on the next sign-in, session refresh or report — the SDK does not retry on a timer.
         /// </summary>
         Failed = 5,
 

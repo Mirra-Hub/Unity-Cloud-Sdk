@@ -35,14 +35,15 @@ The new **Attribution** service records the install's Adjust id and campaign on 
     `PlayerAccountsExternalIdConflict` — the adid is on another account of the project; 400 / 422 / 404)
     is not resent, and a project without an enabled Adjust integration (403
     `PlayerAccountsExternalIntegrationUnavailable`) gets nothing more until the next launch.
-    `AdjustReportState`, `LastAdjustReport` and `OnAdjustReported` say where it stands.
+    `AdjustReportState`, `LastAdjustReport` and `OnAdjustReported` say where it stands. Both may be
+    called from any thread — Adjust SDK v4 raises its Android callbacks off Unity's main thread — and
+    are carried over to the main thread.
   - `LinkAdjustAsync(AdjustAttributionDto)` — the bare `PUT …/players/external/v1/projects/{projectId}/adjust`,
-    for a game that manages the timing itself.
+    for a game that manages the timing itself. Sent once: a refusal or a failed request is not resent.
   - `GetMyExternalIdsAsync()` — what is recorded on the signed-in account (`ExternalIdDto`: provider,
     id, source, first / last seen, the Adjust attribution).
 - **`PurchaseResult.ApiError`** — the server's refusal when `BuyAsync` could not start the order, so a
-  game can dispatch on its code (`ApiError.HasCode(…)`). The failure text is now `code — message`
-  instead of the HTTP status line.
+  game can dispatch on its code (`ApiError.HasCode(…)`).
 - **`CloudErrorCodes`** for the new purchase and attribution refusals:
   `PurchasesIntegrationKeyRequired`, `PurchasesPaymentIntegrationUnavailable` (409 — the price's
   integration is gone, switched off or cannot take payments: reload the catalog),
@@ -100,6 +101,8 @@ The new **Attribution** service records the install's Adjust id and campaign on 
   can take payments, and drops a product left with none. A price at a store integration (VK Games,
   Google Play) is paid in the store: starting an order for it is refused with 422
   `purchases.provider_unsupported`.
+- **`PurchaseResult.Error` of a `BuyAsync` whose order could not be started** reads `code — message`
+  (e.g. `purchases.payment_integration_unavailable — …`) instead of the HTTP status line.
 - **Showcase:** the Purchases screen starts orders by integration key (store prices get no start
   button) and explains the integration refusals; a new **Attribution** screen shows what the account
   has recorded, where the queued Adjust report stands, and both ways to send one.

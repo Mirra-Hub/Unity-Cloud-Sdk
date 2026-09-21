@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using MirraCloud.Core.Attribution.Dto;
 using MirraCloud.Core.Errors;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
@@ -21,6 +22,10 @@ namespace MirraCloud.Core.Attribution
     /// not resent until one of those changes; a project without an enabled Adjust integration (403) gets nothing more
     /// in this run.
     /// </para>
+    /// <para>
+    /// Everything runs on the thread the queue was created on — Unity's main thread, which the transport needs. A
+    /// hand-over from another thread (Adjust SDK v4 raises its Android callbacks on a Java thread) is posted there.
+    /// </para>
     /// Kept apart from <see cref="AttributionService"/> so it can be tested without the transport.
     /// </remarks>
     internal sealed class AdjustReportQueue
@@ -28,6 +33,8 @@ namespace MirraCloud.Core.Attribution
         private readonly Func<bool> _hasSession;
         private readonly Func<AdjustAttributionDto, AsyncOperation<RestApiResult<ExternalIdDto>>> _send;
         private readonly ILogger _logger;
+        private readonly SynchronizationContext _mainThread;
+        private readonly int _mainThreadId;
 
         // The attribution is replaced as a whole, the way the server stores it: a re-attribution must not keep the
         // previous campaign's creative.
@@ -38,17 +45,27 @@ namespace MirraCloud.Core.Attribution
         // for good — stored or refused.
         private int _version;
         private int _settledVersion;
-        private bool _sending;
         private bool _adjustUnavailable;
 
+        // The request on its way, or null. Only its own, first completion settles it, so a stray second completion
+        // cannot end the one that followed it.
+        private object _inFlight;
+
+        /// <param name="mainThread">
+        /// The context of the thread creating the queue (Unity's main thread); hand-overs from other threads are posted
+        /// to it. Null: every call is handled where it is made.
+        /// </param>
         internal AdjustReportQueue(
             Func<bool> hasSession,
             Func<AdjustAttributionDto, AsyncOperation<RestApiResult<ExternalIdDto>>> send,
-            ILogger logger)
+            ILogger logger,
+            SynchronizationContext mainThread = null)
         {
             _hasSession = hasSession;
             _send = send;
             _logger = logger;
+            _mainThread = mainThread;
+            _mainThreadId = Thread.CurrentThread.ManagedThreadId;
         }
 
         internal AdjustReportState State { get; private set; }
@@ -59,6 +76,12 @@ namespace MirraCloud.Core.Attribution
 
         internal void ReportAdid(string adid)
         {
+            if (IsOffMainThread)
+            {
+                _mainThread.Post(_ => ReportAdid(adid), null);
+                return;
+            }
+
             var trimmed = adid?.Trim();
             if (string.IsNullOrEmpty(trimmed))
             {
@@ -78,6 +101,15 @@ namespace MirraCloud.Core.Attribution
         {
             if (attribution == null)
             {
+                return;
+            }
+
+            if (IsOffMainThread)
+            {
+                // Copied here: the caller may reuse its object before the main thread gets to it.
+                var copy = CopyAttribution(attribution);
+                copy.Adid = attribution.Adid;
+                _mainThread.Post(_ => ReportAttribution(copy), null);
                 return;
             }
 
@@ -118,9 +150,11 @@ namespace MirraCloud.Core.Attribution
         /// <summary>The session restored at launch (it raises no sign-in), or a refreshed one: a chance to retry.</summary>
         internal void HandleSessionRefreshed() => TrySend();
 
+        private bool IsOffMainThread => _mainThread != null && Thread.CurrentThread.ManagedThreadId != _mainThreadId;
+
         private void TrySend()
         {
-            if (_sending)
+            if (_inFlight != null)
             {
                 // The completion looks again.
                 return;
@@ -156,25 +190,48 @@ namespace MirraCloud.Core.Attribution
             }
 
             var sentVersion = _version;
-            _sending = true;
             State = AdjustReportState.Sending;
 
-            var op = _send(Snapshot());
-            op.UseCompleted(done => HandleReported(done.Result, sentVersion));
+            AsyncOperation<RestApiResult<ExternalIdDto>> op;
+            try
+            {
+                op = _send(Snapshot());
+            }
+            catch (Exception e)
+            {
+                // The request did not even start. Left for the next chance like any report that did not get through,
+                // instead of staying "on its way" for the rest of the run.
+                Settle(RestApiResult<ExternalIdDto>.Fail(
+                    RestApiError.Validation($"The report could not be sent: {e.Message}")), sentVersion);
+                return;
+            }
+
+            _inFlight = op;
+            op.UseCompleted(done => HandleReported(op, done.Result, sentVersion));
 
             // UseCompleted does not fire for an operation that finished before it was hooked.
-            if (op.IsDone && _sending)
+            if (op.IsDone)
             {
-                HandleReported(op.Result, sentVersion);
+                HandleReported(op, op.Result, sentVersion);
             }
         }
 
-        private void HandleReported(RestApiResult<ExternalIdDto> result, int sentVersion)
+        private void HandleReported(object op, RestApiResult<ExternalIdDto> result, int sentVersion)
         {
-            _sending = false;
+            if (!ReferenceEquals(op, _inFlight))
+            {
+                return;
+            }
+
+            _inFlight = null;
+            Settle(result, sentVersion);
+        }
+
+        private void Settle(RestApiResult<ExternalIdDto> result, int sentVersion)
+        {
             LastResult = result;
 
-            if (result != null && result.IsSuccess)
+            if (result != null && (result.IsSuccess || IsStored(result.Error)))
             {
                 _settledVersion = sentVersion;
                 State = AdjustReportState.Sent;
@@ -215,6 +272,14 @@ namespace MirraCloud.Core.Attribution
                 TrySend();
             }
         }
+
+        /// <summary>
+        /// A 2xx whose body could not be read: the server stored the report all the same, and sending it again would
+        /// only be answered the same way.
+        /// </summary>
+        private static bool IsStored(RestApiError error) =>
+            error != null && error.Type == RestApiErrorType.Deserialize &&
+            error.HttpStatusCode >= 200 && error.HttpStatusCode < 300;
 
         /// <summary>
         /// A refusal resending the same report cannot change: invalid data (400/422), another account's adid (409), an

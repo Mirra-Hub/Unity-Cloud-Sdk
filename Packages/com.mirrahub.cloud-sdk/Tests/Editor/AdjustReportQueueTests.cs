@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using MirraCloud.Core;
 using MirraCloud.Core.Attribution;
 using MirraCloud.Core.Attribution.Dto;
@@ -297,6 +300,109 @@ namespace MirraCloud.Core.Attribution.Tests
         }
 
         [Test]
+        public void A_request_that_could_not_start_leaves_the_report_for_the_next_chance()
+        {
+            var throwOnce = true;
+            _queue = new AdjustReportQueue(() => true, body =>
+            {
+                if (throwOnce)
+                {
+                    throwOnce = false;
+                    throw new InvalidOperationException("transport");
+                }
+
+                var sent = new Sent { Body = body, Operation = new AsyncOperation<RestApiResult<ExternalIdDto>>() };
+                _sent.Add(sent);
+                return sent.Operation;
+            }, null);
+
+            Assert.DoesNotThrow(() => _queue.ReportAdid("adid-1"));
+            Assert.That(_queue.State, Is.EqualTo(AdjustReportState.Failed), "not stuck on its way");
+
+            _queue.HandleSessionRefreshed();
+
+            Assert.That(_sent, Has.Count.EqualTo(1));
+            Assert.That(_queue.State, Is.EqualTo(AdjustReportState.Sending));
+        }
+
+        [Test]
+        public void A_second_completion_of_a_settled_request_does_not_end_the_next_one()
+        {
+            _hasSession = true;
+            _queue.ReportAdid("adid-1");
+            _queue.ReportAttribution(new AdjustAttributionDto { Campaign = "Summer" });
+            Complete(0, Ok());
+
+            Assert.That(_sent, Has.Count.EqualTo(2));
+
+            Complete(0, Ok());
+            _queue.ReportAdid("adid-2");
+
+            Assert.That(_queue.State, Is.EqualTo(AdjustReportState.Sending));
+            Assert.That(_sent, Has.Count.EqualTo(2), "still one request at a time");
+        }
+
+        [Test]
+        public void A_stored_report_whose_answer_could_not_be_read_is_not_sent_again()
+        {
+            _hasSession = true;
+            _queue.ReportAdid("adid-1");
+            Complete(0, RestApiResult<ExternalIdDto>.Fail(new RestApiError
+            {
+                Type = RestApiErrorType.Deserialize,
+                HttpStatusCode = 200,
+                Message = "unreadable",
+            }));
+
+            _queue.HandleSessionRefreshed();
+
+            Assert.That(_queue.State, Is.EqualTo(AdjustReportState.Sent));
+            Assert.That(_sent, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void A_hand_over_from_another_thread_is_handled_on_the_main_thread()
+        {
+            var mainThread = new RecordingContext();
+            _queue = new AdjustReportQueue(() => true, body =>
+            {
+                var sent = new Sent { Body = body, Operation = new AsyncOperation<RestApiResult<ExternalIdDto>>() };
+                _sent.Add(sent);
+                return sent.Operation;
+            }, null, mainThread);
+
+            var attribution = new AdjustAttributionDto { Adid = "adid-1", Campaign = "Summer" };
+            Task.Run(() => _queue.ReportAttribution(attribution)).Wait();
+            attribution.Campaign = "changed by the caller afterwards";
+
+            Assert.That(_sent, Is.Empty, "nothing touches the transport off the main thread");
+            Assert.That(mainThread.Posted, Has.Count.EqualTo(1));
+
+            mainThread.RunPosted();
+
+            Assert.That(_sent, Has.Count.EqualTo(1));
+            Assert.That(_sent[0].Body.Adid, Is.EqualTo("adid-1"));
+            Assert.That(_sent[0].Body.Campaign, Is.EqualTo("Summer"));
+        }
+
+        [Test]
+        public void A_hand_over_on_the_main_thread_is_handled_at_once()
+        {
+            var mainThread = new RecordingContext();
+            _queue = new AdjustReportQueue(() => true, body =>
+            {
+                var sent = new Sent { Body = body, Operation = new AsyncOperation<RestApiResult<ExternalIdDto>>() };
+                _sent.Add(sent);
+                return sent.Operation;
+            }, null, mainThread);
+
+            _queue.ReportAdid("adid-1");
+
+            Assert.That(mainThread.Posted, Is.Empty);
+            Assert.That(_sent, Has.Count.EqualTo(1));
+        }
+
+        [Test]
         public void Blank_hand_overs_are_ignored()
         {
             _hasSession = true;
@@ -307,6 +413,31 @@ namespace MirraCloud.Core.Attribution.Tests
 
             Assert.That(_queue.State, Is.EqualTo(AdjustReportState.Idle));
             Assert.That(_sent, Is.Empty);
+        }
+
+        /// <summary>Stands in for Unity's main-thread context: keeps what is posted until the test runs it.</summary>
+        private sealed class RecordingContext : SynchronizationContext
+        {
+            public readonly List<(SendOrPostCallback Callback, object State)> Posted =
+                new List<(SendOrPostCallback, object)>();
+
+            public override void Post(SendOrPostCallback d, object state)
+            {
+                lock (Posted)
+                {
+                    Posted.Add((d, state));
+                }
+            }
+
+            public void RunPosted()
+            {
+                foreach (var (callback, state) in Posted.ToArray())
+                {
+                    callback(state);
+                }
+
+                Posted.Clear();
+            }
         }
 
         private void Complete(int index, RestApiResult<ExternalIdDto> result) => _sent[index].Operation.Complete(result);
