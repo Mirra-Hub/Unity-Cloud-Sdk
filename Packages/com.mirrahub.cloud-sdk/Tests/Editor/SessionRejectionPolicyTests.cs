@@ -84,13 +84,31 @@ namespace MirraCloud.Core.Tests
         [TestCase(CloudErrorCodes.PlayerAccountsInvalidCredentials)]
         [TestCase(CloudErrorCodes.PlayerAccountsExternalAuthInvalidIdToken)]
         [TestCase(CloudErrorCodes.PlayerAccountsExternalAuthInvalidSignature)]
-        [TestCase(CloudErrorCodes.PlayerAccountsProviderNotEnabled)]
+        [TestCase(CloudErrorCodes.PlayerAccountsProviderNotOnPlatform)]
         [TestCase(CloudErrorCodes.PlayerAccountsAvatarChangeDisabled)]
         [TestCase(CloudErrorCodes.PlayerAccountsPlatformDisabled)]
         [TestCase(CloudErrorCodes.CommonForbidden)]
         [TestCase(CloudErrorCodes.GroupsPlayerBanned)]
         [TestCase(CloudErrorCodes.LeaderboardsParticipationRequired)]
         public void An_endpoint_refusing_a_valid_session_is_not_a_session_problem(string code)
+        {
+            Assert.That(SessionRejectionPolicy.IsSessionRejection(ReadEnvelope(Envelope(code))), Is.False);
+        }
+
+        /// <summary>
+        /// The platform a request signs in on is refused before the endpoint runs. On link the platform comes from
+        /// the session, and a refreshed token carries the same one (or none, for a session issued before sessions had
+        /// a platform) — refreshing would only rotate the session and get the same 403.
+        /// </summary>
+        [TestCase(CloudErrorCodes.PlatformsPlatformKeyRequired)]
+        [TestCase(CloudErrorCodes.PlatformsPlatformUnknown)]
+        [TestCase(CloudErrorCodes.PlatformsPlatformDisabled)]
+        [TestCase(CloudErrorCodes.PlatformsPlatformNotConfigured)]
+        [TestCase(CloudErrorCodes.PlayerAccountsProviderNotOnPlatform)]
+        [TestCase(CloudErrorCodes.PlayerAccountsProviderDisabledOnPlatform)]
+        [TestCase(CloudErrorCodes.PlayerAccountsAuthIntegrationUnavailable)]
+        [TestCase(CloudErrorCodes.PlayerAccountsPlatformMarketplaceProviderMissing)]
+        public void A_platform_refusal_is_not_a_session_problem(string code)
         {
             Assert.That(SessionRejectionPolicy.IsSessionRejection(ReadEnvelope(Envelope(code))), Is.False);
         }

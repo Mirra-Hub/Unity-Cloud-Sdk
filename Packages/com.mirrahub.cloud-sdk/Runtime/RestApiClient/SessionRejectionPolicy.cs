@@ -21,6 +21,13 @@ namespace MirraCloud.Core
     /// for a missing, malformed or expired JWT (<c>{"error":"token expired"}</c>, or an empty body) before the
     /// request reaches any service.
     /// </para>
+    /// <para>
+    /// The platform refusals of sign-in and link (<c>platforms.platform_key_required</c> / <c>platform_unknown</c> /
+    /// <c>platform_disabled</c> / <c>platform_not_configured</c>, <c>player_accounts.provider_not_on_platform</c> /
+    /// <c>provider_disabled_on_platform</c> / <c>auth_integration_unavailable</c>) are final too. A refreshed token
+    /// carries the platform of the session it came from, so it would be refused the same way — including a session
+    /// issued before sessions had a platform, which only a new sign-in replaces.
+    /// </para>
     /// </remarks>
     internal static class SessionRejectionPolicy
     {

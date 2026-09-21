@@ -380,6 +380,11 @@ namespace MirraCloud.Core.Errors
         public const string GameAnalyticsInvalidParameterDescription = "game_analytics.invalid_parameter_description";
         public const string GameAnalyticsInvalidParameterId = "game_analytics.invalid_parameter_id";
         public const string GameAnalyticsInvalidParameterName = "game_analytics.invalid_parameter_name";
+        /// <summary>
+        /// The platform key in an analytics route is not a key (1–64 latin letters, digits, <c>_</c> or <c>-</c>):
+        /// check <see cref="Configuration.PlatformKey"/>. The key is not checked against the project's platforms.
+        /// </summary>
+        public const string GameAnalyticsInvalidPlatformKey = "game_analytics.invalid_platform_key";
         public const string GameAnalyticsInvalidProjectId = "game_analytics.invalid_project_id";
         public const string GameAnalyticsInvalidWidgetId = "game_analytics.invalid_widget_id";
         public const string GameAnalyticsInvalidWidgetName = "game_analytics.invalid_widget_name";
@@ -528,12 +533,21 @@ namespace MirraCloud.Core.Errors
         public const string LeaderboardsParticipationRequired = "leaderboards.participation_required";
 
         // === platforms ===
+        public const string PlatformsAuthMethodKindInvalid = "platforms.auth_method_kind_invalid";
+        public const string PlatformsAuthProviderIntegrationNotAllowed = "platforms.auth_provider_integration_not_allowed";
+        public const string PlatformsAuthProviderIntegrationRequired = "platforms.auth_provider_integration_required";
+        public const string PlatformsAuthProviderNotFound = "platforms.auth_provider_not_found";
         public const string PlatformsConsentStoreUnavailable = "platforms.consent_store_unavailable";
+        public const string PlatformsIntegrationDisabled = "platforms.integration_disabled";
+        public const string PlatformsIntegrationLinkNotFound = "platforms.integration_link_not_found";
+        public const string PlatformsIntegrationMissing = "platforms.integration_missing";
+        public const string PlatformsIntegrationTypeMismatch = "platforms.integration_type_mismatch";
         public const string PlatformsInvalidPlatformName = "platforms.invalid_platform_name";
         public const string PlatformsLegalDocumentAlreadyPublished = "platforms.legal_document_already_published";
         public const string PlatformsLegalDocumentCustomKeyRequired = "platforms.legal_document_custom_key_required";
         public const string PlatformsLegalDocumentDuplicate = "platforms.legal_document_duplicate";
         public const string PlatformsLegalDocumentLocaleRequired = "platforms.legal_document_locale_required";
+        public const string PlatformsLegalDocumentNotFound = "platforms.legal_document_not_found";
         public const string PlatformsLegalDocumentNotPublished = "platforms.legal_document_not_published";
         public const string PlatformsLegalDocumentPublished = "platforms.legal_document_published";
         public const string PlatformsLegalDocumentTitleRequired = "platforms.legal_document_title_required";
@@ -541,10 +555,41 @@ namespace MirraCloud.Core.Errors
         public const string PlatformsLegalInfoCompanyNameRequired = "platforms.legal_info_company_name_required";
         public const string PlatformsLegalInfoContactEmailRequired = "platforms.legal_info_contact_email_required";
         public const string PlatformsLegalInfoNotConfigured = "platforms.legal_info_not_configured";
-        public const string PlatformsMarketplaceSettingsTypeMismatch = "platforms.marketplace_settings_type_mismatch";
-        public const string PlatformsMarketplaceTypeMismatch = "platforms.marketplace_type_mismatch";
+        public const string PlatformsLegalInfoNotFound = "platforms.legal_info_not_found";
+        public const string PlatformsMarketplaceProviderLimit = "platforms.marketplace_provider_limit";
+        public const string PlatformsPasswordPolicyInvalid = "platforms.password_policy_invalid";
+        public const string PlatformsPasswordPolicyNotAllowed = "platforms.password_policy_not_allowed";
+        public const string PlatformsPaymentProviderNotFound = "platforms.payment_provider_not_found";
+        /// <summary>
+        /// 403 on sign-in: the platform <see cref="Configuration.PlatformKey"/> names is switched off in the console.
+        /// <c>data.platformKey</c>.
+        /// </summary>
+        public const string PlatformsPlatformDisabled = "platforms.platform_disabled";
+        public const string PlatformsPlatformHasPublishedLegalDocuments = "platforms.platform_has_published_legal_documents";
         public const string PlatformsPlatformInUse = "platforms.platform_in_use";
+        public const string PlatformsPlatformKeyDuplicate = "platforms.platform_key_duplicate";
+        public const string PlatformsPlatformKeyInvalid = "platforms.platform_key_invalid";
+        /// <summary>
+        /// 403 on sign-in: the request names no platform — <see cref="Configuration.PlatformKey"/> is empty. On link it
+        /// means the session was issued before sessions carried a platform; signing in again fixes it (a refresh does
+        /// not).
+        /// </summary>
+        public const string PlatformsPlatformKeyRequired = "platforms.platform_key_required";
         public const string PlatformsPlatformNameDuplicate = "platforms.platform_name_duplicate";
+        /// <summary>
+        /// 403 on sign-in: the project has no platform yet. Create one in the console (Platforms), then pick it in
+        /// Tools > Mirra Cloud > Manager.
+        /// </summary>
+        public const string PlatformsPlatformNotConfigured = "platforms.platform_not_configured";
+        public const string PlatformsPlatformNotFound = "platforms.platform_not_found";
+        public const string PlatformsPlatformTypeInvalid = "platforms.platform_type_invalid";
+        public const string PlatformsPlatformTypesRequired = "platforms.platform_types_required";
+        /// <summary>
+        /// 403 on sign-in: the project has no platform with the key <see cref="Configuration.PlatformKey"/> holds. Keys
+        /// are case-sensitive. <c>data.platformKey</c>.
+        /// </summary>
+        public const string PlatformsPlatformUnknown = "platforms.platform_unknown";
+        public const string PlatformsProjectIdInvalid = "platforms.project_id_invalid";
 
         // === player_accounts ===
         public const string PlayerAccountsAccountDoesNotExist = "player_accounts.account_does_not_exist";
@@ -553,6 +598,11 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsAccountOptionInvalid = "player_accounts.account_option_invalid";
         public const string PlayerAccountsAuthBelongsToAnotherAccount = "player_accounts.auth_belongs_to_another_account";
         public const string PlayerAccountsAuthCodeRequired = "player_accounts.auth_code_required";
+        /// <summary>
+        /// 403: the integration behind the platform's sign-in (store, Google / Apple / Yandex, OpenID) is switched off or
+        /// gone. <c>data.platformKey</c>, <c>data.integrationKey</c>, <c>data.reason</c> (<c>disabled</c> / <c>not_found</c>).
+        /// </summary>
+        public const string PlayerAccountsAuthIntegrationUnavailable = "player_accounts.auth_integration_unavailable";
         public const string PlayerAccountsAuthIssuerPipelineEmpty = "player_accounts.auth_issuer_pipeline_empty";
         public const string PlayerAccountsAuthRecordNotFound = "player_accounts.auth_record_not_found";
         public const string PlayerAccountsAuthRedirectUrlMissing = "player_accounts.auth_redirect_url_missing";
@@ -585,8 +635,6 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsInvalidProjectId = "player_accounts.invalid_project_id";
         public const string PlayerAccountsLastAuthMethod = "player_accounts.last_auth_method";
         public const string PlayerAccountsLoginRequired = "player_accounts.login_required";
-        public const string PlayerAccountsMarketplaceSettingsMissing = "player_accounts.marketplace_settings_missing";
-        public const string PlayerAccountsMarketplaceUnsupported = "player_accounts.marketplace_unsupported";
         public const string PlayerAccountsNicknamePatternInvalid = "player_accounts.nickname_pattern_invalid";
         public const string PlayerAccountsNicknamePatternMismatch = "player_accounts.nickname_pattern_mismatch";
         public const string PlayerAccountsNicknameProfanity = "player_accounts.nickname_profanity";
@@ -597,8 +645,19 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsUsernameProfanity = "player_accounts.username_profanity";
         public const string PlayerAccountsUsernameRequired = "player_accounts.username_required";
         public const string PlayerAccountsUsernameTaken = "player_accounts.username_taken";
+        /// <summary>A new password does not match the pattern of the platform's email / username sign-in (422).</summary>
+        public const string PlayerAccountsPasswordPatternMismatch = "player_accounts.password_pattern_mismatch";
+        public const string PlayerAccountsPasswordPatternInvalid = "player_accounts.password_pattern_invalid";
+        /// <summary>A new password is shorter than the platform's minimum (422). <c>data.minLength</c>.</summary>
+        public const string PlayerAccountsPasswordTooShort = "player_accounts.password_too_short";
         public const string PlayerAccountsPlatformDisabled = "player_accounts.platform_disabled";
-        public const string PlayerAccountsPlatformIdInvalid = "player_accounts.platform_id_invalid";
+        /// <summary>
+        /// <see cref="MirraCloud.Core.Auth.AuthenticationService.UnlinkPlatformAsync"/> without a platform key (400).
+        /// Not to be confused with <see cref="PlatformsPlatformKeyRequired"/>.
+        /// </summary>
+        public const string PlayerAccountsPlatformKeyRequired = "player_accounts.platform_key_required";
+        /// <summary>403 on a store sign-in: the platform has no store sign-in at all.</summary>
+        public const string PlayerAccountsPlatformMarketplaceProviderMissing = "player_accounts.platform_marketplace_provider_missing";
         public const string PlayerAccountsPlatformNotFound = "player_accounts.platform_not_found";
         public const string PlayerAccountsPlayerRoleKeyExists = "player_accounts.player_role_key_exists";
         public const string PlayerAccountsPlayerRoleKeyInvalid = "player_accounts.player_role_key_invalid";
@@ -606,12 +665,22 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsPlayerRoleNotFound = "player_accounts.player_role_not_found";
         public const string PlayerAccountsProfileIdInvalid = "player_accounts.profile_id_invalid";
         public const string PlayerAccountsProfileNotFound = "player_accounts.profile_not_found";
+        /// <summary>
+        /// 403: the sign-in method is on the platform but switched off. <c>data.platformKey</c>, <c>data.kind</c>,
+        /// <c>data.integrationKey</c>.
+        /// </summary>
+        public const string PlayerAccountsProviderDisabledOnPlatform = "player_accounts.provider_disabled_on_platform";
         public const string PlayerAccountsProviderDocumentTypeMismatch = "player_accounts.provider_document_type_mismatch";
         public const string PlayerAccountsProviderDuplicate = "player_accounts.provider_duplicate";
         public const string PlayerAccountsProviderHandlerMissing = "player_accounts.provider_handler_missing";
         public const string PlayerAccountsProviderMisconfigured = "player_accounts.provider_misconfigured";
-        public const string PlayerAccountsProviderNotEnabled = "player_accounts.provider_not_enabled";
         public const string PlayerAccountsProviderNotFound = "player_accounts.provider_not_found";
+        /// <summary>
+        /// 403: the platform does not offer this sign-in method (or no OpenID provider with this key).
+        /// <c>data.platformKey</c>, <c>data.kind</c>, <c>data.integrationKey</c>. Ask
+        /// <see cref="MirraCloud.Core.Auth.AuthenticationService.GetLoginMethodsAsync"/> which methods it does offer.
+        /// </summary>
+        public const string PlayerAccountsProviderNotOnPlatform = "player_accounts.provider_not_on_platform";
         public const string PlayerAccountsRandomCountOutOfRange = "player_accounts.random_count_out_of_range";
         public const string PlayerAccountsRefreshTokenRequired = "player_accounts.refresh_token_required";
         public const string PlayerAccountsRepositoryFailure = "player_accounts.repository_failure";
@@ -652,26 +721,31 @@ namespace MirraCloud.Core.Errors
         public const string ProjectStatisticsRouteNotFound = "project_statistics.route_not_found";
 
         // === purchases ===
+        public const string PurchasesBranchNotEditable = "purchases.branch_not_editable";
         public const string PurchasesNonConsumableAlreadyOwned = "purchases.non_consumable_already_owned";
         public const string PurchasesOrderAlreadyCompleted = "purchases.order_already_completed";
         public const string PurchasesOrderIdInvalid = "purchases.order_id_invalid";
         public const string PurchasesOrderInvalidStatus = "purchases.order_invalid_status";
         public const string PurchasesOrderNotFound = "purchases.order_not_found";
         public const string PurchasesPaymentProviderError = "purchases.payment_provider_error";
-        public const string PurchasesPlatformIdInvalid = "purchases.platform_id_invalid";
+        public const string PurchasesProviderConfigAlreadyExists = "purchases.provider_config_already_exists";
         public const string PurchasesProviderConfigIdInvalid = "purchases.provider_config_id_invalid";
         public const string PurchasesProviderConfigNotActive = "purchases.provider_config_not_active";
         public const string PurchasesProviderConfigNotFound = "purchases.provider_config_not_found";
+        public const string PurchasesProviderConfigNotInBranch = "purchases.provider_config_not_in_branch";
         public const string PurchasesProviderConfigWrongType = "purchases.provider_config_wrong_type";
         public const string PurchasesProviderMappingAlreadyExists = "purchases.provider_mapping_already_exists";
         public const string PurchasesProviderMappingNotActive = "purchases.provider_mapping_not_active";
         public const string PurchasesProviderMappingNotFound = "purchases.provider_mapping_not_found";
+        public const string PurchasesProviderMappingNotInBranch = "purchases.provider_mapping_not_in_branch";
+        public const string PurchasesProviderMappingReferenceMissing = "purchases.provider_mapping_reference_missing";
         public const string PurchasesProviderUnsupported = "purchases.provider_unsupported";
         public const string PurchasesPurchaseConfigAlreadyExists = "purchases.purchase_config_already_exists";
         public const string PurchasesPurchaseConfigIdInvalid = "purchases.purchase_config_id_invalid";
         public const string PurchasesPurchaseConfigInvalidType = "purchases.purchase_config_invalid_type";
         public const string PurchasesPurchaseConfigNotActive = "purchases.purchase_config_not_active";
         public const string PurchasesPurchaseConfigNotFound = "purchases.purchase_config_not_found";
+        public const string PurchasesPurchaseConfigNotInBranch = "purchases.purchase_config_not_in_branch";
         public const string PurchasesPurchaseKeyRequired = "purchases.purchase_key_required";
         public const string PurchasesRedirectUrlsRequired = "purchases.redirect_urls_required";
         public const string PurchasesRedisFailure = "purchases.redis_failure";
