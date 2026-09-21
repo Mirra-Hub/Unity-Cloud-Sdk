@@ -679,6 +679,25 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsExternalAvatarDomainNotAllowed = "player_accounts.external_avatar_domain_not_allowed";
         public const string PlayerAccountsExternalAvatarMalformed = "player_accounts.external_avatar_malformed";
         public const string PlayerAccountsExternalAvatarPatternInvalid = "player_accounts.external_avatar_pattern_invalid";
+        /// <summary>
+        /// 422 on <see cref="MirraCloud.Core.Attribution.AttributionService.LinkAdjustAsync"/>: the adid has whitespace
+        /// or control characters or is longer than 128, or an attribution field is longer than 512. <c>data.field</c>,
+        /// <c>data.reason</c> (<c>invalid_characters</c> / <c>too_long</c>), <c>data.maxLength</c>.
+        /// </summary>
+        public const string PlayerAccountsExternalFieldInvalid = "player_accounts.external_field_invalid";
+        /// <summary>
+        /// 409 on <see cref="MirraCloud.Core.Attribution.AttributionService.LinkAdjustAsync"/>: another account of the
+        /// project already holds this adid. Final for this account — resending does not help. <c>data.providerKey</c>.
+        /// </summary>
+        public const string PlayerAccountsExternalIdConflict = "player_accounts.external_id_conflict";
+        /// <summary>400 on <see cref="MirraCloud.Core.Attribution.AttributionService.LinkAdjustAsync"/>: no adid. <c>data.field</c>.</summary>
+        public const string PlayerAccountsExternalIdRequired = "player_accounts.external_id_required";
+        /// <summary>
+        /// 403 on <see cref="MirraCloud.Core.Attribution.AttributionService.LinkAdjustAsync"/>: the project has no enabled
+        /// Adjust integration. Not a session problem. <c>data.providerKey</c>, <c>data.reason</c>
+        /// (<c>not_configured</c> / <c>disabled</c>).
+        /// </summary>
+        public const string PlayerAccountsExternalIntegrationUnavailable = "player_accounts.external_integration_unavailable";
         public const string PlayerAccountsExternalUserIdRequired = "player_accounts.external_user_id_required";
         public const string PlayerAccountsFileRequired = "player_accounts.file_required";
         public const string PlayerAccountsGuestIdRequired = "player_accounts.guest_id_required";
@@ -705,15 +724,17 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsPasswordPatternInvalid = "player_accounts.password_pattern_invalid";
         /// <summary>A new password is shorter than the platform's minimum (422). <c>data.minLength</c>.</summary>
         public const string PlayerAccountsPasswordTooShort = "player_accounts.password_too_short";
-        public const string PlayerAccountsPlatformDisabled = "player_accounts.platform_disabled";
         /// <summary>
         /// <see cref="MirraCloud.Core.Auth.AuthenticationService.UnlinkPlatformAsync"/> without a platform key (400).
         /// Not to be confused with <see cref="PlatformsPlatformKeyRequired"/>.
         /// </summary>
+        /// <summary>Console player lists: a <c>platformKeys</c> filter value is not a platform key (422).</summary>
+        public const string PlayerAccountsPlatformKeyInvalid = "player_accounts.platform_key_invalid";
         public const string PlayerAccountsPlatformKeyRequired = "player_accounts.platform_key_required";
+        /// <summary>Console player lists: more than 20 <c>platformKeys</c> in one filter (422).</summary>
+        public const string PlayerAccountsPlatformKeysTooMany = "player_accounts.platform_keys_too_many";
         /// <summary>403 on a store sign-in: the platform has no store sign-in at all.</summary>
         public const string PlayerAccountsPlatformMarketplaceProviderMissing = "player_accounts.platform_marketplace_provider_missing";
-        public const string PlayerAccountsPlatformNotFound = "player_accounts.platform_not_found";
         public const string PlayerAccountsPlayerRoleKeyExists = "player_accounts.player_role_key_exists";
         public const string PlayerAccountsPlayerRoleKeyInvalid = "player_accounts.player_role_key_invalid";
         public const string PlayerAccountsPlayerRoleNameRequired = "player_accounts.player_role_name_required";
@@ -726,10 +747,8 @@ namespace MirraCloud.Core.Errors
         /// </summary>
         public const string PlayerAccountsProviderDisabledOnPlatform = "player_accounts.provider_disabled_on_platform";
         public const string PlayerAccountsProviderDocumentTypeMismatch = "player_accounts.provider_document_type_mismatch";
-        public const string PlayerAccountsProviderDuplicate = "player_accounts.provider_duplicate";
         public const string PlayerAccountsProviderHandlerMissing = "player_accounts.provider_handler_missing";
         public const string PlayerAccountsProviderMisconfigured = "player_accounts.provider_misconfigured";
-        public const string PlayerAccountsProviderNotFound = "player_accounts.provider_not_found";
         /// <summary>
         /// 403: the platform does not offer this sign-in method (or no OpenID provider with this key).
         /// <c>data.platformKey</c>, <c>data.kind</c>, <c>data.integrationKey</c>. Ask
@@ -807,19 +826,22 @@ namespace MirraCloud.Core.Errors
 
         // === purchases ===
         public const string PurchasesBranchNotEditable = "purchases.branch_not_editable";
+        /// <summary>422 on <see cref="MirraCloud.Core.Purchases.PurchasesService.InitiatePurchaseAsync"/>: no integration key. <c>data.field</c>.</summary>
+        public const string PurchasesIntegrationKeyRequired = "purchases.integration_key_required";
         public const string PurchasesNonConsumableAlreadyOwned = "purchases.non_consumable_already_owned";
         public const string PurchasesOrderAlreadyCompleted = "purchases.order_already_completed";
         public const string PurchasesOrderIdInvalid = "purchases.order_id_invalid";
         public const string PurchasesOrderInvalidStatus = "purchases.order_invalid_status";
         public const string PurchasesOrderNotFound = "purchases.order_not_found";
+        /// <summary>
+        /// 409 on <see cref="MirraCloud.Core.Purchases.PurchasesService.InitiatePurchaseAsync"/>: the payment integration
+        /// is gone, switched off, or cannot take payments. Reload the catalog — it lists only integrations that can.
+        /// <c>data.integrationKey</c>, <c>data.reason</c> (<c>not_found</c> / <c>disabled</c> / <c>not_payment</c>).
+        /// </summary>
+        public const string PurchasesPaymentIntegrationUnavailable = "purchases.payment_integration_unavailable";
         public const string PurchasesPaymentProviderError = "purchases.payment_provider_error";
-        public const string PurchasesProviderConfigAlreadyExists = "purchases.provider_config_already_exists";
-        public const string PurchasesProviderConfigIdInvalid = "purchases.provider_config_id_invalid";
-        public const string PurchasesProviderConfigNotActive = "purchases.provider_config_not_active";
-        public const string PurchasesProviderConfigNotFound = "purchases.provider_config_not_found";
-        public const string PurchasesProviderConfigNotInBranch = "purchases.provider_config_not_in_branch";
-        public const string PurchasesProviderConfigWrongType = "purchases.provider_config_wrong_type";
         public const string PurchasesProviderMappingAlreadyExists = "purchases.provider_mapping_already_exists";
+        public const string PurchasesProviderMappingIntegrationNotPayment = "purchases.provider_mapping_integration_not_payment";
         public const string PurchasesProviderMappingNotActive = "purchases.provider_mapping_not_active";
         public const string PurchasesProviderMappingNotFound = "purchases.provider_mapping_not_found";
         public const string PurchasesProviderMappingNotInBranch = "purchases.provider_mapping_not_in_branch";
@@ -835,12 +857,12 @@ namespace MirraCloud.Core.Errors
         public const string PurchasesRedirectUrlsRequired = "purchases.redirect_urls_required";
         public const string PurchasesRedisFailure = "purchases.redis_failure";
         public const string PurchasesSelectedProfileRequired = "purchases.selected_profile_required";
-        public const string PurchasesStripeNoActiveProvider = "purchases.stripe_no_active_provider";
         public const string PurchasesStripeSessionMetadataInvalid = "purchases.stripe_session_metadata_invalid";
         public const string PurchasesStripeSessionNoPaymentIntent = "purchases.stripe_session_no_payment_intent";
         public const string PurchasesStripeSignatureInvalid = "purchases.stripe_signature_invalid";
         public const string PurchasesStripeSignatureMissing = "purchases.stripe_signature_missing";
         public const string PurchasesStripeUnexpectedPayload = "purchases.stripe_unexpected_payload";
+        public const string PurchasesStripeWebhookSecretMissing = "purchases.stripe_webhook_secret_missing";
         public const string PurchasesSubscriptionNotFound = "purchases.subscription_not_found";
         public const string PurchasesYookassaEmptyEvent = "purchases.yookassa_empty_event";
         public const string PurchasesYookassaInvalidPlayerId = "purchases.yookassa_invalid_player_id";

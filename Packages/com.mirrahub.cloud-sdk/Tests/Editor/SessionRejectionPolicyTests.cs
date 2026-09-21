@@ -86,7 +86,7 @@ namespace MirraCloud.Core.Tests
         [TestCase(CloudErrorCodes.PlayerAccountsExternalAuthInvalidSignature)]
         [TestCase(CloudErrorCodes.PlayerAccountsProviderNotOnPlatform)]
         [TestCase(CloudErrorCodes.PlayerAccountsAvatarChangeDisabled)]
-        [TestCase(CloudErrorCodes.PlayerAccountsPlatformDisabled)]
+        [TestCase(CloudErrorCodes.PlayerAccountsExternalIntegrationUnavailable)]
         [TestCase(CloudErrorCodes.CommonForbidden)]
         [TestCase(CloudErrorCodes.GroupsPlayerBanned)]
         [TestCase(CloudErrorCodes.LeaderboardsParticipationRequired)]
