@@ -39,6 +39,7 @@ Packages/com.mirrahub.cloud-sdk/
 ### Player Data
 - [CloudSave](services/CloudSave.md) — облачные сохранения (player, global, custom)
 - [DailyRewards](services/DailyRewards.md) — ежедневные награды
+- [Purchases](services/Purchases.md) — каталог магазина, цены по платёжным интеграциям, заказы и подписки
 
 ### Competitive
 - [Leaderboard](services/Leaderboard.md) — таблицы лидеров

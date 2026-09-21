@@ -264,7 +264,7 @@ Every service is reachable through `IMirraCloudSdk` once `Initialize()` has run.
 | [CloudSave](docs/services/CloudSave.md) | cloud saves: player data, global data, files |
 | [DailyRewards](docs/services/DailyRewards.md) | daily rewards, streaks and milestones |
 | [PromoCodes ↗](https://mirrahub.com/documentation/mirra-cloud/promo-codes) | redeeming promo codes, history, active effects |
-| [Purchases ↗](https://mirrahub.com/documentation/mirra-cloud/purchases) | catalog, purchase, orders, subscriptions |
+| [Purchases](docs/services/Purchases.md) | catalog priced per payment integration, purchase, orders, subscriptions |
 
 **Game configuration**
 

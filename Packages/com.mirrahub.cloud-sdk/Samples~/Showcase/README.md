@@ -107,7 +107,7 @@ values), so each view only writes the happy-path render.
 | Events | What LiveOps is running for this player, and the one screen that shows an event's effect: the same energy read through the catalog and through the runtime |
 | Entities | Config snapshot → per-config dynamic field table + components |
 | Cloud Save | Player key/value records (type, value, access masks, version) |
-| Purchases | Store catalog (price/currency/rewards) + order history |
+| Purchases | Store catalog (a price per payment integration, rewards) + orders and subscriptions + start-an-order tool by integration key |
 | Promo Codes | Redeem tool (with status gate) + redemption history |
 | Profanity Filter | Check tool → verdict, masked output, matched fragments |
 | Cloud Code | Invoke a function by key → dynamic JSON result |

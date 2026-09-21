@@ -19,6 +19,14 @@ namespace MirraCloud.Core.Purchases.Models
         public PlayerSubscriptionDto Subscription;
         public string Error;
 
+        /// <summary>
+        /// The server's refusal when the order could not be started (<see cref="PurchaseResultStatus.Failed"/>); null
+        /// otherwise. Dispatch on its code with <c>ApiError.HasCode(CloudErrorCodes.…)</c> — e.g.
+        /// <c>PurchasesPaymentIntegrationUnavailable</c> means the price's integration was switched off: reload the
+        /// catalog.
+        /// </summary>
+        public RestApiError ApiError;
+
         public static PurchaseResult Completed(PlayerOrderDto order) => new PurchaseResult
         {
             Status = PurchaseResultStatus.Completed,

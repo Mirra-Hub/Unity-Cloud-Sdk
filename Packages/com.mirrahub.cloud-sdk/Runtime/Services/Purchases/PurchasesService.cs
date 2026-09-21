@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using MirraCloud.Core.Errors;
 using MirraCloud.Core.Purchases.Dto;
 using MirraCloud.Core.Purchases.Models;
 using MirraCloud.Core.Purchases.WebView;
@@ -75,9 +76,21 @@ namespace MirraCloud.Core.Purchases
             return _restApi.GetAsync<List<PlayerSubscriptionDto>>(route);
         }
 
+        /// <summary>
+        /// Creates a Pending order (or subscription) for one product and returns the payment page of the chosen
+        /// integration. Nothing is charged yet.
+        /// </summary>
+        /// <param name="purchaseKey"><see cref="CatalogItemDto.Key"/>.</param>
+        /// <param name="integrationKey">
+        /// <see cref="CatalogPriceDto.IntegrationKey"/> of one of the product's prices. An integration that is gone,
+        /// switched off or cannot take payments is refused with 409
+        /// <see cref="CloudErrorCodes.PurchasesPaymentIntegrationUnavailable"/>; store integrations (VK Games,
+        /// Google Play) are paid through the store itself and get 422
+        /// <see cref="CloudErrorCodes.PurchasesProviderUnsupported"/>.
+        /// </param>
         public AsyncOperation<RestApiResult<InitiatePurchaseResponseDto>> InitiatePurchaseAsync(
             string purchaseKey,
-            string providerConfigId,
+            string integrationKey,
             string successRedirectUrl,
             string cancelRedirectUrl)
         {
@@ -85,7 +98,7 @@ namespace MirraCloud.Core.Purchases
             var dto = new InitiatePurchaseRequestDto
             {
                 PurchaseKey = purchaseKey,
-                ProviderConfigId = providerConfigId,
+                IntegrationKey = integrationKey,
                 SuccessRedirectUrl = successRedirectUrl,
                 CancelRedirectUrl = cancelRedirectUrl
             };
@@ -96,9 +109,12 @@ namespace MirraCloud.Core.Purchases
         // High-level BuyAsync — full end-to-end purchase flow via WebView.
         // ----------------------------------------------------------------
 
+        /// <param name="purchaseKey"><see cref="CatalogItemDto.Key"/>.</param>
+        /// <param name="integrationKey"><see cref="CatalogPriceDto.IntegrationKey"/> of the price to pay.</param>
+        /// <param name="options">Redirect URLs and the order polling window; defaults when null.</param>
         public AsyncOperation<PurchaseResult> BuyAsync(
             string purchaseKey,
-            string providerConfigId,
+            string integrationKey,
             PurchaseOptions options = null)
         {
             var op = new AsyncOperation<PurchaseResult>();
@@ -108,9 +124,9 @@ namespace MirraCloud.Core.Purchases
                 return FailSync(op, "PurchaseKey is required.");
             }
 
-            if (string.IsNullOrWhiteSpace(providerConfigId))
+            if (string.IsNullOrWhiteSpace(integrationKey))
             {
-                return FailSync(op, "ProviderConfigId is required.");
+                return FailSync(op, "IntegrationKey is required.");
             }
 
             options ??= new PurchaseOptions();
@@ -129,13 +145,14 @@ namespace MirraCloud.Core.Purchases
 
             var receiver = new WebViewPurchaseReceiver(_webView, successUrl, cancelUrl);
 
-            var initiateOp = InitiatePurchaseAsync(purchaseKey, providerConfigId, successUrl, cancelUrl);
+            var initiateOp = InitiatePurchaseAsync(purchaseKey, integrationKey, successUrl, cancelUrl);
             initiateOp.UseCompleted(_ =>
             {
                 if (!initiateOp.Result.IsSuccess || initiateOp.Result.Data == null)
                 {
                     receiver.Dispose();
-                    CompleteWithFailure(op, initiateOp.Result.Error?.Message ?? "Failed to initiate purchase.");
+                    var apiError = initiateOp.Result.Error;
+                    CompleteWithFailure(op, Describe(apiError, "Failed to initiate purchase."), apiError: apiError);
                     return;
                 }
 
@@ -272,12 +289,29 @@ namespace MirraCloud.Core.Purchases
             return op;
         }
 
-        private void CompleteWithFailure(AsyncOperation<PurchaseResult> op, string error, string operationId = null)
+        private void CompleteWithFailure(AsyncOperation<PurchaseResult> op, string error, string operationId = null,
+            RestApiError apiError = null)
         {
             var result = PurchaseResult.Failed(error, operationId);
+            result.ApiError = apiError;
             _logger?.Error($"[Purchases] {error}");
             OnPurchaseFailed?.Invoke(result);
             op.Complete(result);
+        }
+
+        /// <summary>
+        /// The server's typed refusal (<c>code — message</c>) when there is one; the transport message otherwise, which
+        /// for an HTTP error is only the status line.
+        /// </summary>
+        private static string Describe(RestApiError error, string fallback)
+        {
+            var cloudError = error.FirstCloudError();
+            if (cloudError != null && !string.IsNullOrEmpty(cloudError.Code))
+            {
+                return string.IsNullOrEmpty(cloudError.Message) ? cloudError.Code : $"{cloudError.Code} — {cloudError.Message}";
+            }
+
+            return error?.Message ?? fallback;
         }
     }
 }

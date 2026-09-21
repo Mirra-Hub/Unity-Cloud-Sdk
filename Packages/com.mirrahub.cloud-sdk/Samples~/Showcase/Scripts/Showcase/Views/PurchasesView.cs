@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MirraCloud.Core;
+using MirraCloud.Core.Errors;
 using MirraCloud.Core.Purchases;
 using MirraCloud.Core.Purchases.Dto;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
@@ -31,7 +32,7 @@ namespace MirraCloud.Example.Showcase
         private const string DefaultCancelUrl = "https://example.com/purchase/cancel";
 
         private const string CatalogSnippet =
-@"// The store as the project defines it: every product, the price under each payment provider,
+@"// The store as the project defines it: every product, its price at each payment integration,
 // and what the product grants once an order settles.
 var op = sdk.Purchases.LoadCatalogAsync();
 await op.Task();
@@ -42,7 +43,7 @@ if (op.Result.IsSuccess)
     {
         // item.Key / item.Id / item.DisplayName / item.Description / item.Metadata
         // item.Type:    Consumable | NonConsumable | Subscription
-        // item.Prices:  ProviderConfigId, ProviderName, ProviderType, Amount, Currency
+        // item.Prices:  IntegrationKey, ProviderName, ProviderType, Amount, Currency, MappingId
         // item.Rewards: RewardId, EconomyResourceKind, Count
         // item.SubscriptionConfig: IntervalDays, TrialDays, GracePeriodDays
     }
@@ -87,7 +88,7 @@ foreach (PlayerSubscriptionDto sub in op.Result.Data)
 // returns the provider's payment page. Nothing is charged yet.
 var op = sdk.Purchases.InitiatePurchaseAsync(
     purchaseKey: ""starter_pack"",           // CatalogItemDto.Key
-    providerConfigId: providerConfigId,    // CatalogPriceDto.ProviderConfigId
+    integrationKey: ""stripe-eu"",           // CatalogPriceDto.IntegrationKey
     successRedirectUrl: ""https://example.com/purchase/success"",
     cancelRedirectUrl: ""https://example.com/purchase/cancel"");
 await op.Task();
@@ -96,13 +97,17 @@ InitiatePurchaseResponseDto started = op.Result.Data;
 // started.OperationId — order id, or subscription id when started.IsSubscription
 // started.PaymentUrl  — open this in a browser or a WebView
 // The redirects are only where the provider sends the player back. The backend settles the order
-// from the provider's webhook, so poll GetOrderAsync rather than trusting the redirect.";
+// from the provider's webhook, so poll GetOrderAsync rather than trusting the redirect.
+//
+// Refusals worth handling by code (op.Result.Error.HasCode(...)):
+//   PurchasesPaymentIntegrationUnavailable — the integration was switched off: reload the catalog
+//   PurchasesProviderUnsupported           — a store integration (VK Games, Google Play): pay in the store";
 
         private const string BuySnippet =
 @"// The one-call flow — NOT executed anywhere in this example, because it settles a real payment.
 // It initiates the order, opens the payment page in the SDK WebView, waits for the redirect, then
 // polls the order until the provider's webhook has settled it.
-var op = sdk.Purchases.BuyAsync(""starter_pack"", providerConfigId, new PurchaseOptions
+var op = sdk.Purchases.BuyAsync(""starter_pack"", ""stripe-eu"", new PurchaseOptions
 {
     SuccessRedirectUrl = ""https://example.com/purchase/success"",
     CancelRedirectUrl = ""https://example.com/purchase/cancel"",
@@ -118,7 +123,7 @@ switch (result.Status)
     case PurchaseResultStatus.SubscriptionActivated: break;  // result.Subscription
     case PurchaseResultStatus.Pending: break;                // webhook late — poll GetOrderAsync
     case PurchaseResultStatus.Cancelled: break;              // the player backed out
-    case PurchaseResultStatus.Failed: break;                 // result.Error
+    case PurchaseResultStatus.Failed: break;                 // result.Error, result.ApiError
 }
 
 // It needs a WebView that can intercept URLs, so it fails outright on WebGL. The same outcomes
@@ -129,7 +134,7 @@ sdk.Purchases.OnPurchaseFailed += failure => { };";
 
         private const string BuyExcerpt =
 @"// Real money. Shown here, never called by this example.
-var op = sdk.Purchases.BuyAsync(""starter_pack"", providerConfigId);
+var op = sdk.Purchases.BuyAsync(""starter_pack"", ""stripe-eu"");   // CatalogPriceDto.IntegrationKey
 await op.Task();
 
 PurchaseResult result = op.Result;
@@ -150,7 +155,7 @@ PurchaseResult result = op.Result;
         private string _search = string.Empty;
         private PurchaseType? _typeFilter;
         private string _prefillKey;
-        private string _prefillProvider;
+        private string _prefillIntegration;
 
         // Kept so an order can be labelled with its product name instead of a raw config id. The
         // catalog tab is built first, but its load is async — every reader of this falls back.
@@ -243,9 +248,10 @@ PurchaseResult result = op.Result;
                         _catalog = new List<CatalogItemDto>();
                         SetStatus("No products", ChipTone.Warn);
                         return ZeroState.Cards(LucideIcon.ShoppingCart,
-                            "Products, their prices and the payment providers behind them are authored in "
-                            + "the Mirra Hub console. Once one exists there it shows up here, and its key "
-                            + "plus one provider config id are everything a game needs to start an order.",
+                            "Products and their prices are authored in the Mirra Hub console; each price "
+                            + "names one payment integration of the project. Once a product exists there it "
+                            + "shows up here, and its key plus a price's integration key are everything a "
+                            + "game needs to start an order.",
                             4, "See how a purchase works", () => _tabs.Select(ActionsTab));
                     },
                 });
@@ -515,11 +521,13 @@ PurchaseResult result = op.Result;
             details.AddToClassList("sc-btn");
             foot.Add(details);
 
-            // Without a provider mapping there is no providerConfigId to pass, so the shortcut is
-            // absent rather than present and guaranteed to fail.
-            if (price != null && !string.IsNullOrEmpty(price.ProviderConfigId))
+            // Only a price the SDK can start an order through gets the shortcut: without one there
+            // is no integration key to pass, and a store price is paid in the store — either way the
+            // button would be present and guaranteed to fail.
+            var startable = FirstStartablePrice(item);
+            if (startable != null)
             {
-                var start = new Button(() => Prefill(item.Key, price.ProviderConfigId))
+                var start = new Button(() => Prefill(item.Key, startable.IntegrationKey))
                 {
                     text = "Start an order",
                 };
@@ -557,13 +565,13 @@ PurchaseResult result = op.Result;
         {
             if (price == null)
             {
-                return "no provider mapping — a game cannot start an order for this product yet";
+                return "no price — a game cannot start an order for this product yet";
             }
 
             int others = (item.Prices != null ? item.Prices.Count : 1) - 1;
             string provider = ProviderLabel(price);
             return others > 0
-                ? provider + " · " + others + (others == 1 ? " more provider" : " more providers")
+                ? provider + " · " + others + (others == 1 ? " more price" : " more prices")
                 : provider;
         }
 
@@ -648,10 +656,11 @@ PurchaseResult result = op.Result;
         {
             if (item.Prices == null || item.Prices.Count == 0)
             {
-                return ZeroState.Panel(LucideIcon.Coins, "No price mapping",
-                    "A product needs at least one provider mapping before it can be sold: the mapping "
-                    + "is what carries the amount, the currency and the provider config id that "
-                    + "InitiatePurchaseAsync takes.");
+                return ZeroState.Panel(LucideIcon.Coins, "No price",
+                    "A product needs at least one price before it can be sold: the price is what carries "
+                    + "the amount, the currency and the key of the payment integration that "
+                    + "InitiatePurchaseAsync takes. A price whose integration is switched off in the "
+                    + "console is not listed.");
             }
 
             var list = new VisualElement();
@@ -664,17 +673,19 @@ PurchaseResult result = op.Result;
 
                 var row = new ListRow();
                 row.SetTitle(ProviderLabel(price));
-                row.SetSubtitle("config " + Fmt.Id(price.ProviderConfigId, 12));
+                row.SetSubtitle(IsStorePrice(price)
+                    ? "integration " + Fmt.OrDash(price.IntegrationKey) + " · paid in the store"
+                    : "integration " + Fmt.OrDash(price.IntegrationKey));
 
                 var trailing = new VisualElement();
                 trailing.AddToClassList("sc-row-actions");
                 trailing.Add(new Chip(Fmt.Money(price.Amount, price.Currency.ToString()),
                     ChipTone.Accent));
 
-                if (!string.IsNullOrEmpty(price.ProviderConfigId))
+                if (!string.IsNullOrEmpty(price.IntegrationKey) && !IsStorePrice(price))
                 {
-                    string providerConfigId = price.ProviderConfigId;
-                    var use = new Button(() => Prefill(item.Key, providerConfigId)) { text = "Use" };
+                    string integrationKey = price.IntegrationKey;
+                    var use = new Button(() => Prefill(item.Key, integrationKey)) { text = "Use" };
                     use.AddToClassList("sc-btn");
                     use.AddToClassList("sc-btn--primary");
                     trailing.Add(use);
@@ -1191,8 +1202,8 @@ PurchaseResult result = op.Result;
                 .WithFields(
                     FormField.Text("purchaseKey", "Purchase key", _prefillKey, true)
                         .WithPlaceholder("CatalogItemDto.Key — e.g. starter_pack"),
-                    FormField.Text("providerConfigId", "Provider config id", _prefillProvider, true)
-                        .WithPlaceholder("CatalogPriceDto.ProviderConfigId"),
+                    FormField.Text("integrationKey", "Integration key", _prefillIntegration, true)
+                        .WithPlaceholder("CatalogPriceDto.IntegrationKey — e.g. stripe-eu"),
                     FormField.Text("successUrl", "Success redirect URL", DefaultSuccessUrl),
                     FormField.Text("cancelUrl", "Cancel redirect URL", DefaultCancelUrl))
                 .WithSnippet(InitiateSnippet)
@@ -1278,10 +1289,10 @@ PurchaseResult result = op.Result;
             return card;
         }
 
-        private void Prefill(string purchaseKey, string providerConfigId)
+        private void Prefill(string purchaseKey, string integrationKey)
         {
             _prefillKey = purchaseKey;
-            _prefillProvider = providerConfigId;
+            _prefillIntegration = integrationKey;
             if (Popup != null)
             {
                 Popup.Close();
@@ -1301,14 +1312,14 @@ PurchaseResult result = op.Result;
         {
             var op = Sdk.Purchases.InitiatePurchaseAsync(
                 values.Text("purchaseKey").Trim(),
-                values.Text("providerConfigId").Trim(),
+                values.Text("integrationKey").Trim(),
                 UrlOr(values.Text("successUrl"), DefaultSuccessUrl),
                 UrlOr(values.Text("cancelUrl"), DefaultCancelUrl));
 
             var outcome = await AwaitData(op, "Purchases · initiate");
             if (!outcome.Ok)
             {
-                return ActionOutcome.Failure(outcome.Message);
+                return ActionOutcome.Failure(DescribeInitiateFailure(op.Result, outcome.Message));
             }
 
             // The order exists from this moment on, so both player-facing tabs are stale.
@@ -1363,6 +1374,36 @@ PurchaseResult result = op.Result;
             return ActionOutcome.Success(
                 StatusName(order.Status) + " · " + Fmt.Money(order.Amount, order.Currency.ToString()),
                 OrderDetail(order));
+        }
+
+        /// <summary>
+        /// The refusals an integrator is most likely to hit on this call, in words; anything else as
+        /// the server's <c>code — message</c>.
+        /// </summary>
+        private static string DescribeInitiateFailure(RestApiResult result, string fallback)
+        {
+            var error = result != null ? result.Error : null;
+            var cloud = error.FirstCloudError();
+            if (cloud == null)
+            {
+                return fallback;
+            }
+
+            switch (cloud.Code)
+            {
+                case CloudErrorCodes.PurchasesPaymentIntegrationUnavailable:
+                    return "That payment integration is gone, switched off, or cannot take payments. "
+                        + "Refresh the catalog — it only lists prices that can be paid.";
+                case CloudErrorCodes.PurchasesProviderUnsupported:
+                    return "That price belongs to a store (VK Games, Google Play): the player pays in the "
+                        + "store itself, not through an order started here.";
+                case CloudErrorCodes.PurchasesProviderMappingNotFound:
+                    return "This product has no price at that integration.";
+                case CloudErrorCodes.PurchasesIntegrationKeyRequired:
+                    return "Pick a price first: the integration key is required.";
+            }
+
+            return string.IsNullOrEmpty(cloud.Message) ? cloud.Code : cloud.Code + " — " + cloud.Message;
         }
 
         private static string UrlOr(string typed, string fallback)
@@ -1438,6 +1479,30 @@ PurchaseResult result = op.Result;
             foreach (var price in item.Prices)
             {
                 if (price != null)
+                {
+                    return price;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>A store price: paid through the store's own SDK, never through an order started here.</summary>
+        private static bool IsStorePrice(CatalogPriceDto price)
+        {
+            return price.ProviderType == PaymentProviderType.VkGames
+                || price.ProviderType == PaymentProviderType.GooglePlay
+                || price.ProviderType == PaymentProviderType.Apple;
+        }
+
+        private static CatalogPriceDto FirstStartablePrice(CatalogItemDto item)
+        {
+            if (item.Prices == null)
+            {
+                return null;
+            }
+            foreach (var price in item.Prices)
+            {
+                if (price != null && !string.IsNullOrEmpty(price.IntegrationKey) && !IsStorePrice(price))
                 {
                     return price;
                 }
