@@ -6,6 +6,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [Unreleased]
+
+### Added
+
+- **`CloudErrorCodes`** mirrors the new Integrations module (`Integrations*`: key, field and usage
+  errors from the console API, plus `IntegrationsIntegrationTypeMismatch` and
+  `IntegrationsSecretUnreadable`, which reach a game only through another module that reads an
+  integration, e.g. a purchase) and the new sign-in and account codes:
+  `PlayerAccountsAuthCodeRequired`, `PlayerAccountsIdTokenRequired`, `PlayerAccountsSessionIdInvalid`,
+  `PlayerAccountsAccountIdInvalid`, `PlayerAccountsProfileIdInvalid`, `PlayerAccountsFileRequired`,
+  `PlayerAccountsAvatarChangeDisabled`. Two older codes the mirror had missed are in too:
+  `PlayerAccountsBranchNotEditable`, `PlayerAccountsAccountOptionInvalid`.
+
 ## [0.5.0] — 2026-09-19
 
 ### Added

@@ -505,6 +505,25 @@ namespace MirraCloud.Core.Errors
         public const string GroupsRoleNotSpecified = "groups.role_not_specified";
         public const string GroupsTargetNotMember = "groups.target_not_member";
 
+        // === integrations ===
+        public const string IntegrationsFieldInvalid = "integrations.field_invalid";
+        public const string IntegrationsFieldRequired = "integrations.field_required";
+        public const string IntegrationsIntegrationInUse = "integrations.integration_in_use";
+        public const string IntegrationsIntegrationNotFound = "integrations.integration_not_found";
+
+        /// <summary>Not returned by the Integrations API itself: surfaces through another module's call that reads the integration, e.g. a purchase.</summary>
+        public const string IntegrationsIntegrationTypeMismatch = "integrations.integration_type_mismatch";
+
+        public const string IntegrationsKeyConflict = "integrations.key_conflict";
+        public const string IntegrationsKeyInvalid = "integrations.key_invalid";
+        public const string IntegrationsKeyReserved = "integrations.key_reserved";
+        public const string IntegrationsPayloadInvalid = "integrations.payload_invalid";
+
+        /// <summary>Not returned by the Integrations API itself: surfaces through another module's call that reads the integration, e.g. a purchase.</summary>
+        public const string IntegrationsSecretUnreadable = "integrations.secret_unreadable";
+
+        public const string IntegrationsUsageCheckFailed = "integrations.usage_check_failed";
+
         // === leaderboards ===
         public const string LeaderboardsParticipationRequired = "leaderboards.participation_required";
 
@@ -529,12 +548,17 @@ namespace MirraCloud.Core.Errors
 
         // === player_accounts ===
         public const string PlayerAccountsAccountDoesNotExist = "player_accounts.account_does_not_exist";
+        public const string PlayerAccountsAccountIdInvalid = "player_accounts.account_id_invalid";
         public const string PlayerAccountsAccountNotFound = "player_accounts.account_not_found";
+        public const string PlayerAccountsAccountOptionInvalid = "player_accounts.account_option_invalid";
         public const string PlayerAccountsAuthBelongsToAnotherAccount = "player_accounts.auth_belongs_to_another_account";
+        public const string PlayerAccountsAuthCodeRequired = "player_accounts.auth_code_required";
         public const string PlayerAccountsAuthIssuerPipelineEmpty = "player_accounts.auth_issuer_pipeline_empty";
         public const string PlayerAccountsAuthRecordNotFound = "player_accounts.auth_record_not_found";
         public const string PlayerAccountsAuthRedirectUrlMissing = "player_accounts.auth_redirect_url_missing";
+        public const string PlayerAccountsAvatarChangeDisabled = "player_accounts.avatar_change_disabled";
         public const string PlayerAccountsBranchEnvironmentMissing = "player_accounts.branch_environment_missing";
+        public const string PlayerAccountsBranchNotEditable = "player_accounts.branch_not_editable";
         public const string PlayerAccountsBranchProjectMismatch = "player_accounts.branch_project_mismatch";
         public const string PlayerAccountsCacheKeyExists = "player_accounts.cache_key_exists";
         public const string PlayerAccountsCacheKeyMissing = "player_accounts.cache_key_missing";
@@ -551,7 +575,9 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsExternalAvatarMalformed = "player_accounts.external_avatar_malformed";
         public const string PlayerAccountsExternalAvatarPatternInvalid = "player_accounts.external_avatar_pattern_invalid";
         public const string PlayerAccountsExternalUserIdRequired = "player_accounts.external_user_id_required";
+        public const string PlayerAccountsFileRequired = "player_accounts.file_required";
         public const string PlayerAccountsGuestIdRequired = "player_accounts.guest_id_required";
+        public const string PlayerAccountsIdTokenRequired = "player_accounts.id_token_required";
         public const string PlayerAccountsImageFetchFailed = "player_accounts.image_fetch_failed";
         public const string PlayerAccountsImageNotFound = "player_accounts.image_not_found";
         public const string PlayerAccountsImageUploadFailed = "player_accounts.image_upload_failed";
@@ -578,6 +604,7 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsPlayerRoleKeyInvalid = "player_accounts.player_role_key_invalid";
         public const string PlayerAccountsPlayerRoleNameRequired = "player_accounts.player_role_name_required";
         public const string PlayerAccountsPlayerRoleNotFound = "player_accounts.player_role_not_found";
+        public const string PlayerAccountsProfileIdInvalid = "player_accounts.profile_id_invalid";
         public const string PlayerAccountsProfileNotFound = "player_accounts.profile_not_found";
         public const string PlayerAccountsProviderDocumentTypeMismatch = "player_accounts.provider_document_type_mismatch";
         public const string PlayerAccountsProviderDuplicate = "player_accounts.provider_duplicate";
@@ -589,6 +616,7 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsRefreshTokenRequired = "player_accounts.refresh_token_required";
         public const string PlayerAccountsRepositoryFailure = "player_accounts.repository_failure";
         public const string PlayerAccountsSessionExpired = "player_accounts.session_expired";
+        public const string PlayerAccountsSessionIdInvalid = "player_accounts.session_id_invalid";
         public const string PlayerAccountsSessionMismatch = "player_accounts.session_mismatch";
         public const string PlayerAccountsSessionNotFound = "player_accounts.session_not_found";
         public const string PlayerAccountsSessionProjectMismatch = "player_accounts.session_project_mismatch";
