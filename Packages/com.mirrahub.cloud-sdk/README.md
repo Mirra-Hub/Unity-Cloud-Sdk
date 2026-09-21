@@ -1,7 +1,7 @@
 # Mirra Cloud SDK
 
 A cloud backend for games — accounts, saves, economy, leaderboards, social systems, LiveOps and
-analytics. 24 services, no server of your own.
+analytics. 25 services, no server of your own.
 
 The full description, a quick start and the per-service reference live in the
 [repository README](https://github.com/Mirra-Hub/Unity-Cloud-Sdk#readme) and in the

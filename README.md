@@ -2,7 +2,7 @@
 
 <p align="center">
   A cloud backend for games — accounts, saves, economy, leaderboards,<br>
-  social systems, LiveOps and analytics. One package, 24 services, no server of your own.
+  social systems, LiveOps and analytics. One package, 25 services, no server of your own.
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 
 What the SDK gives you:
 
-- **24 services** — from guest sign-in and cloud saves to tournaments, chats, purchases and analytics.
+- **25 services** — from guest sign-in and cloud saves to tournaments, chats, purchases and analytics.
 - **One async contract.** Every call returns `AsyncOperation<RestApiResult<T>>`: wait on it with
   `await`, `yield return` or a callback, whichever suits the code around it.
 - **Errors are values, not exceptions.** The SDK does not throw on network failures or HTTP errors —
@@ -235,7 +235,7 @@ under [`docs/`](docs/README.md).
 | --- | --- |
 | [Overview and architecture](docs/README.md) | the `Runtime/` layout, shared patterns, editor tools |
 | [Local storage](docs/Storage.md) | `IStorage` (PlayerPrefs) and `IBlobStorage` (SQLite / IndexedDB / File) |
-| [Services](#services) | 24 services, table below |
+| [Services](#services) | 25 services, table below |
 
 > The pages under `docs/` are currently written in Russian.
 
@@ -302,6 +302,7 @@ Every service is reachable through `IMirraCloudSdk` once `Initialize()` has run.
 | [AssetsStorage](docs/services/AssetsStorage.md) | downloading assets (textures, audio, bundles) with a local cache |
 | [CloudCode](docs/services/CloudCode.md) | calling server-side functions |
 | [Analytics](docs/services/Analytics.md) | events, sessions, playtime |
+| [Attribution](docs/services/Attribution.md) | the install's Adjust id and campaign, recorded on the player's account |
 | [WebView ↗](https://mirrahub.com/documentation/mirra-cloud/sdk-webview) | in-app browser: pages, URL interception, events |
 
 > Links marked ↗ go to the user-facing documentation.

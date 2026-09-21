@@ -351,6 +351,9 @@ namespace MirraCloud.Example.Showcase
                 case "analytics":
                     view = new AnalyticsView(m, back, _ctx);
                     break;
+                case "attribution":
+                    view = new AttributionView(m, back, _ctx);
+                    break;
                 case "webview":
                     view = new WebViewView(m, back, _ctx);
                     break;

@@ -112,6 +112,7 @@ values), so each view only writes the happy-path render.
 | Profanity Filter | Check tool → verdict, masked output, matched fragments |
 | Cloud Code | Invoke a function by key → dynamic JSON result |
 | Analytics | Fire tools (custom event / session / playtime) |
+| Attribution | Adjust ids recorded on the account + the queued report's state + hand-over / record-now tools |
 | WebView | Open-a-URL tool (gated on `IsReady`) + live event log |
 | Deployment | Local config card + resolve-branch-for-version tool |
 

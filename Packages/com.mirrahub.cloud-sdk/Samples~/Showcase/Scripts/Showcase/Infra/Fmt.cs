@@ -5,7 +5,7 @@ using MirraCloud.Json;
 namespace MirraCloud.Example.Showcase
 {
     /// <summary>
-    /// Display formatting shared by every view, so 22 services print sizes, counts, money and dates
+    /// Display formatting shared by every view, so 23 services print sizes, counts, money and dates
     /// the same way. Everything goes through InvariantCulture on purpose: the showcase UI is English
     /// and must not drift with the player's machine locale. Unset input (default/MinValue dates,
     /// blank strings) renders as <see cref="Dash"/> rather than "0001-01-01" or an empty cell.

@@ -55,6 +55,7 @@ Packages/com.mirrahub.cloud-sdk/
 - [AssetsStorage](services/AssetsStorage.md) — загрузка ассетов (текстуры, аудио, бандлы) с локальным кешем
 - [CloudCode](services/CloudCode.md) — выполнение серверных скриптов
 - [Analytics](services/Analytics.md) — аналитика и метрики
+- [Attribution](services/Attribution.md) — Adjust adid и атрибуция установки на аккаунте игрока (с отложенной отправкой)
 
 ## Локальное хранилище
 

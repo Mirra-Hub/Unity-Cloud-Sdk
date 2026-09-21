@@ -1,4 +1,5 @@
 using MirraCloud.Core.AssetsStorage;
+using MirraCloud.Core.Attribution;
 using MirraCloud.Core.Auth;
 using MirraCloud.Core.Chats;
 using MirraCloud.Core.CloudCode;
@@ -48,6 +49,7 @@ namespace MirraCloud.Core
         DailyRewardsService DailyRewards { get; }
         ChallengesService Challenges { get; }
         PurchasesService Purchases { get; }
+        AttributionService Attribution { get; }
         ProfanityFilterService ProfanityFilter { get; }
         PromoCodesService PromoCodes { get; }
         WebViewService WebView { get; }

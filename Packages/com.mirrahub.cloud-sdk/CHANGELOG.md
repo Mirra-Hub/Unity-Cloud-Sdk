@@ -13,8 +13,43 @@ which sign-in methods a player gets, and the SDK names it with every sign-in. Up
 platform in the console, switch on its sign-in methods, pick it in `Tools → Mirra Cloud → Manager`
 (new **Platform** dropdown), then fix the compile errors from the breaking changes below.
 
+Purchases are priced per **payment integration** (console → Integrations) instead of per provider config
+of a branch: a catalog price carries the integration's key, and that key is what a purchase is started
+with. Upgrade steps: recreate the Stripe / YooKassa / VK credentials as integrations, point the product
+prices at them, and pass `price.IntegrationKey` where the game passed `price.ProviderConfigId`.
+
+The new **Attribution** service records the install's Adjust id and campaign on the player's account.
+
 ### Added
 
+- **`Attribution` service** — the ids install-attribution SDKs know the install by, recorded on the
+  player's account (today: Adjust — the adid plus the campaign Adjust attributed the install to). The
+  project needs an enabled Adjust integration. The SDK does not depend on the Adjust SDK; the game hands
+  over what Adjust gives it:
+  - `ReportAdjustAdid(adid)` / `ReportAdjustAttribution(AdjustAttributionDto)` — call them from Adjust's
+    callbacks at any time, in any order, signed in or not. Adjust often hands out the attribution before
+    the adid and both before sign-in, so the service keeps what it got until there is both a player
+    session and the adid, then sends it once. It is sent again after a sign-in (possibly another
+    account) and when something new is handed over; a report that did not get through goes out again
+    on the next sign-in or session refresh — no timers. A refusal resending cannot change (409
+    `PlayerAccountsExternalIdConflict` — the adid is on another account of the project; 400 / 422 / 404)
+    is not resent, and a project without an enabled Adjust integration (403
+    `PlayerAccountsExternalIntegrationUnavailable`) gets nothing more until the next launch.
+    `AdjustReportState`, `LastAdjustReport` and `OnAdjustReported` say where it stands.
+  - `LinkAdjustAsync(AdjustAttributionDto)` — the bare `PUT …/players/external/v1/projects/{projectId}/adjust`,
+    for a game that manages the timing itself.
+  - `GetMyExternalIdsAsync()` — what is recorded on the signed-in account (`ExternalIdDto`: provider,
+    id, source, first / last seen, the Adjust attribution).
+- **`PurchaseResult.ApiError`** — the server's refusal when `BuyAsync` could not start the order, so a
+  game can dispatch on its code (`ApiError.HasCode(…)`). The failure text is now `code — message`
+  instead of the HTTP status line.
+- **`CloudErrorCodes`** for the new purchase and attribution refusals:
+  `PurchasesIntegrationKeyRequired`, `PurchasesPaymentIntegrationUnavailable` (409 — the price's
+  integration is gone, switched off or cannot take payments: reload the catalog),
+  `PurchasesProviderMappingIntegrationNotPayment`, `PurchasesStripeWebhookSecretMissing`,
+  `PlayerAccountsExternalIdRequired`, `PlayerAccountsExternalFieldInvalid`,
+  `PlayerAccountsExternalIdConflict`, `PlayerAccountsExternalIntegrationUnavailable`, and the console
+  player-list filter codes `PlayerAccountsPlatformKeyInvalid`, `PlayerAccountsPlatformKeysTooMany`.
 - **`Authentication.GetLoginMethodsAsync()`** — the sign-in methods the build's platform offers right
   now, in the order set in the console, so a game draws only buttons that work. Needs no session.
   Returns `LoginMethodsDto { PlatformKey, Methods }`; each `LoginMethodDto` has `Kind`
@@ -34,7 +69,7 @@ platform in the console, switch on its sign-in methods, pick it in `Tools → Mi
   sign-in (`PlayerAccountsPlatformKeyRequired`), for analytics (`GameAnalyticsInvalidPlatformKey`) and the
   rest of the Platforms console catalogue (keys, platform types, sign-in / payment / integration links,
   legal info). Purchases codes the mirror had missed are in too (`PurchasesBranchNotEditable`,
-  `Purchases*NotInBranch`, `PurchasesProviderConfigAlreadyExists`,
+  `PurchasesProviderMappingNotInBranch`, `PurchasesPurchaseConfigNotInBranch`,
   `PurchasesProviderMappingReferenceMissing`).
 - **`CloudErrorCodes` covers the whole backend catalogue.** The codes the mirror had missed are in:
   new sections `CloudActions*`, `CloudServices*`, `Organizations*`, `Projects*`, `PromoCodes*`, and
@@ -55,6 +90,19 @@ platform in the console, switch on its sign-in methods, pick it in `Tools → Mi
 
 ### Changed
 
+- **Breaking — purchases are priced per payment integration.** `CatalogPriceDto.ProviderConfigId` is
+  now `IntegrationKey` (the key of the integration in the console), and the purchase calls take it:
+  `InitiatePurchaseAsync(purchaseKey, integrationKey, successRedirectUrl, cancelRedirectUrl)`,
+  `BuyAsync(purchaseKey, integrationKey, options)`. `InitiatePurchaseRequestDto.ProviderConfigId` is
+  `IntegrationKey` too. `CatalogPriceDto.MappingId` is now the price's stable key
+  `{purchaseKey}@{integrationKey}` (it was a version id) and stays informational; `ProviderName` is
+  the integration's name. The catalog lists only prices whose integration exists, is switched on and
+  can take payments, and drops a product left with none. A price at a store integration (VK Games,
+  Google Play) is paid in the store: starting an order for it is refused with 422
+  `purchases.provider_unsupported`.
+- **Showcase:** the Purchases screen starts orders by integration key (store prices get no start
+  button) and explains the integration refusals; a new **Attribution** screen shows what the account
+  has recorded, where the queued Adjust report stands, and both ways to send one.
 - **Breaking — `Configuration.PlatformKey` replaces `Configuration.AnalyticsPlatformId`.** One field
   for both uses: the SDK sends it in the `PlatformKey` header of every sign-in call (`Login*`, the start
   of an OpenID sign-in, `GetLoginMethodsAsync`) and puts it in the analytics routes. It holds the
@@ -110,6 +158,14 @@ platform in the console, switch on its sign-in methods, pick it in `Tools → Mi
   `PlayerAccountsPlatformIdInvalid`, `PlayerAccountsMarketplaceSettingsMissing`,
   `PlayerAccountsMarketplaceUnsupported`, `PlatformsMarketplaceTypeMismatch`,
   `PlatformsMarketplaceSettingsTypeMismatch`, `PurchasesPlatformIdInvalid`.
+- **Breaking — the provider-config codes of Purchases**, gone with the provider configs:
+  `PurchasesProviderConfigIdInvalid`, `PurchasesProviderConfigNotActive`,
+  `PurchasesProviderConfigNotFound`, `PurchasesProviderConfigWrongType` (a key of another vendor is now
+  `IntegrationsIntegrationTypeMismatch`), `PurchasesStripeNoActiveProvider`.
+- **Breaking — `CloudErrorCodes` of the removed per-project sign-in provider settings:**
+  `PlayerAccountsPlatformDisabled`, `PlayerAccountsPlatformNotFound`, `PlayerAccountsProviderDuplicate`,
+  `PlayerAccountsProviderNotFound` (a refused platform is `Platforms*`, a missing sign-in method
+  `PlayerAccountsProviderNotOnPlatform`).
 
 ### Fixed
 
