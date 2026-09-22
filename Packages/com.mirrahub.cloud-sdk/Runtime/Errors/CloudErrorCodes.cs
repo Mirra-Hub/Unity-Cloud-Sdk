@@ -565,6 +565,7 @@ namespace MirraCloud.Core.Errors
         /// <summary>Not returned by the Integrations API itself: surfaces through another module's call that reads the integration, e.g. a purchase.</summary>
         public const string IntegrationsSecretUnreadable = "integrations.secret_unreadable";
 
+        public const string IntegrationsTypeAlreadyAdded = "integrations.type_already_added";
         public const string IntegrationsUsageCheckFailed = "integrations.usage_check_failed";
 
         // === leaderboards ===
@@ -587,6 +588,7 @@ namespace MirraCloud.Core.Errors
 
         // === platforms ===
         public const string PlatformsAuthMethodKindInvalid = "platforms.auth_method_kind_invalid";
+        public const string PlatformsAuthProviderIntegrationMissing = "platforms.auth_provider_integration_missing";
         public const string PlatformsAuthProviderIntegrationNotAllowed = "platforms.auth_provider_integration_not_allowed";
         public const string PlatformsAuthProviderIntegrationRequired = "platforms.auth_provider_integration_required";
         public const string PlatformsAuthProviderNotFound = "platforms.auth_provider_not_found";

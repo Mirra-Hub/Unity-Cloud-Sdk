@@ -89,6 +89,13 @@ The new **Attribution** service records the install's Adjust id and campaign on 
   `PlayerAccountsAccountIdInvalid`, `PlayerAccountsProfileIdInvalid`, `PlayerAccountsFileRequired`,
   `PlayerAccountsAvatarChangeDisabled`. Two older codes the mirror had missed are in too:
   `PlayerAccountsBranchNotEditable`, `PlayerAccountsAccountOptionInvalid`.
+- **`CloudErrorCodes` for one integration of each service per project.** A project connects a service
+  (Google, Apple, Yandex, Stripe, …) once; OpenID Connect is the exception and may be connected as
+  many times as needed. The console API refuses a second one with `IntegrationsTypeAlreadyAdded`
+  (409), and refuses to switch on a platform's sign-in method whose service the project has not
+  connected with `PlatformsAuthProviderIntegrationMissing` (422). Nothing changes for a game: the
+  sign-in methods of `GetLoginMethodsAsync` and the catalog prices carry the same integration keys as
+  before.
 
 ### Changed
 
