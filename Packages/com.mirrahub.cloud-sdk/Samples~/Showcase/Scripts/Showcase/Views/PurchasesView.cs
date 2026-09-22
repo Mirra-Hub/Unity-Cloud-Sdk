@@ -88,7 +88,7 @@ foreach (PlayerSubscriptionDto sub in op.Result.Data)
 // returns the provider's payment page. Nothing is charged yet.
 var op = sdk.Purchases.InitiatePurchaseAsync(
     purchaseKey: ""starter_pack"",           // CatalogItemDto.Key
-    integrationKey: ""stripe-eu"",           // CatalogPriceDto.IntegrationKey
+    integrationKey: ""stripe"",              // CatalogPriceDto.IntegrationKey
     successRedirectUrl: ""https://example.com/purchase/success"",
     cancelRedirectUrl: ""https://example.com/purchase/cancel"");
 await op.Task();
@@ -107,7 +107,7 @@ InitiatePurchaseResponseDto started = op.Result.Data;
 @"// The one-call flow — NOT executed anywhere in this example, because it settles a real payment.
 // It initiates the order, opens the payment page in the SDK WebView, waits for the redirect, then
 // polls the order until the provider's webhook has settled it.
-var op = sdk.Purchases.BuyAsync(""starter_pack"", ""stripe-eu"", new PurchaseOptions
+var op = sdk.Purchases.BuyAsync(""starter_pack"", ""stripe"", new PurchaseOptions
 {
     SuccessRedirectUrl = ""https://example.com/purchase/success"",
     CancelRedirectUrl = ""https://example.com/purchase/cancel"",
@@ -134,7 +134,7 @@ sdk.Purchases.OnPurchaseFailed += failure => { };";
 
         private const string BuyExcerpt =
 @"// Real money. Shown here, never called by this example.
-var op = sdk.Purchases.BuyAsync(""starter_pack"", ""stripe-eu"");   // CatalogPriceDto.IntegrationKey
+var op = sdk.Purchases.BuyAsync(""starter_pack"", ""stripe"");   // CatalogPriceDto.IntegrationKey
 await op.Task();
 
 PurchaseResult result = op.Result;
@@ -1203,7 +1203,7 @@ PurchaseResult result = op.Result;
                     FormField.Text("purchaseKey", "Purchase key", _prefillKey, true)
                         .WithPlaceholder("CatalogItemDto.Key — e.g. starter_pack"),
                     FormField.Text("integrationKey", "Integration key", _prefillIntegration, true)
-                        .WithPlaceholder("CatalogPriceDto.IntegrationKey — e.g. stripe-eu"),
+                        .WithPlaceholder("CatalogPriceDto.IntegrationKey — e.g. stripe"),
                     FormField.Text("successUrl", "Success redirect URL", DefaultSuccessUrl),
                     FormField.Text("cancelUrl", "Cancel redirect URL", DefaultCancelUrl))
                 .WithSnippet(InitiateSnippet)
