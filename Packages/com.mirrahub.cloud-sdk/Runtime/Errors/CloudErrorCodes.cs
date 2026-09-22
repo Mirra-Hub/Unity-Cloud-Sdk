@@ -560,8 +560,6 @@ namespace MirraCloud.Core.Errors
         public const string IntegrationsIntegrationTypeMismatch = "integrations.integration_type_mismatch";
 
         public const string IntegrationsKeyConflict = "integrations.key_conflict";
-        public const string IntegrationsKeyInvalid = "integrations.key_invalid";
-        public const string IntegrationsKeyReserved = "integrations.key_reserved";
         public const string IntegrationsPayloadInvalid = "integrations.payload_invalid";
 
         /// <summary>Not returned by the Integrations API itself: surfaces through another module's call that reads the integration, e.g. a purchase.</summary>

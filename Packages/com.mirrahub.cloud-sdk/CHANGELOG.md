@@ -80,8 +80,9 @@ The new **Attribution** service records the install's Adjust id and campaign on 
   `AssetsStorageAssetReferencedByEntities`, `ProjectStatisticsPeriodTooLong`, `TariffsPlan*`).
 - **`LinkAuthProviderDto`** carries the credentials of every provider (`GuestId`, `DeviceId`, `Email`,
   `UserId`, `Login`, `Password`), so `ResolveLinkConflictAsync` can resolve more than store conflicts.
-- **`CloudErrorCodes`** mirrors the new Integrations module (`Integrations*`: key, field and usage
-  errors from the console API, plus `IntegrationsIntegrationTypeMismatch` and
+- **`CloudErrorCodes`** mirrors the new Integrations module (`Integrations*`: field, usage and
+  key-conflict errors from the console API — the server assigns an integration's key, so there are no
+  key validation codes — plus `IntegrationsIntegrationTypeMismatch` and
   `IntegrationsSecretUnreadable`, which reach a game only through another module that reads an
   integration, e.g. a purchase) and the new sign-in and account codes:
   `PlayerAccountsAuthCodeRequired`, `PlayerAccountsIdTokenRequired`, `PlayerAccountsSessionIdInvalid`,
