@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using MirraCloud.Core.AssetsStorage;
+using MirraCloud.Core.Attribution;
 using MirraCloud.Core.Auth;
 using MirraCloud.Core.Chats;
 using MirraCloud.Core.CloudSave;
@@ -57,6 +58,7 @@ namespace MirraCloud.Core
         public DailyRewardsService DailyRewards { get; private set; }
         public ChallengesService Challenges { get; private set; }
         public PurchasesService Purchases { get; private set; }
+        public AttributionService Attribution { get; private set; }
         public ProfanityFilterService ProfanityFilter { get; private set; }
         public PromoCodesService PromoCodes { get; private set; }
         public WebViewService WebView { get; private set; }
@@ -132,6 +134,7 @@ namespace MirraCloud.Core
             DailyRewards = RegisterService(new DailyRewardsService(configuration, restApiClient));
             Challenges = RegisterService(new ChallengesService(configuration, PlayerAccount, restApiClient));
             Purchases = RegisterService(new PurchasesService(configuration, logger, restApiClient, WebView, coroutineRunner));
+            Attribution = RegisterService(new AttributionService(configuration, logger, restApiClient, Authentication));
             ProfanityFilter = RegisterService(new ProfanityFilterService(restApiClient, configuration, logger));
             PromoCodes = RegisterService(new PromoCodesService(configuration, restApiClient));
 

@@ -24,10 +24,28 @@ namespace MirraCloud
         /// </summary>
         public string BranchId;
         public string Token;
-        public string AnalyticsPlatformId;
+
+        /// <summary>
+        /// Key of the platform this build runs on, as set in the console (Platforms). Sign-in sends it in the
+        /// <c>PlatformKey</c> header and analytics puts it in the request path, so it decides which sign-in
+        /// methods the player gets and which platform the events are counted under. Case-sensitive.
+        /// </summary>
+        /// <remarks>
+        /// Replaces <c>AnalyticsPlatformId</c> on purpose without <c>[FormerlySerializedAs]</c>: that field held the
+        /// platform's internal id, which no route accepts any more, so carrying it over would only turn every sign-in
+        /// into a <c>platforms.platform_unknown</c> refusal.
+        /// </remarks>
+        [Tooltip("Key of the platform this build runs on (Cloud console → Platforms). Sent with every sign-in and analytics request.")]
+        public string PlatformKey;
 
         public string Url { get; private set; }
         public string EditorApiUrl { get; private set; }
+
+        /// <summary>
+        /// <see cref="PlatformKey"/> without surrounding whitespace, or null when it is not set. The sign-in header
+        /// is trimmed by the server while the analytics path is taken as is, so both read this one value.
+        /// </summary>
+        internal string ResolvedPlatformKey => string.IsNullOrWhiteSpace(PlatformKey) ? null : PlatformKey.Trim();
 
         /// <summary>
         /// Points <see cref="Url"/> and <see cref="EditorApiUrl"/> at production, or at the profile

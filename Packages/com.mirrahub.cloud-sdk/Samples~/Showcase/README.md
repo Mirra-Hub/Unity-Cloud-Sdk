@@ -20,13 +20,15 @@ https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer#1.1
 ```
 
 1. Import the sample: `Package Manager → Mirra Cloud SDK → Samples → Showcase → Import`.
-2. Connect the project: `Tools → Mirra Cloud → Manager`. That writes
-   `Assets/MirraCloud/Resources/Configuration.asset`, which the sample reads like any other game.
+2. Connect the project: `Tools → Mirra Cloud → Manager`, including the **Platform** the build signs
+   in on. That writes `Assets/MirraCloud/Resources/Configuration.asset`, which the sample reads like
+   any other game.
 3. Open `Assets/Samples/Mirra Cloud SDK/<version>/Showcase/Scenes/MC_Showcase.unity` and press
    **Play**.
 
-You start on the **auth screen**: pick a provider (Guest / Device / Email, or an external
-provider via in-app WebView/OpenID). On success you move to the **services screen** — a grid of
+You start on the **auth screen**: pick one of the sign-in methods the platform has switched on
+(Guest / Device / Email / Username, or an external provider via in-app WebView/OpenID). On success
+you move to the **services screen** — a grid of
 all SDK modules. Tap any card to open its detail view.
 
 > Dev tip: the `ShowcaseInstaller` component on `ShowcaseRoot` has a `_devForceServices` toggle
@@ -58,9 +60,16 @@ self-contained, so the scene runs as-is in any project this folder is dropped in
 game you would register the SDK once in a project-wide root scope instead. `ShowcaseApp` builds
 the nav/overlay/toast hosts, gates on auth, and routes provider buttons to the SDK.
 
-**Auth.** `AuthView` offers Guest / Device / Email and external providers. External providers use
-**OpenID over an in-app WebView** (`LoginOpenIdAsync(providerId, new OpenIdLoginOptions { UseInAppWebView = true })`)
-— no native plugins required. (WebView is unavailable on WebGL/in-Editor.)
+**Auth.** `AuthView` draws the sign-in methods of the build's platform — nothing is hard-coded:
+`ShowcaseApp` asks `Authentication.GetLoginMethodsAsync()` and the screen shows exactly what the
+platform (`Configuration.PlatformKey`, picked in `Tools → Mirra Cloud → Manager`) has switched on in
+the console, in its order. Guest / Device / Email / Username are buttons; OpenID, Google, Apple and
+Yandex ID are provider tiles that sign in **over an in-app WebView**
+(`LoginOpenIdAsync(method.IntegrationKey, new OpenIdLoginOptions { UseInAppWebView = true })`) — no
+native plugins required. (WebView is unavailable on WebGL/in-Editor.) Store sign-ins (Google Play
+Games, VK Games, Yandex Games, Game Center) need the store's own SDK and are only listed. A project
+without platforms, or a build without a platform key, gets the reason on the screen instead of the
+buttons. The post-login link prompt offers only the methods the platform has.
 
 **Per-service views.** `ShowcaseApp.OpenModule` resolves a view by module id. Every service has a
 hand-built `ServiceView` subclass (back button + accent title + scrollable content column). They
@@ -98,11 +107,12 @@ values), so each view only writes the happy-path render.
 | Events | What LiveOps is running for this player, and the one screen that shows an event's effect: the same energy read through the catalog and through the runtime |
 | Entities | Config snapshot → per-config dynamic field table + components |
 | Cloud Save | Player key/value records (type, value, access masks, version) |
-| Purchases | Store catalog (price/currency/rewards) + order history |
+| Purchases | Store catalog (a price per payment integration, rewards) + orders and subscriptions + start-an-order tool by integration key |
 | Promo Codes | Redeem tool (with status gate) + redemption history |
 | Profanity Filter | Check tool → verdict, masked output, matched fragments |
 | Cloud Code | Invoke a function by key → dynamic JSON result |
 | Analytics | Fire tools (custom event / session / playtime) |
+| Attribution | Adjust ids recorded on the account + the queued report's state + hand-over / record-now tools |
 | WebView | Open-a-URL tool (gated on `IsReady`) + live event log |
 | Deployment | Local config card + resolve-branch-for-version tool |
 

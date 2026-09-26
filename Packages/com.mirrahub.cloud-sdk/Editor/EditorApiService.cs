@@ -151,6 +151,15 @@ namespace MirraCloud.Editor
             return _restApi.GetAsync<List<EditorBranchDto>>($"/api/cloud/client/deployment/v1/projects/{projectId}/branches");
         }
 
+        /// <summary>
+        /// The project's platforms, for the platform picker. One page of the maximum size: a project has a handful of
+        /// platforms, far below it. Needs the <c>platforms.viewer</c> permission on the project.
+        /// </summary>
+        public AsyncOperation<RestApiResult<EditorPlatformsPageDto>> GetPlatformsAsync(string projectId)
+        {
+            return _restApi.GetAsync<EditorPlatformsPageDto>($"/api/cloud/client/platforms/v1/projects/{projectId}/platforms?page=1&pageSize=500");
+        }
+
         public AsyncOperation<RestApiResult<List<EditorApiTokenDto>>> GetTokensAsync(string orgId, string projectId)
         {
             return _restApi.GetAsync<List<EditorApiTokenDto>>($"/api/cloud/organizations/{orgId}/projects/{projectId}/tokens");
