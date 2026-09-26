@@ -31,7 +31,6 @@ Packages/com.mirrahub.cloud-sdk/
 ### Game Config
 - [Economy](services/Economy.md) — валюты, предметы, энергии, инвентарь
 - [Entities](services/Entities.md) — конфигурации сущностей (templates, components)
-- [RemoteConfig](services/RemoteConfig.md) — удалённая конфигурация
 - [Segments](services/Segments.md) — сегменты игроков
 - [Events](services/Events.md) — идущие LiveOps-ивенты: баннеры, отсчёты, гейт контента
 - [Deployment](services/Deployment.md) — резолв веток для окружения

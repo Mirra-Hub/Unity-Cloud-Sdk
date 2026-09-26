@@ -16,7 +16,6 @@ using MirraCloud.Core.Logger;
 using MirraCloud.Core.ProfanityFilter;
 using MirraCloud.Core.PromoCodes;
 using MirraCloud.Core.Purchases;
-using MirraCloud.Core.RemoteConfig;
 using MirraCloud.Core.Storage;
 using MirraCloud.Core.Storage.Blob;
 using MirraCloud.Json;
@@ -47,7 +46,6 @@ namespace MirraCloud.Core
         public LeaderboardService Leaderboard { get; private set; }
         public LocalizationService Localization { get; private set; }
         public TournamentsService Tournaments { get; private set; }
-        public RemoteConfigService RemoteConfig { get; private set; }
         public AssetsStorageService AssetsStorage { get; private set; }
         public CloudCodeService CloudCode { get; private set; }
         public SegmentService Segments { get; private set; }
@@ -124,7 +122,6 @@ namespace MirraCloud.Core
             Leaderboard = RegisterService(new LeaderboardService(configuration, PlayerAccount, logger, jsonService, restApiClient));
             Localization = RegisterService(new LocalizationService(configuration, logger, restApiClient));
             Tournaments = RegisterService(new TournamentsService(configuration, restApiClient, PlayerAccount));
-            RemoteConfig = RegisterService(new RemoteConfigService(restApiClient, configuration, logger));
             AssetsStorage = RegisterService(new AssetsStorageService(configuration, restApiClient, logger, _blobStorage));
             Analytics = RegisterService(new AnalyticsService(configuration, logger, restApiClient));
             Deployment = RegisterService(new DeploymentService(configuration, logger, restApiClient));

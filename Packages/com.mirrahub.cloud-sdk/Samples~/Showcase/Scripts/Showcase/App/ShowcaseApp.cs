@@ -318,9 +318,6 @@ namespace MirraCloud.Example.Showcase
                 case "groups":
                     view = new GroupsView(m, back, _ctx);
                     break;
-                case "remoteConfig":
-                    view = new RemoteConfigView(m, back, _ctx);
-                    break;
                 case "localization":
                     view = new LocalizationView(m, back, _ctx);
                     break;
