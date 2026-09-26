@@ -42,6 +42,12 @@ namespace MirraCloud.Editor.Dto
         public string key;
         public string name;
         public bool isEnabled;
+
+        /// <summary>
+        /// What builds the platform is for — one or more of <c>Web | Pc | Mobile | Console</c>, set in the console.
+        /// Strings, not an enum: a type the server adds later then reads as one more string instead of failing the list.
+        /// </summary>
+        public List<string> platformTypes;
     }
 
     /// <summary>One page of <see cref="EditorPlatformDto"/>.</summary>

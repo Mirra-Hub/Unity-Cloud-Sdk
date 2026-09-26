@@ -110,7 +110,9 @@ No code, done once — [full walkthrough ↗](https://mirrahub.com/documentation
    **Connect**.
 4. Pick a **Project**, **Branch**, **Platform** and **API Token** (you can create a token right
    there with **+ Create Token**). The platform's key goes with every sign-in and analytics
-   request; a game that ships to several platforms picks the matching one before each build.
+   request; a game that ships to several platforms picks the matching one before each build. The
+   window shows an error when the platform's types (Web, PC, Mobile, Console) leave out the active
+   build target.
 
 The choice is saved to `Assets/MirraCloud/Resources/Configuration.asset` — the asset is created for
 you and belongs to your project, not to the package.
