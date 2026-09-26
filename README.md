@@ -2,7 +2,7 @@
 
 <p align="center">
   A cloud backend for games — accounts, saves, economy, leaderboards,<br>
-  social systems, LiveOps and analytics. One package, 24 services, no server of your own.
+  social systems, LiveOps and analytics. One package, 25 services, no server of your own.
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 
 What the SDK gives you:
 
-- **24 services** — from guest sign-in and cloud saves to tournaments, chats, purchases and analytics.
+- **25 services** — from guest sign-in and cloud saves to tournaments, chats, purchases and analytics.
 - **One async contract.** Every call returns `AsyncOperation<RestApiResult<T>>`: wait on it with
   `await`, `yield return` or a callback, whichever suits the code around it.
 - **Errors are values, not exceptions.** The SDK does not throw on network failures or HTTP errors —
@@ -51,7 +51,7 @@ Unity **2022.3 LTS** — the version the SDK is developed and tested against. Pl
 One URL. `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.5.0
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.6.0
 ```
 
 The package is self-contained: the native plugins it needs — a WebView (external sign-in providers
@@ -67,7 +67,7 @@ Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
 <details>
 <summary>Updating and pinning a version</summary>
 
-The `#v0.5.0` at the end of the URL is a release tag. Package Manager resolves it once, writes the
+The `#v0.6.0` at the end of the URL is a release tag. Package Manager resolves it once, writes the
 commit it resolved to into `Packages/packages-lock.json`, and from then on never asks the remote
 again — nothing updates on its own.
 
@@ -104,10 +104,13 @@ No code, done once — [full walkthrough ↗](https://mirrahub.com/documentation
 
 1. In the dashboard: **Organization settings → Service accounts** → create an account (give it a
    role or explicit project permissions) and issue a **key** — it is shown once.
-2. In Unity: `Tools → Mirra Cloud → Manager` → paste the key into **Service Account Key** →
+2. In the dashboard: **Platforms** → create the platform the game runs on (for example `android`)
+   and switch on its sign-in methods. A project without a platform refuses every sign-in.
+3. In Unity: `Tools → Mirra Cloud → Manager` → paste the key into **Service Account Key** →
    **Connect**.
-3. Pick a **Project**, **Branch** and **API Token** (you can create a token right there with
-   **+ Create Token**).
+4. Pick a **Project**, **Branch**, **Platform** and **API Token** (you can create a token right
+   there with **+ Create Token**). The platform's key goes with every sign-in and analytics
+   request; a game that ships to several platforms picks the matching one before each build.
 
 The choice is saved to `Assets/MirraCloud/Resources/Configuration.asset` — the asset is created for
 you and belongs to your project, not to the package.
@@ -232,7 +235,7 @@ under [`docs/`](docs/README.md).
 | --- | --- |
 | [Overview and architecture](docs/README.md) | the `Runtime/` layout, shared patterns, editor tools |
 | [Local storage](docs/Storage.md) | `IStorage` (PlayerPrefs) and `IBlobStorage` (SQLite / IndexedDB / File) |
-| [Services](#services) | 24 services, table below |
+| [Services](#services) | 25 services, table below |
 
 > The pages under `docs/` are currently written in Russian.
 
@@ -261,7 +264,7 @@ Every service is reachable through `IMirraCloudSdk` once `Initialize()` has run.
 | [CloudSave](docs/services/CloudSave.md) | cloud saves: player data, global data, files |
 | [DailyRewards](docs/services/DailyRewards.md) | daily rewards, streaks and milestones |
 | [PromoCodes ↗](https://mirrahub.com/documentation/mirra-cloud/promo-codes) | redeeming promo codes, history, active effects |
-| [Purchases ↗](https://mirrahub.com/documentation/mirra-cloud/purchases) | catalog, purchase, orders, subscriptions |
+| [Purchases](docs/services/Purchases.md) | catalog priced per payment integration, purchase, orders, subscriptions |
 
 **Game configuration**
 
@@ -299,6 +302,7 @@ Every service is reachable through `IMirraCloudSdk` once `Initialize()` has run.
 | [AssetsStorage](docs/services/AssetsStorage.md) | downloading assets (textures, audio, bundles) with a local cache |
 | [CloudCode](docs/services/CloudCode.md) | calling server-side functions |
 | [Analytics](docs/services/Analytics.md) | events, sessions, playtime |
+| [Attribution](docs/services/Attribution.md) | the install's Adjust id and campaign, recorded on the player's account |
 | [WebView ↗](https://mirrahub.com/documentation/mirra-cloud/sdk-webview) | in-app browser: pages, URL interception, events |
 
 > Links marked ↗ go to the user-facing documentation.
@@ -330,7 +334,7 @@ How it is put together is covered in
 
 | Tool | Where | What for |
 | --- | --- | --- |
-| **Manager** | `Tools → Mirra Cloud → Manager` | sign in with a service account key, pick project / branch / token, create tokens |
+| **Manager** | `Tools → Mirra Cloud → Manager` | sign in with a service account key, pick project / branch / platform / token, create tokens |
 | **Request Inspector** | `MirraCloud → Request Inspector` | tracing the SDK's HTTP requests while debugging |
 | **Developer Settings** | `Create → Mirra Cloud → Developer Settings` in any `Resources` folder | optional asset: environment profiles that override the API hosts for local development |
 

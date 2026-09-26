@@ -265,22 +265,36 @@ namespace MirraCloud.Core
                         continue;
                     }
 
-                    if ((httpCode == 401 || httpCode == 403) && cfg.NoAuth == false && cfg.AuthRetryAttempted == false &&
-                        _sessionRefresher != null && _sessionRefresher.CanRefresh)
+                    // A 401/403 to an authenticated call is read before deciding anything: only a refused session is
+                    // worth a refresh, while an endpoint's own refusal (wrong password, forbidden link) is final —
+                    // neither a new token nor a resend changes it. The parsed envelope is reused for the result.
+                    List<CloudApiError> cloudErrors = null;
+                    var cloudErrorsParsed = false;
+                    var isEndpointRefusal = false;
+
+                    if (SessionRejectionPolicy.IsAuthRejection(httpCode) && cfg.NoAuth == false)
                     {
-                        cfg.AuthRetryAttempted = true;
-                        var refreshOp = _sessionRefresher.RefreshSessionAsync();
-                        yield return refreshOp;
-                        if (refreshOp.Result.IsSuccess)
+                        cloudErrors = TryParseCloudErrors(responseBody);
+                        cloudErrorsParsed = true;
+                        isEndpointRefusal = SessionRejectionPolicy.IsSessionRejection(cloudErrors) == false;
+
+                        if (isEndpointRefusal == false && cfg.AuthRetryAttempted == false &&
+                            _sessionRefresher != null && _sessionRefresher.CanRefresh)
                         {
-                            cfg.RetryCount++;
-                            DisposeRequest(request, downloadOwnership, ownsUploadHandler, finalAttempt: false);
-                            continue;
+                            cfg.AuthRetryAttempted = true;
+                            var refreshOp = _sessionRefresher.RefreshSessionAsync();
+                            yield return refreshOp;
+                            if (refreshOp.Result.IsSuccess)
+                            {
+                                cfg.RetryCount++;
+                                DisposeRequest(request, downloadOwnership, ownsUploadHandler, finalAttempt: false);
+                                continue;
+                            }
                         }
                     }
 
-                    if (networkResult != UnityWebRequest.Result.Success && isHttpSuccess == false && cfg.DisableRetry == false &&
-                        cfg.RetryCount < cfg.MaxRetries)
+                    if (isEndpointRefusal == false && networkResult != UnityWebRequest.Result.Success && isHttpSuccess == false &&
+                        cfg.DisableRetry == false && cfg.RetryCount < cfg.MaxRetries)
                     {
                         cfg.RetryCount++;
                         DisposeRequest(request, downloadOwnership, ownsUploadHandler, finalAttempt: false);
@@ -305,7 +319,7 @@ namespace MirraCloud.Core
                             HttpStatusCode = httpCode,
                             NetworkResult = networkResult,
                             ResponseBody = responseBody,
-                            Errors = TryParseCloudErrors(responseBody)
+                            Errors = cloudErrorsParsed ? cloudErrors : TryParseCloudErrors(responseBody)
                         });
                     }
                     else
@@ -418,22 +432,36 @@ namespace MirraCloud.Core
                         continue;
                     }
 
-                    if ((httpCode == 401 || httpCode == 403) && cfg.NoAuth == false && cfg.AuthRetryAttempted == false &&
-                        _sessionRefresher != null && _sessionRefresher.CanRefresh)
+                    // A 401/403 to an authenticated call is read before deciding anything: only a refused session is
+                    // worth a refresh, while an endpoint's own refusal (wrong password, forbidden link) is final —
+                    // neither a new token nor a resend changes it. The parsed envelope is reused for the result.
+                    List<CloudApiError> cloudErrors = null;
+                    var cloudErrorsParsed = false;
+                    var isEndpointRefusal = false;
+
+                    if (SessionRejectionPolicy.IsAuthRejection(httpCode) && cfg.NoAuth == false)
                     {
-                        cfg.AuthRetryAttempted = true;
-                        var refreshOp = _sessionRefresher.RefreshSessionAsync();
-                        yield return refreshOp;
-                        if (refreshOp.Result.IsSuccess)
+                        cloudErrors = TryParseCloudErrors(responseBody);
+                        cloudErrorsParsed = true;
+                        isEndpointRefusal = SessionRejectionPolicy.IsSessionRejection(cloudErrors) == false;
+
+                        if (isEndpointRefusal == false && cfg.AuthRetryAttempted == false &&
+                            _sessionRefresher != null && _sessionRefresher.CanRefresh)
                         {
-                            cfg.RetryCount++;
-                            DisposeRequest(request, downloadOwnership, ownsUploadHandler, finalAttempt: false);
-                            continue;
+                            cfg.AuthRetryAttempted = true;
+                            var refreshOp = _sessionRefresher.RefreshSessionAsync();
+                            yield return refreshOp;
+                            if (refreshOp.Result.IsSuccess)
+                            {
+                                cfg.RetryCount++;
+                                DisposeRequest(request, downloadOwnership, ownsUploadHandler, finalAttempt: false);
+                                continue;
+                            }
                         }
                     }
 
-                    if (networkResult != UnityWebRequest.Result.Success && isHttpSuccess == false && cfg.DisableRetry == false &&
-                        cfg.RetryCount < cfg.MaxRetries)
+                    if (isEndpointRefusal == false && networkResult != UnityWebRequest.Result.Success && isHttpSuccess == false &&
+                        cfg.DisableRetry == false && cfg.RetryCount < cfg.MaxRetries)
                     {
                         cfg.RetryCount++;
                         DisposeRequest(request, downloadOwnership, ownsUploadHandler, finalAttempt: false);
@@ -505,7 +533,7 @@ namespace MirraCloud.Core
                             HttpStatusCode = httpCode,
                             NetworkResult = networkResult,
                             ResponseBody = responseBody,
-                            Errors = TryParseCloudErrors(responseBody)
+                            Errors = cloudErrorsParsed ? cloudErrors : TryParseCloudErrors(responseBody)
                         });
                     }
                     else

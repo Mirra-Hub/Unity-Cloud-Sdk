@@ -27,11 +27,15 @@ namespace MirraCloud.Core.Errors
         public const string InternalUntyped = "internal.untyped_error";
 
         // === ab_tests ===
+        public const string AbTestsBranchNotEditable = "ab_tests.branch_not_editable";
         public const string AbTestsCohortKeysDuplicate = "ab_tests.cohort_keys_duplicate";
         public const string AbTestsCohortShareOutOfRange = "ab_tests.cohort_share_out_of_range";
         public const string AbTestsCohortsCountOutOfRange = "ab_tests.cohorts_count_out_of_range";
         public const string AbTestsCohortsShareSumInvalid = "ab_tests.cohorts_share_sum_invalid";
+        public const string AbTestsInvalidKey = "ab_tests.invalid_key";
+        public const string AbTestsKeyAlreadyExists = "ab_tests.key_already_exists";
         public const string AbTestsNotFound = "ab_tests.not_found";
+        public const string AbTestsNotInBranch = "ab_tests.not_in_branch";
         public const string AbTestsTargetAudienceShareOutOfRange = "ab_tests.target_audience_share_out_of_range";
 
         // === assets_storage ===
@@ -40,6 +44,7 @@ namespace MirraCloud.Core.Errors
         public const string AssetsStorageAssetNotPublic = "assets_storage.asset_not_public";
         public const string AssetsStorageAssetPathInvalid = "assets_storage.asset_path_invalid";
         public const string AssetsStorageAssetProjectOrBranchMismatch = "assets_storage.asset_project_or_branch_mismatch";
+        public const string AssetsStorageAssetReferencedByEntities = "assets_storage.asset_referenced_by_entities";
         public const string AssetsStorageAssetsConfigNotFound = "assets_storage.assets_config_not_found";
         public const string AssetsStorageAssetsConfigProjectMismatch = "assets_storage.assets_config_project_mismatch";
         public const string AssetsStorageBranchHeadCommitMissing = "assets_storage.branch_head_commit_missing";
@@ -60,13 +65,20 @@ namespace MirraCloud.Core.Errors
 
         // === challenges ===
         public const string ChallengesAlreadyFinished = "challenges.already_finished";
+        public const string ChallengesBranchNotEditable = "challenges.branch_not_editable";
         public const string ChallengesClaimNotAllowed = "challenges.claim_not_allowed";
         public const string ChallengesClaimNotReady = "challenges.claim_not_ready";
         public const string ChallengesEmptyPlayerName = "challenges.empty_player_name";
+        public const string ChallengesInvalidKey = "challenges.invalid_key";
+        public const string ChallengesKeyAlreadyExists = "challenges.key_already_exists";
+        public const string ChallengesKeyImmutable = "challenges.key_immutable";
+        public const string ChallengesNotFound = "challenges.not_found";
+        public const string ChallengesNotInBranch = "challenges.not_in_branch";
         public const string ChallengesParticipationRequired = "challenges.participation_required";
         public const string ChallengesPlayerNotFound = "challenges.player_not_found";
 
         // === chats ===
+        public const string ChatsBranchNotEditable = "chats.branch_not_editable";
         public const string ChatsChannelAlreadyExists = "chats.channel_already_exists";
         public const string ChatsChannelCreateFailed = "chats.channel_create_failed";
         public const string ChatsChannelDeleted = "chats.channel_deleted";
@@ -79,6 +91,9 @@ namespace MirraCloud.Core.Errors
         public const string ChatsChannelNotFound = "chats.channel_not_found";
         public const string ChatsChannelOwnerRefRequired = "chats.channel_owner_ref_required";
         public const string ChatsChannelTemplateKeyRequired = "chats.channel_template_key_required";
+        public const string ChatsFilterGroupNotFound = "chats.filter_group_not_found";
+        public const string ChatsInvalidKey = "chats.invalid_key";
+        public const string ChatsKeyAlreadyExists = "chats.key_already_exists";
         public const string ChatsMemberBannedByRequired = "chats.member_banned_by_required";
         public const string ChatsMemberNotInChannel = "chats.member_not_in_channel";
         public const string ChatsMemberProfileIdRequired = "chats.member_profile_id_required";
@@ -92,6 +107,14 @@ namespace MirraCloud.Core.Errors
         public const string ChatsMessageTaggedMemberInvalid = "chats.message_tagged_member_invalid";
         public const string ChatsMessageTargetNotFound = "chats.message_target_not_found";
         public const string ChatsTemplateNotFound = "chats.template_not_found";
+        public const string ChatsTemplateNotInBranch = "chats.template_not_in_branch";
+
+        // === cloud_actions ===
+        public const string CloudActionsBranchNotEditable = "cloud_actions.branch_not_editable";
+        public const string CloudActionsInvalidScriptKey = "cloud_actions.invalid_script_key";
+        public const string CloudActionsScriptKeyConflict = "cloud_actions.script_key_conflict";
+        public const string CloudActionsScriptNotFound = "cloud_actions.script_not_found";
+        public const string CloudActionsScriptNotInBranch = "cloud_actions.script_not_in_branch";
 
         // === cloud_packages ===
         public const string CloudPackagesFileStorageNotConfigured = "cloud_packages.file_storage_not_configured";
@@ -156,13 +179,23 @@ namespace MirraCloud.Core.Errors
         public const string CloudSavesUpsertFailed = "cloud_saves.upsert_failed";
         public const string CloudSavesVersionConflict = "cloud_saves.version_conflict";
 
+        // === cloud_services ===
+        public const string CloudServicesCoreServiceCannotBeDisabled = "cloud_services.core_service_cannot_be_disabled";
+        public const string CloudServicesCoreServiceRequired = "cloud_services.core_service_required";
+        public const string CloudServicesDependencyMissing = "cloud_services.dependency_missing";
+        public const string CloudServicesServiceHasDependents = "cloud_services.service_has_dependents";
+        public const string CloudServicesUnknownService = "cloud_services.unknown_service";
+
         // === daily_rewards ===
         public const string DailyRewardsAlreadyClaimedToday = "daily_rewards.already_claimed_today";
+        public const string DailyRewardsBranchNotEditable = "daily_rewards.branch_not_editable";
         public const string DailyRewardsCalendarCompleted = "daily_rewards.calendar_completed";
         public const string DailyRewardsCalendarDeleteFailed = "daily_rewards.calendar_delete_failed";
         public const string DailyRewardsCalendarDisabled = "daily_rewards.calendar_disabled";
         public const string DailyRewardsCalendarEnded = "daily_rewards.calendar_ended";
+        public const string DailyRewardsCalendarKeyConflict = "daily_rewards.calendar_key_conflict";
         public const string DailyRewardsCalendarNotFound = "daily_rewards.calendar_not_found";
+        public const string DailyRewardsCalendarNotInBranch = "daily_rewards.calendar_not_in_branch";
         public const string DailyRewardsCalendarNotStarted = "daily_rewards.calendar_not_started";
         public const string DailyRewardsCalendarUpdateFailed = "daily_rewards.calendar_update_failed";
         public const string DailyRewardsCatchUpNotAllowed = "daily_rewards.catch_up_not_allowed";
@@ -196,6 +229,7 @@ namespace MirraCloud.Core.Errors
         public const string DeploymentConfigKeyNotRegistered = "deployment.config_key_not_registered";
         public const string DeploymentEnvironmentRequired = "deployment.environment_required";
         public const string DeploymentInvalidBranchId = "deployment.invalid_branch_id";
+        public const string DeploymentInvalidBranchName = "deployment.invalid_branch_name";
         public const string DeploymentInvalidClientVersion = "deployment.invalid_client_version";
         public const string DeploymentMergeBranchesDifferentProject = "deployment.merge_branches_different_project";
         public const string DeploymentMergeBranchesHaveDrafts = "deployment.merge_branches_have_drafts";
@@ -206,12 +240,17 @@ namespace MirraCloud.Core.Errors
         public const string DeploymentResolveNoActiveBranch = "deployment.resolve_no_active_branch";
         public const string DeploymentRuntimeRoutingDefaultTargetMissing = "deployment.runtime_routing_default_target_missing";
         public const string DeploymentRuntimeRoutingNotConfigured = "deployment.runtime_routing_not_configured";
+        public const string DeploymentScopeBranchMismatch = "deployment.scope_branch_mismatch";
+        public const string DeploymentScopeInUse = "deployment.scope_in_use";
+        public const string DeploymentScopeNameTaken = "deployment.scope_name_taken";
+        public const string DeploymentScopeNotFound = "deployment.scope_not_found";
         public const string DeploymentServiceConfigInvariantViolation = "deployment.service_config_invariant_violation";
         public const string DeploymentTargetBranchProjectMismatch = "deployment.target_branch_project_mismatch";
 
         // === economy ===
         public const string EconomyBaseTemplateNotFound = "economy.base_template_not_found";
         public const string EconomyBranchEnvironmentNotSet = "economy.branch_environment_not_set";
+        public const string EconomyBranchNotEditable = "economy.branch_not_editable";
         public const string EconomyConfigInstanceNotFound = "economy.config_instance_not_found";
         public const string EconomyConfigurationInvalid = "economy.configuration_invalid";
         public const string EconomyContractInvalidArgument = "economy.contract_invalid_argument";
@@ -223,6 +262,7 @@ namespace MirraCloud.Core.Errors
         public const string EconomyInvalidAmount = "economy.invalid_amount";
         public const string EconomyInvalidStableId = "economy.invalid_stable_id";
         public const string EconomyInventoryConfigNotFound = "economy.inventory_config_not_found";
+        public const string EconomyInventoryConfigNotInBranch = "economy.inventory_config_not_in_branch";
         public const string EconomyInventoryDuplicateKey = "economy.inventory_duplicate_key";
         public const string EconomyInventoryInvalidKey = "economy.inventory_invalid_key";
         public const string EconomyInventoryMaxSlotsInvalid = "economy.inventory_max_slots_invalid";
@@ -380,6 +420,11 @@ namespace MirraCloud.Core.Errors
         public const string GameAnalyticsInvalidParameterDescription = "game_analytics.invalid_parameter_description";
         public const string GameAnalyticsInvalidParameterId = "game_analytics.invalid_parameter_id";
         public const string GameAnalyticsInvalidParameterName = "game_analytics.invalid_parameter_name";
+        /// <summary>
+        /// The platform key in an analytics route is not a key (1–64 latin letters, digits, <c>_</c> or <c>-</c>):
+        /// check <see cref="Configuration.PlatformKey"/>. The key is not checked against the project's platforms.
+        /// </summary>
+        public const string GameAnalyticsInvalidPlatformKey = "game_analytics.invalid_platform_key";
         public const string GameAnalyticsInvalidProjectId = "game_analytics.invalid_project_id";
         public const string GameAnalyticsInvalidWidgetId = "game_analytics.invalid_widget_id";
         public const string GameAnalyticsInvalidWidgetName = "game_analytics.invalid_widget_name";
@@ -505,16 +550,59 @@ namespace MirraCloud.Core.Errors
         public const string GroupsRoleNotSpecified = "groups.role_not_specified";
         public const string GroupsTargetNotMember = "groups.target_not_member";
 
+        // === integrations ===
+        public const string IntegrationsFieldInvalid = "integrations.field_invalid";
+        public const string IntegrationsFieldRequired = "integrations.field_required";
+        public const string IntegrationsIntegrationInUse = "integrations.integration_in_use";
+        public const string IntegrationsIntegrationNotFound = "integrations.integration_not_found";
+
+        /// <summary>Not returned by the Integrations API itself: surfaces through another module's call that reads the integration, e.g. a purchase.</summary>
+        public const string IntegrationsIntegrationTypeMismatch = "integrations.integration_type_mismatch";
+
+        public const string IntegrationsKeyConflict = "integrations.key_conflict";
+        public const string IntegrationsPayloadInvalid = "integrations.payload_invalid";
+
+        /// <summary>Not returned by the Integrations API itself: surfaces through another module's call that reads the integration, e.g. a purchase.</summary>
+        public const string IntegrationsSecretUnreadable = "integrations.secret_unreadable";
+
+        public const string IntegrationsTypeAlreadyAdded = "integrations.type_already_added";
+        public const string IntegrationsUsageCheckFailed = "integrations.usage_check_failed";
+
         // === leaderboards ===
+        public const string LeaderboardsBranchNotEditable = "leaderboards.branch_not_editable";
+        public const string LeaderboardsInvalidKey = "leaderboards.invalid_key";
+        public const string LeaderboardsKeyAlreadyExists = "leaderboards.key_already_exists";
+        public const string LeaderboardsKeyImmutable = "leaderboards.key_immutable";
+        public const string LeaderboardsNotFound = "leaderboards.not_found";
+        public const string LeaderboardsNotInBranch = "leaderboards.not_in_branch";
         public const string LeaderboardsParticipationRequired = "leaderboards.participation_required";
 
+        // === organizations ===
+        public const string OrganizationsOrganizationIdInvalid = "organizations.organization_id_invalid";
+        public const string OrganizationsOrganizationRoleKeyConflict = "organizations.organization_role_key_conflict";
+        public const string OrganizationsOrganizationRoleKeyInvalid = "organizations.organization_role_key_invalid";
+        public const string OrganizationsOrganizationRoleKeysUnknown = "organizations.organization_role_keys_unknown";
+        public const string OrganizationsOrganizationRoleNameRequired = "organizations.organization_role_name_required";
+        public const string OrganizationsOrganizationRoleNotFound = "organizations.organization_role_not_found";
+        public const string OrganizationsSystemRoleProtected = "organizations.system_role_protected";
+
         // === platforms ===
+        public const string PlatformsAuthMethodKindInvalid = "platforms.auth_method_kind_invalid";
+        public const string PlatformsAuthProviderIntegrationMissing = "platforms.auth_provider_integration_missing";
+        public const string PlatformsAuthProviderIntegrationNotAllowed = "platforms.auth_provider_integration_not_allowed";
+        public const string PlatformsAuthProviderIntegrationRequired = "platforms.auth_provider_integration_required";
+        public const string PlatformsAuthProviderNotFound = "platforms.auth_provider_not_found";
         public const string PlatformsConsentStoreUnavailable = "platforms.consent_store_unavailable";
+        public const string PlatformsIntegrationDisabled = "platforms.integration_disabled";
+        public const string PlatformsIntegrationLinkNotFound = "platforms.integration_link_not_found";
+        public const string PlatformsIntegrationMissing = "platforms.integration_missing";
+        public const string PlatformsIntegrationTypeMismatch = "platforms.integration_type_mismatch";
         public const string PlatformsInvalidPlatformName = "platforms.invalid_platform_name";
         public const string PlatformsLegalDocumentAlreadyPublished = "platforms.legal_document_already_published";
         public const string PlatformsLegalDocumentCustomKeyRequired = "platforms.legal_document_custom_key_required";
         public const string PlatformsLegalDocumentDuplicate = "platforms.legal_document_duplicate";
         public const string PlatformsLegalDocumentLocaleRequired = "platforms.legal_document_locale_required";
+        public const string PlatformsLegalDocumentNotFound = "platforms.legal_document_not_found";
         public const string PlatformsLegalDocumentNotPublished = "platforms.legal_document_not_published";
         public const string PlatformsLegalDocumentPublished = "platforms.legal_document_published";
         public const string PlatformsLegalDocumentTitleRequired = "platforms.legal_document_title_required";
@@ -522,19 +610,60 @@ namespace MirraCloud.Core.Errors
         public const string PlatformsLegalInfoCompanyNameRequired = "platforms.legal_info_company_name_required";
         public const string PlatformsLegalInfoContactEmailRequired = "platforms.legal_info_contact_email_required";
         public const string PlatformsLegalInfoNotConfigured = "platforms.legal_info_not_configured";
-        public const string PlatformsMarketplaceSettingsTypeMismatch = "platforms.marketplace_settings_type_mismatch";
-        public const string PlatformsMarketplaceTypeMismatch = "platforms.marketplace_type_mismatch";
+        public const string PlatformsLegalInfoNotFound = "platforms.legal_info_not_found";
+        public const string PlatformsMarketplaceProviderLimit = "platforms.marketplace_provider_limit";
+        public const string PlatformsPasswordPolicyInvalid = "platforms.password_policy_invalid";
+        public const string PlatformsPasswordPolicyNotAllowed = "platforms.password_policy_not_allowed";
+        public const string PlatformsPaymentProviderNotFound = "platforms.payment_provider_not_found";
+        /// <summary>
+        /// 403 on sign-in: the platform <see cref="Configuration.PlatformKey"/> names is switched off in the console.
+        /// <c>data.platformKey</c>.
+        /// </summary>
+        public const string PlatformsPlatformDisabled = "platforms.platform_disabled";
+        public const string PlatformsPlatformHasPublishedLegalDocuments = "platforms.platform_has_published_legal_documents";
         public const string PlatformsPlatformInUse = "platforms.platform_in_use";
+        public const string PlatformsPlatformKeyDuplicate = "platforms.platform_key_duplicate";
+        public const string PlatformsPlatformKeyInvalid = "platforms.platform_key_invalid";
+        /// <summary>
+        /// 403 on sign-in: the request names no platform — <see cref="Configuration.PlatformKey"/> is empty. On link it
+        /// means the session was issued before sessions carried a platform; signing in again fixes it (a refresh does
+        /// not).
+        /// </summary>
+        public const string PlatformsPlatformKeyRequired = "platforms.platform_key_required";
         public const string PlatformsPlatformNameDuplicate = "platforms.platform_name_duplicate";
+        /// <summary>
+        /// 403 on sign-in: the project has no platform yet. Create one in the console (Platforms), then pick it in
+        /// Tools > Mirra Cloud > Manager.
+        /// </summary>
+        public const string PlatformsPlatformNotConfigured = "platforms.platform_not_configured";
+        public const string PlatformsPlatformNotFound = "platforms.platform_not_found";
+        public const string PlatformsPlatformTypeInvalid = "platforms.platform_type_invalid";
+        public const string PlatformsPlatformTypesRequired = "platforms.platform_types_required";
+        /// <summary>
+        /// 403 on sign-in: the project has no platform with the key <see cref="Configuration.PlatformKey"/> holds. Keys
+        /// are case-sensitive. <c>data.platformKey</c>.
+        /// </summary>
+        public const string PlatformsPlatformUnknown = "platforms.platform_unknown";
+        public const string PlatformsProjectIdInvalid = "platforms.project_id_invalid";
 
         // === player_accounts ===
         public const string PlayerAccountsAccountDoesNotExist = "player_accounts.account_does_not_exist";
+        public const string PlayerAccountsAccountIdInvalid = "player_accounts.account_id_invalid";
         public const string PlayerAccountsAccountNotFound = "player_accounts.account_not_found";
+        public const string PlayerAccountsAccountOptionInvalid = "player_accounts.account_option_invalid";
         public const string PlayerAccountsAuthBelongsToAnotherAccount = "player_accounts.auth_belongs_to_another_account";
+        public const string PlayerAccountsAuthCodeRequired = "player_accounts.auth_code_required";
+        /// <summary>
+        /// 403: the integration behind the platform's sign-in (store, Google / Apple / Yandex, OpenID) is switched off or
+        /// gone. <c>data.platformKey</c>, <c>data.integrationKey</c>, <c>data.reason</c> (<c>disabled</c> / <c>not_found</c>).
+        /// </summary>
+        public const string PlayerAccountsAuthIntegrationUnavailable = "player_accounts.auth_integration_unavailable";
         public const string PlayerAccountsAuthIssuerPipelineEmpty = "player_accounts.auth_issuer_pipeline_empty";
         public const string PlayerAccountsAuthRecordNotFound = "player_accounts.auth_record_not_found";
         public const string PlayerAccountsAuthRedirectUrlMissing = "player_accounts.auth_redirect_url_missing";
+        public const string PlayerAccountsAvatarChangeDisabled = "player_accounts.avatar_change_disabled";
         public const string PlayerAccountsBranchEnvironmentMissing = "player_accounts.branch_environment_missing";
+        public const string PlayerAccountsBranchNotEditable = "player_accounts.branch_not_editable";
         public const string PlayerAccountsBranchProjectMismatch = "player_accounts.branch_project_mismatch";
         public const string PlayerAccountsCacheKeyExists = "player_accounts.cache_key_exists";
         public const string PlayerAccountsCacheKeyMissing = "player_accounts.cache_key_missing";
@@ -550,8 +679,29 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsExternalAvatarDomainNotAllowed = "player_accounts.external_avatar_domain_not_allowed";
         public const string PlayerAccountsExternalAvatarMalformed = "player_accounts.external_avatar_malformed";
         public const string PlayerAccountsExternalAvatarPatternInvalid = "player_accounts.external_avatar_pattern_invalid";
+        /// <summary>
+        /// 422 on <see cref="MirraCloud.Core.Attribution.AttributionService.LinkAdjustAsync"/>: the adid has whitespace
+        /// or control characters or is longer than 128, or an attribution field is longer than 512. <c>data.field</c>,
+        /// <c>data.reason</c> (<c>invalid_characters</c> / <c>too_long</c>), <c>data.maxLength</c>.
+        /// </summary>
+        public const string PlayerAccountsExternalFieldInvalid = "player_accounts.external_field_invalid";
+        /// <summary>
+        /// 409 on <see cref="MirraCloud.Core.Attribution.AttributionService.LinkAdjustAsync"/>: another account of the
+        /// project already holds this adid. Final for this account — resending does not help. <c>data.providerKey</c>.
+        /// </summary>
+        public const string PlayerAccountsExternalIdConflict = "player_accounts.external_id_conflict";
+        /// <summary>400 on <see cref="MirraCloud.Core.Attribution.AttributionService.LinkAdjustAsync"/>: no adid. <c>data.field</c>.</summary>
+        public const string PlayerAccountsExternalIdRequired = "player_accounts.external_id_required";
+        /// <summary>
+        /// 403 on <see cref="MirraCloud.Core.Attribution.AttributionService.LinkAdjustAsync"/>: the project has no enabled
+        /// Adjust integration. Not a session problem. <c>data.providerKey</c>, <c>data.reason</c>
+        /// (<c>not_configured</c> / <c>disabled</c>).
+        /// </summary>
+        public const string PlayerAccountsExternalIntegrationUnavailable = "player_accounts.external_integration_unavailable";
         public const string PlayerAccountsExternalUserIdRequired = "player_accounts.external_user_id_required";
+        public const string PlayerAccountsFileRequired = "player_accounts.file_required";
         public const string PlayerAccountsGuestIdRequired = "player_accounts.guest_id_required";
+        public const string PlayerAccountsIdTokenRequired = "player_accounts.id_token_required";
         public const string PlayerAccountsImageFetchFailed = "player_accounts.image_fetch_failed";
         public const string PlayerAccountsImageNotFound = "player_accounts.image_not_found";
         public const string PlayerAccountsImageUploadFailed = "player_accounts.image_upload_failed";
@@ -559,8 +709,6 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsInvalidProjectId = "player_accounts.invalid_project_id";
         public const string PlayerAccountsLastAuthMethod = "player_accounts.last_auth_method";
         public const string PlayerAccountsLoginRequired = "player_accounts.login_required";
-        public const string PlayerAccountsMarketplaceSettingsMissing = "player_accounts.marketplace_settings_missing";
-        public const string PlayerAccountsMarketplaceUnsupported = "player_accounts.marketplace_unsupported";
         public const string PlayerAccountsNicknamePatternInvalid = "player_accounts.nickname_pattern_invalid";
         public const string PlayerAccountsNicknamePatternMismatch = "player_accounts.nickname_pattern_mismatch";
         public const string PlayerAccountsNicknameProfanity = "player_accounts.nickname_profanity";
@@ -571,24 +719,47 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsUsernameProfanity = "player_accounts.username_profanity";
         public const string PlayerAccountsUsernameRequired = "player_accounts.username_required";
         public const string PlayerAccountsUsernameTaken = "player_accounts.username_taken";
-        public const string PlayerAccountsPlatformDisabled = "player_accounts.platform_disabled";
-        public const string PlayerAccountsPlatformIdInvalid = "player_accounts.platform_id_invalid";
-        public const string PlayerAccountsPlatformNotFound = "player_accounts.platform_not_found";
+        /// <summary>A new password does not match the pattern of the platform's email / username sign-in (422).</summary>
+        public const string PlayerAccountsPasswordPatternMismatch = "player_accounts.password_pattern_mismatch";
+        public const string PlayerAccountsPasswordPatternInvalid = "player_accounts.password_pattern_invalid";
+        /// <summary>A new password is shorter than the platform's minimum (422). <c>data.minLength</c>.</summary>
+        public const string PlayerAccountsPasswordTooShort = "player_accounts.password_too_short";
+        /// <summary>
+        /// <see cref="MirraCloud.Core.Auth.AuthenticationService.UnlinkPlatformAsync"/> without a platform key (400).
+        /// Not to be confused with <see cref="PlatformsPlatformKeyRequired"/>.
+        /// </summary>
+        /// <summary>Console player lists: a <c>platformKeys</c> filter value is not a platform key (422).</summary>
+        public const string PlayerAccountsPlatformKeyInvalid = "player_accounts.platform_key_invalid";
+        public const string PlayerAccountsPlatformKeyRequired = "player_accounts.platform_key_required";
+        /// <summary>Console player lists: more than 20 <c>platformKeys</c> in one filter (422).</summary>
+        public const string PlayerAccountsPlatformKeysTooMany = "player_accounts.platform_keys_too_many";
+        /// <summary>403 on a store sign-in: the platform has no store sign-in at all.</summary>
+        public const string PlayerAccountsPlatformMarketplaceProviderMissing = "player_accounts.platform_marketplace_provider_missing";
         public const string PlayerAccountsPlayerRoleKeyExists = "player_accounts.player_role_key_exists";
         public const string PlayerAccountsPlayerRoleKeyInvalid = "player_accounts.player_role_key_invalid";
         public const string PlayerAccountsPlayerRoleNameRequired = "player_accounts.player_role_name_required";
         public const string PlayerAccountsPlayerRoleNotFound = "player_accounts.player_role_not_found";
+        public const string PlayerAccountsProfileIdInvalid = "player_accounts.profile_id_invalid";
         public const string PlayerAccountsProfileNotFound = "player_accounts.profile_not_found";
+        /// <summary>
+        /// 403: the sign-in method is on the platform but switched off. <c>data.platformKey</c>, <c>data.kind</c>,
+        /// <c>data.integrationKey</c>.
+        /// </summary>
+        public const string PlayerAccountsProviderDisabledOnPlatform = "player_accounts.provider_disabled_on_platform";
         public const string PlayerAccountsProviderDocumentTypeMismatch = "player_accounts.provider_document_type_mismatch";
-        public const string PlayerAccountsProviderDuplicate = "player_accounts.provider_duplicate";
         public const string PlayerAccountsProviderHandlerMissing = "player_accounts.provider_handler_missing";
         public const string PlayerAccountsProviderMisconfigured = "player_accounts.provider_misconfigured";
-        public const string PlayerAccountsProviderNotEnabled = "player_accounts.provider_not_enabled";
-        public const string PlayerAccountsProviderNotFound = "player_accounts.provider_not_found";
+        /// <summary>
+        /// 403: the platform does not offer this sign-in method (or no OpenID provider with this key).
+        /// <c>data.platformKey</c>, <c>data.kind</c>, <c>data.integrationKey</c>. Ask
+        /// <see cref="MirraCloud.Core.Auth.AuthenticationService.GetLoginMethodsAsync"/> which methods it does offer.
+        /// </summary>
+        public const string PlayerAccountsProviderNotOnPlatform = "player_accounts.provider_not_on_platform";
         public const string PlayerAccountsRandomCountOutOfRange = "player_accounts.random_count_out_of_range";
         public const string PlayerAccountsRefreshTokenRequired = "player_accounts.refresh_token_required";
         public const string PlayerAccountsRepositoryFailure = "player_accounts.repository_failure";
         public const string PlayerAccountsSessionExpired = "player_accounts.session_expired";
+        public const string PlayerAccountsSessionIdInvalid = "player_accounts.session_id_invalid";
         public const string PlayerAccountsSessionMismatch = "player_accounts.session_mismatch";
         public const string PlayerAccountsSessionNotFound = "player_accounts.session_not_found";
         public const string PlayerAccountsSessionProjectMismatch = "player_accounts.session_project_mismatch";
@@ -607,6 +778,10 @@ namespace MirraCloud.Core.Errors
         public const string ProfanityFilterGroupNameRequired = "profanity_filter.group_name_required";
         public const string ProfanityFilterGroupNameTooLong = "profanity_filter.group_name_too_long";
         public const string ProfanityFilterGroupNotFound = "profanity_filter.group_not_found";
+        public const string ProfanityFilterInvalidKey = "profanity_filter.invalid_key";
+        public const string ProfanityFilterKeyAlreadyExists = "profanity_filter.key_already_exists";
+        public const string ProfanityFilterKeyImmutable = "profanity_filter.key_immutable";
+        public const string ProfanityFilterUnknownLanguage = "profanity_filter.unknown_language";
         public const string ProfanityFilterWordEmpty = "profanity_filter.word_empty";
         public const string ProfanityFilterWordRequired = "profanity_filter.word_required";
         public const string ProfanityFilterWordTooLong = "profanity_filter.word_too_long";
@@ -620,40 +795,74 @@ namespace MirraCloud.Core.Errors
         public const string ProjectStatisticsMetricsRoutesMissing = "project_statistics.metrics_routes_missing";
         public const string ProjectStatisticsMetricsUpdateFailed = "project_statistics.metrics_update_failed";
         public const string ProjectStatisticsOrganizationProjectsNotFound = "project_statistics.organization_projects_not_found";
+        public const string ProjectStatisticsPeriodTooLong = "project_statistics.period_too_long";
         public const string ProjectStatisticsProjectIdRequired = "project_statistics.project_id_required";
         public const string ProjectStatisticsRouteNotFound = "project_statistics.route_not_found";
 
+        // === projects ===
+        public const string ProjectsOrganizationIdInvalid = "projects.organization_id_invalid";
+        public const string ProjectsProjectIdInvalid = "projects.project_id_invalid";
+
+        // === promo_codes ===
+        public const string PromoCodesBranchNotEditable = "promo_codes.branch_not_editable";
+        public const string PromoCodesBranchNotFound = "promo_codes.branch_not_found";
+        public const string PromoCodesCampaignDeleteFailed = "promo_codes.campaign_delete_failed";
+        public const string PromoCodesCampaignDisabled = "promo_codes.campaign_disabled";
+        public const string PromoCodesCampaignExpired = "promo_codes.campaign_expired";
+        public const string PromoCodesCampaignInvalid = "promo_codes.campaign_invalid";
+        public const string PromoCodesCampaignKeyConflict = "promo_codes.campaign_key_conflict";
+        public const string PromoCodesCampaignNotFound = "promo_codes.campaign_not_found";
+        public const string PromoCodesCampaignNotInBranch = "promo_codes.campaign_not_in_branch";
+        public const string PromoCodesCampaignNotYetActive = "promo_codes.campaign_not_yet_active";
+        public const string PromoCodesCampaignUpdateFailed = "promo_codes.campaign_update_failed";
+        public const string PromoCodesCodeAlreadyRedeemed = "promo_codes.code_already_redeemed";
+        public const string PromoCodesCodeBlocked = "promo_codes.code_blocked";
+        public const string PromoCodesCodeGenerationFailed = "promo_codes.code_generation_failed";
+        public const string PromoCodesCodeImportInvalid = "promo_codes.code_import_invalid";
+        public const string PromoCodesCodeNotFound = "promo_codes.code_not_found";
+        public const string PromoCodesEffectNotFound = "promo_codes.effect_not_found";
+        public const string PromoCodesLimitExceeded = "promo_codes.limit_exceeded";
+        public const string PromoCodesRuleFailed = "promo_codes.rule_failed";
+
         // === purchases ===
+        public const string PurchasesBranchNotEditable = "purchases.branch_not_editable";
+        /// <summary>422 on <see cref="MirraCloud.Core.Purchases.PurchasesService.InitiatePurchaseAsync"/>: no integration key. <c>data.field</c>.</summary>
+        public const string PurchasesIntegrationKeyRequired = "purchases.integration_key_required";
         public const string PurchasesNonConsumableAlreadyOwned = "purchases.non_consumable_already_owned";
         public const string PurchasesOrderAlreadyCompleted = "purchases.order_already_completed";
         public const string PurchasesOrderIdInvalid = "purchases.order_id_invalid";
         public const string PurchasesOrderInvalidStatus = "purchases.order_invalid_status";
         public const string PurchasesOrderNotFound = "purchases.order_not_found";
+        /// <summary>
+        /// 409 on <see cref="MirraCloud.Core.Purchases.PurchasesService.InitiatePurchaseAsync"/>: the payment integration
+        /// is gone, switched off, or cannot take payments. Reload the catalog — it lists only integrations that can.
+        /// <c>data.integrationKey</c>, <c>data.reason</c> (<c>not_found</c> / <c>disabled</c> / <c>not_payment</c>).
+        /// </summary>
+        public const string PurchasesPaymentIntegrationUnavailable = "purchases.payment_integration_unavailable";
         public const string PurchasesPaymentProviderError = "purchases.payment_provider_error";
-        public const string PurchasesPlatformIdInvalid = "purchases.platform_id_invalid";
-        public const string PurchasesProviderConfigIdInvalid = "purchases.provider_config_id_invalid";
-        public const string PurchasesProviderConfigNotActive = "purchases.provider_config_not_active";
-        public const string PurchasesProviderConfigNotFound = "purchases.provider_config_not_found";
-        public const string PurchasesProviderConfigWrongType = "purchases.provider_config_wrong_type";
         public const string PurchasesProviderMappingAlreadyExists = "purchases.provider_mapping_already_exists";
+        public const string PurchasesProviderMappingIntegrationNotPayment = "purchases.provider_mapping_integration_not_payment";
         public const string PurchasesProviderMappingNotActive = "purchases.provider_mapping_not_active";
         public const string PurchasesProviderMappingNotFound = "purchases.provider_mapping_not_found";
+        public const string PurchasesProviderMappingNotInBranch = "purchases.provider_mapping_not_in_branch";
+        public const string PurchasesProviderMappingReferenceMissing = "purchases.provider_mapping_reference_missing";
         public const string PurchasesProviderUnsupported = "purchases.provider_unsupported";
         public const string PurchasesPurchaseConfigAlreadyExists = "purchases.purchase_config_already_exists";
         public const string PurchasesPurchaseConfigIdInvalid = "purchases.purchase_config_id_invalid";
         public const string PurchasesPurchaseConfigInvalidType = "purchases.purchase_config_invalid_type";
         public const string PurchasesPurchaseConfigNotActive = "purchases.purchase_config_not_active";
         public const string PurchasesPurchaseConfigNotFound = "purchases.purchase_config_not_found";
+        public const string PurchasesPurchaseConfigNotInBranch = "purchases.purchase_config_not_in_branch";
         public const string PurchasesPurchaseKeyRequired = "purchases.purchase_key_required";
         public const string PurchasesRedirectUrlsRequired = "purchases.redirect_urls_required";
         public const string PurchasesRedisFailure = "purchases.redis_failure";
         public const string PurchasesSelectedProfileRequired = "purchases.selected_profile_required";
-        public const string PurchasesStripeNoActiveProvider = "purchases.stripe_no_active_provider";
         public const string PurchasesStripeSessionMetadataInvalid = "purchases.stripe_session_metadata_invalid";
         public const string PurchasesStripeSessionNoPaymentIntent = "purchases.stripe_session_no_payment_intent";
         public const string PurchasesStripeSignatureInvalid = "purchases.stripe_signature_invalid";
         public const string PurchasesStripeSignatureMissing = "purchases.stripe_signature_missing";
         public const string PurchasesStripeUnexpectedPayload = "purchases.stripe_unexpected_payload";
+        public const string PurchasesStripeWebhookSecretMissing = "purchases.stripe_webhook_secret_missing";
         public const string PurchasesSubscriptionNotFound = "purchases.subscription_not_found";
         public const string PurchasesYookassaEmptyEvent = "purchases.yookassa_empty_event";
         public const string PurchasesYookassaInvalidPlayerId = "purchases.yookassa_invalid_player_id";
@@ -666,20 +875,26 @@ namespace MirraCloud.Core.Errors
 
         // === rules_constructor ===
         public const string RulesConstructorBranchIdRequired = "rules_constructor.branch_id_required";
+        public const string RulesConstructorBranchNotEditable = "rules_constructor.branch_not_editable";
         public const string RulesConstructorInvalidRuleId = "rules_constructor.invalid_rule_id";
         public const string RulesConstructorNodeChildRequired = "rules_constructor.node_child_required";
         public const string RulesConstructorRuleNotFound = "rules_constructor.rule_not_found";
+        public const string RulesConstructorRuleNotInBranch = "rules_constructor.rule_not_in_branch";
         public const string RulesConstructorRuleNotModified = "rules_constructor.rule_not_modified";
         public const string RulesConstructorTreeDepthExceeded = "rules_constructor.tree_depth_exceeded";
         public const string RulesConstructorTreeNodeInvalid = "rules_constructor.tree_node_invalid";
 
         // === segments ===
+        public const string SegmentsBranchNotEditable = "segments.branch_not_editable";
         public const string SegmentsCacheKeyConflict = "segments.cache_key_conflict";
         public const string SegmentsCacheKeyNotFound = "segments.cache_key_not_found";
         public const string SegmentsConfigNotFound = "segments.config_not_found";
+        public const string SegmentsInvalidKey = "segments.invalid_key";
         public const string SegmentsInvalidRuleId = "segments.invalid_rule_id";
         public const string SegmentsInvalidSegmentName = "segments.invalid_segment_name";
+        public const string SegmentsKeyAlreadyExists = "segments.key_already_exists";
         public const string SegmentsSegmentNotFound = "segments.segment_not_found";
+        public const string SegmentsSegmentNotInBranch = "segments.segment_not_in_branch";
 
         // === tariffs ===
         public const string TariffsAccountIdRequired = "tariffs.account_id_required";
@@ -690,7 +905,9 @@ namespace MirraCloud.Core.Errors
         public const string TariffsInvalidProjectId = "tariffs.invalid_project_id";
         public const string TariffsInvalidUsageBytes = "tariffs.invalid_usage_bytes";
         public const string TariffsOrganizationIdRequired = "tariffs.organization_id_required";
+        public const string TariffsPlanInUse = "tariffs.plan_in_use";
         public const string TariffsPlanKeyConflict = "tariffs.plan_key_conflict";
+        public const string TariffsPlanKeyInvalid = "tariffs.plan_key_invalid";
         public const string TariffsPlanKeyRequired = "tariffs.plan_key_required";
         public const string TariffsPlanNotFoundById = "tariffs.plan_not_found_by_id";
         public const string TariffsPlanNotFoundByKey = "tariffs.plan_not_found_by_key";
@@ -702,6 +919,7 @@ namespace MirraCloud.Core.Errors
         public const string TariffsTariffNotFoundForOrganization = "tariffs.tariff_not_found_for_organization";
 
         // === tournaments ===
+        public const string TournamentsBranchNotEditable = "tournaments.branch_not_editable";
         public const string TournamentsCohortSizeInvalid = "tournaments.cohort_size_invalid";
         public const string TournamentsConfigDeleteFailed = "tournaments.config_delete_failed";
         public const string TournamentsConfigNotFound = "tournaments.config_not_found";
@@ -709,9 +927,13 @@ namespace MirraCloud.Core.Errors
         public const string TournamentsEmptyPlayerName = "tournaments.empty_player_name";
         public const string TournamentsEmptyTables = "tournaments.empty_tables";
         public const string TournamentsInvalidFriendId = "tournaments.invalid_friend_id";
+        public const string TournamentsInvalidKey = "tournaments.invalid_key";
+        public const string TournamentsKeyAlreadyExists = "tournaments.key_already_exists";
+        public const string TournamentsKeyImmutable = "tournaments.key_immutable";
         public const string TournamentsLeagueMetaNotFound = "tournaments.league_meta_not_found";
         public const string TournamentsMissingCountry = "tournaments.missing_country";
         public const string TournamentsMissingTableId = "tournaments.missing_table_id";
+        public const string TournamentsNotInBranch = "tournaments.not_in_branch";
         public const string TournamentsParticipationRequired = "tournaments.participation_required";
         public const string TournamentsPersistenceFailed = "tournaments.persistence_failed";
         public const string TournamentsPlayerCohortMissing = "tournaments.player_cohort_missing";

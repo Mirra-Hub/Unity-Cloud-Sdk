@@ -35,6 +35,23 @@ namespace MirraCloud.Editor.Dto
         public bool isHidden;
     }
 
+    /// <summary>A platform of the project, as the console's platforms list returns it (only what the editor reads).</summary>
+    [Serializable]
+    public class EditorPlatformDto
+    {
+        public string key;
+        public string name;
+        public bool isEnabled;
+    }
+
+    /// <summary>One page of <see cref="EditorPlatformDto"/>.</summary>
+    [Serializable]
+    public class EditorPlatformsPageDto
+    {
+        public List<EditorPlatformDto> items;
+        public int totalCount;
+    }
+
     [Serializable]
     public class EditorApiTokenDto
     {

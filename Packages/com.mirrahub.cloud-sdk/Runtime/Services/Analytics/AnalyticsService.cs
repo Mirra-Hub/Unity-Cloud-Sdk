@@ -20,6 +20,7 @@ namespace Plugins.MirraCloud.Core.Services.Analytics
         private readonly ILogger _logger;
         private readonly RestApiClient _restApi;
         private AnalyticsTracker _tracker;
+        private bool _missingPlatformKeyReported;
 
         private readonly RestRequestConfig _sessionRequestConfig = new RestRequestConfig
         {
@@ -133,13 +134,38 @@ namespace Plugins.MirraCloud.Core.Services.Analytics
             return PostWithErrorLogging(route, dto);
         }
 
+        /// <summary>
+        /// The route of an ingestion endpoint, addressed by the platform's key; null when
+        /// <see cref="Configuration.PlatformKey"/> is not set, since the server has no route for such a request.
+        /// </summary>
         private string BuildRoute(string endpoint)
         {
-            return $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/platforms/{_configuration.AnalyticsPlatformId}/{endpoint}";
+            var platformKey = _configuration.ResolvedPlatformKey;
+            if (platformKey == null)
+            {
+                return null;
+            }
+
+            return $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/platforms/{Uri.EscapeDataString(platformKey)}/{endpoint}";
         }
 
         private AsyncOperation<RestApiResult> PostWithErrorLogging(string route, object body, Action<RestApiResult> onSuccess = null)
         {
+            if (route == null)
+            {
+                // Reported once: the tracker sends on a timer, and the same line every few seconds would bury the log.
+                if (_missingPlatformKeyReported == false)
+                {
+                    _missingPlatformKeyReported = true;
+                    _logger.Error(
+                        "Analytics: Configuration.PlatformKey is empty, so nothing is sent. Pick the platform of this " +
+                        "build in Tools > Mirra Cloud > Manager.");
+                }
+
+                return AsyncOperation<RestApiResult>.CreateCompleted(
+                    RestApiResult.ValidationFail("Configuration.PlatformKey is empty."));
+            }
+
             var config = SessionId != null ? _sessionRequestConfig : null;
             var raw = _restApi.PostAsync(route, body, config);
 

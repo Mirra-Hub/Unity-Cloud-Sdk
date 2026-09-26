@@ -6,6 +6,186 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.6.0] — 2026-09-21
+
+Sign-in now happens on a **platform** of the project (console → Platforms): the platform decides
+which sign-in methods a player gets, and the SDK names it with every sign-in. Upgrade steps: create a
+platform in the console, switch on its sign-in methods, pick it in `Tools → Mirra Cloud → Manager`
+(new **Platform** dropdown), then fix the compile errors from the breaking changes below.
+
+Purchases are priced per **payment integration** (console → Integrations) instead of per provider config
+of a branch: a catalog price carries the integration's key, and that key is what a purchase is started
+with. Upgrade steps: recreate the Stripe / YooKassa / VK credentials as integrations, point the product
+prices at them, and pass `price.IntegrationKey` where the game passed `price.ProviderConfigId`.
+
+The new **Attribution** service records the install's Adjust id and campaign on the player's account.
+
+### Added
+
+- **`Attribution` service** — the ids install-attribution SDKs know the install by, recorded on the
+  player's account (today: Adjust — the adid plus the campaign Adjust attributed the install to). The
+  project needs an enabled Adjust integration. The SDK does not depend on the Adjust SDK; the game hands
+  over what Adjust gives it:
+  - `ReportAdjustAdid(adid)` / `ReportAdjustAttribution(AdjustAttributionDto)` — call them from Adjust's
+    callbacks at any time, in any order, signed in or not. Adjust often hands out the attribution before
+    the adid and both before sign-in, so the service keeps what it got until there is both a player
+    session and the adid, then sends it once. It is sent again after a sign-in (possibly another
+    account) and when something new is handed over; a report that did not get through goes out again
+    on the next sign-in or session refresh — no timers. A refusal resending cannot change (409
+    `PlayerAccountsExternalIdConflict` — the adid is on another account of the project; 400 / 422 / 404)
+    is not resent, and a project without an enabled Adjust integration (403
+    `PlayerAccountsExternalIntegrationUnavailable`) gets nothing more until the next launch.
+    `AdjustReportState`, `LastAdjustReport` and `OnAdjustReported` say where it stands. Both may be
+    called from any thread — Adjust SDK v4 raises its Android callbacks off Unity's main thread — and
+    are carried over to the main thread.
+  - `LinkAdjustAsync(AdjustAttributionDto)` — the bare `PUT …/players/external/v1/projects/{projectId}/adjust`,
+    for a game that manages the timing itself. Sent once: a refusal or a failed request is not resent.
+  - `GetMyExternalIdsAsync()` — what is recorded on the signed-in account (`ExternalIdDto`: provider,
+    id, source, first / last seen, the Adjust attribution).
+- **`PurchaseResult.ApiError`** — the server's refusal when `BuyAsync` could not start the order, so a
+  game can dispatch on its code (`ApiError.HasCode(…)`).
+- **`CloudErrorCodes`** for the new purchase and attribution refusals:
+  `PurchasesIntegrationKeyRequired`, `PurchasesPaymentIntegrationUnavailable` (409 — the price's
+  integration is gone, switched off or cannot take payments: reload the catalog),
+  `PurchasesProviderMappingIntegrationNotPayment`, `PurchasesStripeWebhookSecretMissing`,
+  `PlayerAccountsExternalIdRequired`, `PlayerAccountsExternalFieldInvalid`,
+  `PlayerAccountsExternalIdConflict`, `PlayerAccountsExternalIntegrationUnavailable`, and the console
+  player-list filter codes `PlayerAccountsPlatformKeyInvalid`, `PlayerAccountsPlatformKeysTooMany`.
+- **`Authentication.GetLoginMethodsAsync()`** — the sign-in methods the build's platform offers right
+  now, in the order set in the console, so a game draws only buttons that work. Needs no session.
+  Returns `LoginMethodsDto { PlatformKey, Methods }`; each `LoginMethodDto` has `Kind`
+  (`LoginMethodKind`: `Guest`, `Device`, `Email`, `Username`, `OpenId`, `Google`, `Apple`, `Yandex`,
+  `GooglePlay`, `VkGames`, `YandexGames`, `AppleGameCenter`, or `Unknown` for a kind a newer server
+  adds — the raw value stays in `KindKey`), `IntegrationKey` (for `OpenId` / `Google` / `Apple` /
+  `Yandex`: the key for `LoginOpenIdAsync`) and `DisplayName` (for `OpenId`: the button label).
+- **Platform dropdown in `Tools → Mirra Cloud → Manager`.** It lists the project's platforms and writes
+  the chosen key into `Configuration.PlatformKey`. It needs the service account to hold
+  `platforms.viewer`; a project without platforms gets a warning, because it refuses every sign-in.
+- **`CloudErrorCodes`** for sign-in on a platform — `PlatformsPlatformKeyRequired`,
+  `PlatformsPlatformUnknown`, `PlatformsPlatformDisabled`, `PlatformsPlatformNotConfigured` (all 403),
+  `PlayerAccountsProviderNotOnPlatform`, `PlayerAccountsProviderDisabledOnPlatform`,
+  `PlayerAccountsAuthIntegrationUnavailable`, `PlayerAccountsPlatformMarketplaceProviderMissing` — for
+  password rules set on the platform (`PlayerAccountsPasswordTooShort`,
+  `PlayerAccountsPasswordPatternMismatch`, `PlayerAccountsPasswordPatternInvalid`), for unlinking a store
+  sign-in (`PlayerAccountsPlatformKeyRequired`), for analytics (`GameAnalyticsInvalidPlatformKey`) and the
+  rest of the Platforms console catalogue (keys, platform types, sign-in / payment / integration links,
+  legal info). Purchases codes the mirror had missed are in too (`PurchasesBranchNotEditable`,
+  `PurchasesProviderMappingNotInBranch`, `PurchasesPurchaseConfigNotInBranch`,
+  `PurchasesProviderMappingReferenceMissing`).
+- **`CloudErrorCodes` covers the whole backend catalogue.** The codes the mirror had missed are in:
+  new sections `CloudActions*`, `CloudServices*`, `Organizations*`, `Projects*`, `PromoCodes*`, and
+  the key / branch codes of existing ones (`*BranchNotEditable`, `*InvalidKey`, `*KeyAlreadyExists`,
+  `*KeyImmutable`, `*NotInBranch` for AB tests, challenges, chats, daily rewards, economy,
+  leaderboards, profanity filter, rules, segments and tournaments; `Deployment` scope codes;
+  `AssetsStorageAssetReferencedByEntities`, `ProjectStatisticsPeriodTooLong`, `TariffsPlan*`).
+- **`LinkAuthProviderDto`** carries the credentials of every provider (`GuestId`, `DeviceId`, `Email`,
+  `UserId`, `Login`, `Password`), so `ResolveLinkConflictAsync` can resolve more than store conflicts.
+- **`CloudErrorCodes`** mirrors the new Integrations module (`Integrations*`: field, usage and
+  key-conflict errors from the console API — the server assigns an integration's key, so there are no
+  key validation codes — plus `IntegrationsIntegrationTypeMismatch` and
+  `IntegrationsSecretUnreadable`, which reach a game only through another module that reads an
+  integration, e.g. a purchase) and the new sign-in and account codes:
+  `PlayerAccountsAuthCodeRequired`, `PlayerAccountsIdTokenRequired`, `PlayerAccountsSessionIdInvalid`,
+  `PlayerAccountsAccountIdInvalid`, `PlayerAccountsProfileIdInvalid`, `PlayerAccountsFileRequired`,
+  `PlayerAccountsAvatarChangeDisabled`. Two older codes the mirror had missed are in too:
+  `PlayerAccountsBranchNotEditable`, `PlayerAccountsAccountOptionInvalid`.
+- **`CloudErrorCodes` for one integration of each service per project.** A project connects a service
+  (Google, Apple, Yandex, Stripe, …) once; OpenID Connect is the exception and may be connected as
+  many times as needed. The console API refuses a second one with `IntegrationsTypeAlreadyAdded`
+  (409), and refuses to switch on a platform's sign-in method whose service the project has not
+  connected with `PlatformsAuthProviderIntegrationMissing` (422). Nothing changes for a game: the
+  sign-in methods of `GetLoginMethodsAsync` and the catalog prices carry the same integration keys as
+  before.
+
+### Changed
+
+- **Breaking — purchases are priced per payment integration.** `CatalogPriceDto.ProviderConfigId` is
+  now `IntegrationKey` (the key of the integration in the console), and the purchase calls take it:
+  `InitiatePurchaseAsync(purchaseKey, integrationKey, successRedirectUrl, cancelRedirectUrl)`,
+  `BuyAsync(purchaseKey, integrationKey, options)`. `InitiatePurchaseRequestDto.ProviderConfigId` is
+  `IntegrationKey` too. `CatalogPriceDto.MappingId` is now the price's stable key
+  `{purchaseKey}@{integrationKey}` (it was a version id) and stays informational; `ProviderName` is
+  the integration's name. The catalog lists only prices whose integration exists, is switched on and
+  can take payments, and drops a product left with none. A price at a store integration (VK Games,
+  Google Play) is paid in the store: starting an order for it is refused with 422
+  `purchases.provider_unsupported`.
+- **`PurchaseResult.Error` of a `BuyAsync` whose order could not be started** reads `code — message`
+  (e.g. `purchases.payment_integration_unavailable — …`) instead of the HTTP status line.
+- **Showcase:** the Purchases screen starts orders by integration key (store prices get no start
+  button) and explains the integration refusals; a new **Attribution** screen shows what the account
+  has recorded, where the queued Adjust report stands, and both ways to send one.
+- **Breaking — `Configuration.PlatformKey` replaces `Configuration.AnalyticsPlatformId`.** One field
+  for both uses: the SDK sends it in the `PlatformKey` header of every sign-in call (`Login*`, the start
+  of an OpenID sign-in, `GetLoginMethodsAsync`) and puts it in the analytics routes. It holds the
+  platform's **key** from the console, not an id. The old value is **not carried over**: it was the
+  platform's internal id, which no route accepts any more, so every `Configuration.asset` starts with an
+  empty key — pick the platform in the Manager (it fills the key in for you when it loads the project's
+  platforms). While it is empty the SDK logs one error, the server refuses sign-in with
+  `platforms.platform_key_required`, and analytics sends nothing. Refresh and logout do not send it (the
+  server takes the platform from the session); link goes on the session's platform.
+- **Breaking — `LoginPlatformAsync` and `LinkPlatformAsync` take no platform id.** The store is the one
+  of the build's platform (link: of the session's platform). The parameters are reordered so that an
+  old call fails to compile instead of shifting its arguments: `LoginPlatformAsync(extra, authCode,
+  platformToken, externalUserId, createAccount, nickname)`, `LinkPlatformAsync(extra, authCode,
+  platformToken, externalUserId, createAccount)`. The player is always the id the server verified;
+  `externalUserId` is read only by Game Center. `LoginByPlatformDto.PlatformId` and
+  `LinkAuthProviderDto.PlatformId` are removed.
+- **Breaking — `UnlinkPlatformAsync(platformKey, externalUserId)`.** A store sign-in is addressed by the
+  key of the platform it was made on and the player's id at the store; the body is
+  `{ platformKey, externalUserId }`. The `authCode` / `platformToken` / `extra` parameters are gone —
+  nothing verifies them on unlink.
+- **Breaking — `UnlinkGoogleSignInAsync` / `UnlinkSignInWithAppleAsync` / `UnlinkYandexSignInAsync`
+  take only `externalUserId`.** The sign-in is addressed by the player's id at the provider, which is now
+  required; the server no longer reads `idToken` / `authCode` / `extra` there.
+- **Breaking — OpenID sign-in by key.** `LoginOpenIdAsync(string providerKey, options)`,
+  `BeginOpenIdLoginUrlAsync(string providerKey, successUrl)` and `StartOpenIdLoginAsync(string providerKey,
+  successUrl)` take the `IntegrationKey` of an `OpenId` / `Google` / `Apple` / `Yandex` method from
+  `GetLoginMethodsAsync()` instead of the numeric provider id. A platform may offer several OpenID
+  providers; the key picks one. An empty key fails validation without a request.
+- **Analytics routes name the platform by key** (`…/platforms/{PlatformKey}/…`). A malformed key is
+  refused with 422 `game_analytics.invalid_platform_key`; an unknown one is not checked, so a typo files
+  the events under a platform that does not exist.
+- **Showcase:** the auth screen draws its buttons from `GetLoginMethodsAsync()` (buttons for Guest /
+  Device / Email / Username, WebView tiles for OpenID / Google / Apple / Yandex ID, a note for store
+  sign-ins) and shows why when the platform refuses; the link prompt offers only the methods the platform
+  has. The hard-coded OpenID provider ids are gone.
+- A failed sign-in is logged with its cloud error code (`platforms.platform_unknown — …`), not only the
+  transport message.
+- **A 401/403 refreshes the session only when the session is what was refused.** An authenticated
+  call used to refresh the session and go out again on any 401/403. Login, link and profile endpoints
+  now answer with typed refusals — a wrong password is a 401, a forbidden link or a disabled avatar
+  change a 403 — and each of those cost a session rotation and a second request for the same answer.
+  The refresh now follows only a gateway's refusal of the token (no error code in the body) or
+  `common.unauthorized`, `purchases.selected_profile_required`, `player_accounts.session_expired`,
+  `player_accounts.session_mismatch`, `player_accounts.session_project_mismatch`. Any other code is
+  the endpoint's answer and comes back at once, without a refresh or a resend. Sign-in calls are
+  unchanged. The platform refusals above are final as well: a refreshed token carries the same
+  platform.
+
+### Removed
+
+- **Breaking — `CloudErrorCodes` entries the backend no longer has:** `PlayerAccountsProviderNotEnabled`
+  (replaced by `PlayerAccountsProviderNotOnPlatform` / `PlayerAccountsProviderDisabledOnPlatform`),
+  `PlayerAccountsPlatformIdInvalid`, `PlayerAccountsMarketplaceSettingsMissing`,
+  `PlayerAccountsMarketplaceUnsupported`, `PlatformsMarketplaceTypeMismatch`,
+  `PlatformsMarketplaceSettingsTypeMismatch`, `PurchasesPlatformIdInvalid`.
+- **Breaking — the provider-config codes of Purchases**, gone with the provider configs:
+  `PurchasesProviderConfigIdInvalid`, `PurchasesProviderConfigNotActive`,
+  `PurchasesProviderConfigNotFound`, `PurchasesProviderConfigWrongType` (a key of another vendor is now
+  `IntegrationsIntegrationTypeMismatch`), `PurchasesStripeNoActiveProvider`.
+- **Breaking — `CloudErrorCodes` of the removed per-project sign-in provider settings:**
+  `PlayerAccountsPlatformDisabled`, `PlayerAccountsPlatformNotFound`, `PlayerAccountsProviderDuplicate`,
+  `PlayerAccountsProviderNotFound` (a refused platform is `Platforms*`, a missing sign-in method
+  `PlayerAccountsProviderNotOnPlatform`).
+
+### Fixed
+
+- **`RestApiError.Errors` is filled from real responses.** Every Cloud host writes the error envelope
+  in camelCase (`{"errors":[{"code":…}]}`), the SDK's JSON mapper matches member names
+  case-sensitively, and the error DTOs expected `Errors` / `Code`. So the envelope was never read:
+  `HasCode`, `GetByCode` and `FirstCloudError` matched nothing, and failed analytics requests were
+  logged without their code. They now see what the server sent.
+
 ## [0.5.0] — 2026-09-19
 
 ### Added
