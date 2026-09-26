@@ -2889,14 +2889,6 @@
 .sc-dr-milestone__head { flex-direction: row; align-items: center; justify-content: space-between; }
 .sc-dr-milestone__title { color: #E6EAF2; font-size: 13px; -unity-font-style: bold; }
 
-/* ---- remote config ---- */
-.sc-rcfg-chart { margin-bottom: 16px; }
-.sc-rcfg-groups { flex-direction: row; flex-wrap: wrap; margin-bottom: 12px; }
-.sc-rcfg-cell { flex-direction: row; align-items: center; }
-.sc-rcfg-key { color: #E6EAF2; font-size: 13px; }
-.sc-rcfg-name { color: #E6EAF2; font-size: 13px; -unity-font-style: bold; }
-.sc-rcfg-value { color: #9AA4B8; font-size: 12px; }
-
 /* ---- localization ---- */
 .sc-loc-chart { margin-bottom: 16px; }
 .sc-loc-picker { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }

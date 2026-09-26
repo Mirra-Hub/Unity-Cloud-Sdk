@@ -2,7 +2,7 @@
 
 <p align="center">
   A cloud backend for games — accounts, saves, economy, leaderboards,<br>
-  social systems, LiveOps and analytics. One package, 25 services, no server of your own.
+  social systems, LiveOps and analytics. One package, 24 services, no server of your own.
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 
 What the SDK gives you:
 
-- **25 services** — from guest sign-in and cloud saves to tournaments, chats, purchases and analytics.
+- **24 services** — from guest sign-in and cloud saves to tournaments, chats, purchases and analytics.
 - **One async contract.** Every call returns `AsyncOperation<RestApiResult<T>>`: wait on it with
   `await`, `yield return` or a callback, whichever suits the code around it.
 - **Errors are values, not exceptions.** The SDK does not throw on network failures or HTTP errors —
@@ -51,7 +51,7 @@ Unity **2022.3 LTS** — the version the SDK is developed and tested against. Pl
 One URL. `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.6.0
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.7.0
 ```
 
 The package is self-contained: the native plugins it needs — a WebView (external sign-in providers
@@ -67,7 +67,7 @@ Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
 <details>
 <summary>Updating and pinning a version</summary>
 
-The `#v0.6.0` at the end of the URL is a release tag. Package Manager resolves it once, writes the
+The `#v0.7.0` at the end of the URL is a release tag. Package Manager resolves it once, writes the
 commit it resolved to into `Packages/packages-lock.json`, and from then on never asks the remote
 again — nothing updates on its own.
 
@@ -235,7 +235,7 @@ under [`docs/`](docs/README.md).
 | --- | --- |
 | [Overview and architecture](docs/README.md) | the `Runtime/` layout, shared patterns, editor tools |
 | [Local storage](docs/Storage.md) | `IStorage` (PlayerPrefs) and `IBlobStorage` (SQLite / IndexedDB / File) |
-| [Services](#services) | 25 services, table below |
+| [Services](#services) | 24 services, table below |
 
 > The pages under `docs/` are currently written in Russian.
 
@@ -272,7 +272,6 @@ Every service is reachable through `IMirraCloudSdk` once `Initialize()` has run.
 | --- | --- |
 | [Economy](docs/services/Economy.md) | currencies, items, containers, energies, inventory |
 | [Entities](docs/services/Entities.md) | custom configs: templates and components |
-| [RemoteConfig](docs/services/RemoteConfig.md) | remote configuration and A/B tests |
 | [Segments](docs/services/Segments.md) | player segments |
 | [Events](docs/services/Events.md) | LiveOps events running for this player: banners, countdowns, content gates |
 | [Localization ↗](https://mirrahub.com/documentation/mirra-cloud/liveops-localization) | translation collections, values by key and language |

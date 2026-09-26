@@ -20,7 +20,7 @@ namespace MirraCloud.Example.Showcase
     {
         private const string ResolveSnippet =
 @"// Ask the server which branch this client version belongs on. Call it at startup, before
-// anything else reads remote config or assets, and use the answer as your branch.
+// anything else reads config or assets, and use the answer as your branch.
 var op = sdk.Deployment.ResolveBranchAsync(Application.version);
 await op.Task();
 

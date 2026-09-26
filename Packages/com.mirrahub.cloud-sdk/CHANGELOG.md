@@ -6,6 +6,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.7.0] — 2026-09-27
+
+Remote Config is withdrawn: the backend answers every Remote Config request with 404
+`remote_config.deprecated`, so the service leaves the SDK. There is no replacement service. Upgrade
+steps: delete the calls to `sdk.RemoteConfig` and the `using MirraCloud.Core.RemoteConfig` lines the
+compiler points at.
+
+### Removed
+
+- **Breaking — the Remote Config service.** `IMirraCloudSdk.RemoteConfig`, `RemoteConfigService`
+  (`LoadConfigAsync`, `Config`), `RemoteConfig`, `RemoteConfigField`, `RemoteConfigFieldType` and
+  `FetchRemoteConfigResponse` — the whole `MirraCloud.Core.RemoteConfig` namespace. Builds on 0.6.0 and
+  older keep compiling and running, but `LoadConfigAsync` fails with 404 `remote_config.deprecated` and
+  `Config` stays `null`. The SDK never called it on its own, so only games that called it are affected.
+- The Remote Config screen of the Showcase sample.
+
 ## [0.6.0] — 2026-09-21
 
 Sign-in now happens on a **platform** of the project (console → Platforms): the platform decides
