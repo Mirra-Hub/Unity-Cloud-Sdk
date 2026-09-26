@@ -6,6 +6,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.7.1] — 2026-09-27
+
+The Manager window (`Tools → Mirra Cloud → Manager`) checks the picked platform against the build
+target. Nothing changes at runtime.
+
+### Added
+
+- **Build target check.** An error under the **Platform** dropdown when the active build target is of
+  a type the platform is not set up for (console → Platforms → types: Web, PC, Mobile, Console), with
+  a **Build Settings…** button. Windows / macOS / Linux count as PC, WebGL as Web, Android and iOS as
+  Mobile, PlayStation, Xbox and Switch as Console. tvOS, visionOS, UWP, embedded targets, dedicated
+  servers and platforms without types are not checked.
+
+### Changed
+
+- The **Platform** dropdown shows each platform's types next to its name and key.
+- Without a saved platform key the window starts with the first switched-on platform made for the
+  active build target, then the first switched-on one (was: the first in the list). A saved key that
+  is still in the project is kept.
+- When the server fails to return the platforms (5xx), the window says to press Refresh later instead
+  of showing the raw HTTP status; the status, error code and URL go to the Console.
+- The caption under the **Platform** dropdown is removed.
+
+### Fixed
+
+- A `/` in a project, branch, platform or token name opened a submenu in its dropdown; it is shown as
+  a slash now.
+
 ## [0.7.0] — 2026-09-27
 
 Remote Config is withdrawn: the backend answers every Remote Config request with 404
