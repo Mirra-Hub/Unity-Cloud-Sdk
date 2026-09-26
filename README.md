@@ -51,7 +51,7 @@ Unity **2022.3 LTS** — the version the SDK is developed and tested against. Pl
 One URL. `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.7.0
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.7.1
 ```
 
 The package is self-contained: the native plugins it needs — a WebView (external sign-in providers
@@ -67,7 +67,7 @@ Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
 <details>
 <summary>Updating and pinning a version</summary>
 
-The `#v0.7.0` at the end of the URL is a release tag. Package Manager resolves it once, writes the
+The `#v0.7.1` at the end of the URL is a release tag. Package Manager resolves it once, writes the
 commit it resolved to into `Packages/packages-lock.json`, and from then on never asks the remote
 again — nothing updates on its own.
 
@@ -110,7 +110,9 @@ No code, done once — [full walkthrough ↗](https://mirrahub.com/documentation
    **Connect**.
 4. Pick a **Project**, **Branch**, **Platform** and **API Token** (you can create a token right
    there with **+ Create Token**). The platform's key goes with every sign-in and analytics
-   request; a game that ships to several platforms picks the matching one before each build.
+   request; a game that ships to several platforms picks the matching one before each build. The
+   window shows an error when the platform's types (Web, PC, Mobile, Console) leave out the active
+   build target.
 
 The choice is saved to `Assets/MirraCloud/Resources/Configuration.asset` — the asset is created for
 you and belongs to your project, not to the package.
