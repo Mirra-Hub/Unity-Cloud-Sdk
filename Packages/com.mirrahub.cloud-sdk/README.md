@@ -14,7 +14,7 @@ The full description, a quick start and the per-service reference live in the
 One URL — `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.7.0
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.7.1
 ```
 
 The package is self-contained. The native plugins it needs — a WebView for external sign-in and
@@ -35,7 +35,8 @@ Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
 
 The platform comes from the console (**Platforms**) and decides which sign-in methods the game gets:
 its key goes with every sign-in and analytics request. A project without a platform refuses every
-sign-in, so create one first.
+sign-in, so create one first. The window shows an error when the platform's types (Web, PC, Mobile,
+Console) leave out the active build target.
 
 The choice is saved to `Assets/MirraCloud/Resources/Configuration.asset` — the asset is created for
 you and belongs to your project, not to the package. **It holds your project API token: do not

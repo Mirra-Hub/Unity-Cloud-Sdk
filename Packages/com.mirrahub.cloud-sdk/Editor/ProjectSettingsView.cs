@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MirraCloud.Core;
+using MirraCloud.Core.Errors;
 using MirraCloud.Editor.Dto;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
 using UnityEditor;
@@ -147,7 +148,7 @@ namespace MirraCloud.Editor
             var names = new string[_projects.Count];
             for (int i = 0; i < _projects.Count; i++)
             {
-                names[i] = _projects[i].name;
+                names[i] = PopupLabel(_projects[i].name);
             }
 
             var currentIndex = FindCurrentIndex(_projects, _configuration.ProjectId, p => p.id);
@@ -180,7 +181,7 @@ namespace MirraCloud.Editor
             var names = new string[_branches.Count];
             for (int i = 0; i < _branches.Count; i++)
             {
-                names[i] = _branches[i].name;
+                names[i] = PopupLabel(_branches[i].name);
             }
 
             var currentIndex = FindCurrentIndex(_branches, _configuration.BranchId, b => b.name);
@@ -232,8 +233,7 @@ namespace MirraCloud.Editor
             var names = new string[_platforms.Count];
             for (int i = 0; i < _platforms.Count; i++)
             {
-                var p = _platforms[i];
-                names[i] = p.isEnabled ? $"{p.name} ({p.key})" : $"{p.name} ({p.key}) — disabled";
+                names[i] = PlatformLabel(_platforms[i]);
             }
 
             var currentIndex = FindCurrentIndex(_platforms, _configuration.PlatformKey, p => p.key);
@@ -246,17 +246,57 @@ namespace MirraCloud.Editor
                 ApplyPlatform();
             }
 
-            if (_selectedPlatformIndex >= 0 && _selectedPlatformIndex < _platforms.Count && !_platforms[_selectedPlatformIndex].isEnabled)
+            if (_selectedPlatformIndex < 0 || _selectedPlatformIndex >= _platforms.Count) return;
+            var platform = _platforms[_selectedPlatformIndex];
+
+            if (!platform.isEnabled)
             {
                 EditorGUILayout.HelpBox(
                     "This platform is switched off in the console: sign-in on it is refused until it is switched on.",
                     MessageType.Warning);
             }
 
-            EditorGUILayout.LabelField(
-                "Sent with every sign-in and analytics request of this build. A game that ships to several " +
-                "platforms picks the matching one before each build.",
-                EditorStyles.wordWrappedMiniLabel);
+            DrawBuildTargetCheck(platform);
+        }
+
+        /// <summary>
+        /// An error when the active build target is of a type the platform is not set up for (console → Platforms →
+        /// types): the build would sign its players in on a platform meant for other builds. Read on every redraw, so it
+        /// follows a switch of the build target without a Refresh.
+        /// </summary>
+        private static void DrawBuildTargetCheck(EditorPlatformDto platform)
+        {
+            var target = EditorUserBuildSettings.activeBuildTarget;
+            var targetType = BuildTargetPlatformType.ForTarget(target, EditorUserBuildSettings.standaloneBuildSubtarget);
+            if (!BuildTargetPlatformType.IsMismatch(platform, targetType)) return;
+
+            EditorGUILayout.HelpBox(
+                $"The build target is {BuildTargetPlatformType.TargetDisplayName(target)} " +
+                $"({BuildTargetPlatformType.DisplayName(targetType)}), but the platform \"{platform.name}\" is set up for " +
+                $"{BuildTargetPlatformType.DisplayNames(platform.platformTypes)}. Switch the build target or pick another " +
+                "platform.",
+                MessageType.Error);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Build Settings…", EditorStyles.miniButton))
+            {
+                BuildPlayerWindow.ShowBuildPlayerWindow();
+            }
+            GUILayout.EndHorizontal();
+        }
+
+        /// <summary>"Name (key) · Web, PC", and "— disabled" for a platform switched off in the console.</summary>
+        private static string PlatformLabel(EditorPlatformDto platform)
+        {
+            var label = $"{platform.name} ({platform.key})";
+
+            var types = BuildTargetPlatformType.DisplayNames(platform.platformTypes);
+            if (types != null) label += $" · {types}";
+
+            if (!platform.isEnabled) label += " — disabled";
+
+            return PopupLabel(label);
         }
 
         private void DrawTokenDropdown()
@@ -275,7 +315,7 @@ namespace MirraCloud.Editor
                 for (int i = 0; i < _tokens.Count; i++)
                 {
                     var t = _tokens[i];
-                    names[i] = t.isEnabled ? t.name : $"{t.name} (disabled)";
+                    names[i] = PopupLabel(t.isEnabled ? t.name : $"{t.name} (disabled)");
                 }
 
                 var currentIndex = FindCurrentIndex(_tokens, _configuration.Token, t => t.token);
@@ -444,7 +484,9 @@ namespace MirraCloud.Editor
                 {
                     _platforms = op.Result.Data?.items ?? new List<EditorPlatformDto>();
                     var idx = FindCurrentIndex(_platforms, _configuration.PlatformKey, p => p.key);
-                    _selectedPlatformIndex = idx >= 0 ? idx : (_platforms.Count > 0 ? 0 : -1);
+                    _selectedPlatformIndex = idx >= 0
+                        ? idx
+                        : BuildTargetPlatformType.PickDefault(_platforms, BuildTargetPlatformType.Current());
                     if (_selectedPlatformIndex >= 0)
                     {
                         ApplyPlatform();
@@ -452,13 +494,32 @@ namespace MirraCloud.Editor
                 }
                 else
                 {
-                    _platformsError = op.Result.HttpStatusCode == 403
-                        ? "The service account may not read this project's platforms (it needs the platforms.viewer " +
-                          "permission). Grant it, or type the platform key into the Configuration asset by hand."
-                        : $"Could not load the platforms: {op.Result.Error?.Message ?? "unknown error"}.";
+                    _platformsError = PlatformsErrorMessage(op.Result);
                 }
                 _repaint();
             };
+        }
+
+        private static string PlatformsErrorMessage(RestApiResult result)
+        {
+            if (result.HttpStatusCode == 403)
+            {
+                return "The service account may not read this project's platforms (it needs the platforms.viewer " +
+                       "permission). Grant it, or type the platform key into the Configuration asset by hand.";
+            }
+
+            if (result.HttpStatusCode >= 500)
+            {
+                // The window says what to do; what went wrong is for the console, where it can be copied to support.
+                var code = result.Error.FirstCloudError()?.Code;
+                Debug.LogWarning(
+                    $"[MirraCloud Editor] Loading the platforms failed: HTTP {result.HttpStatusCode}" +
+                    (code != null ? $" {code}" : "") + $" ({result.Error?.Message}), {result.Error?.Url}");
+                return "The server could not return the platforms. Press Refresh later; if this keeps happening, " +
+                       "contact support.";
+            }
+
+            return $"Could not load the platforms: {result.Error?.Message ?? "unknown error"}.";
         }
 
         private void ResetPlatforms()
@@ -520,6 +581,15 @@ namespace MirraCloud.Editor
         {
             EditorUtility.SetDirty(_configuration);
             AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>
+        /// A popup reads <c>/</c> in an item as a submenu separator, so "Unity Editor / PC" would open a submenu. The
+        /// look-alike division slash is shown as is.
+        /// </summary>
+        private static string PopupLabel(string text)
+        {
+            return text?.Replace('/', '\u2215');
         }
 
         private static int FindCurrentIndex<T>(List<T> items, string currentValue, Func<T, string> getId)
