@@ -101,7 +101,6 @@ values), so each view only writes the happy-path render.
 | Challenges | Card per challenge with live progress bar, status, reward tiers, countdown |
 | Daily Rewards | Streak/progress header + day-by-day reward track + streak bonuses + milestones |
 | Groups | My groups / Discover → open a group: its card, the actions it allows, members, requests, roles, invites, bans |
-| Remote Config | Per-group typed key/value table |
 | Localization | Lookup by collection → language selector + key→translation table |
 | Segments | Player membership chips + all-segments status table |
 | Events | What LiveOps is running for this player, and the one screen that shows an event's effect: the same energy read through the catalog and through the runtime |

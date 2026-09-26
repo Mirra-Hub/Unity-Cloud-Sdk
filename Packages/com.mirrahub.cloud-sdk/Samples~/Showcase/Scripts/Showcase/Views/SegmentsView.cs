@@ -292,7 +292,7 @@ await sdk.PlayerAccount.UpdateProfileSegmentsAsync(profileId, new[] { ""vip"" })
                 ? "Once segments exist in this project they all appear here, with the ones this player "
                 + "matched picked out in accent."
                 : "Every segment in the project. Accent means this player is in it — targeting a reward, "
-                + "an offer or a remote-config value at that segment would reach them.");
+                + "an offer or an event at that segment would reach them.");
             caption.AddToClassList("sc-fs-hint");
             side.Add(caption);
 

@@ -14,7 +14,6 @@ using MirraCloud.Core.Localization;
 using MirraCloud.Core.ProfanityFilter;
 using MirraCloud.Core.PromoCodes;
 using MirraCloud.Core.Purchases;
-using MirraCloud.Core.RemoteConfig;
 using Plugins.MirraCloud.Core.Services.Analytics;
 using Plugins.MirraCloud.Core.Services.Challenges;
 using Plugins.MirraCloud.Core.Services.Deployment;
@@ -39,7 +38,6 @@ namespace MirraCloud.Core
         LeaderboardService Leaderboard { get; }
         LocalizationService Localization { get; }
         TournamentsService Tournaments { get; }
-        RemoteConfigService RemoteConfig { get; }
         AssetsStorageService AssetsStorage { get; }
         CloudCodeService CloudCode { get; }
         SegmentService Segments { get; }
