@@ -909,6 +909,12 @@ namespace MirraCloud.Core.Auth
 
         bool ISessionRefresher.CanRefresh => string.IsNullOrEmpty(_refreshToken) == false;
 
+        /// <summary>
+        /// A signed-in player, or a saved session <see cref="InitializeAsync"/> is still restoring: either way a
+        /// request sent now goes out as the player, straight away or once the restore is done.
+        /// </summary>
+        internal bool HasSession => IsAuth || string.IsNullOrEmpty(_refreshToken) == false;
+
         AsyncOperation<RestApiResult> ISessionRefresher.RefreshSessionAsync()
         {
             return RefreshSessionAsync();
