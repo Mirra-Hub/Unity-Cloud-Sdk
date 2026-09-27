@@ -46,6 +46,12 @@ anonymous route has always served paths.
   the anonymous check goes through `access: AssetAccess.Public`, past the cache, so it always makes the
   request it vouches for.
 
+### Fixed
+
+- `LoadConfigAsync().UseCompleted(...)` in game code no longer throws the catalog away. The SDK hooked
+  the same operation it returned, and `UseCompleted` keeps one callback, so the game's replaced the SDK's:
+  `Assets` / `Folders` stayed empty, and with them the cache. `await op.Task()` was not affected.
+
 ### Removed
 
 - **Breaking — `LoadPublicTextFromId`, `LoadPublicTextureFromId`, `LoadPublicSpriteFromId`,

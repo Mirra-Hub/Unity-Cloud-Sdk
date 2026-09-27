@@ -58,12 +58,16 @@ namespace MirraCloud.Core.AssetsStorage
         {
             string route = AssetRoutes.Config(_configuration.ProjectId, _configuration.BranchId);
 
-            var response = _restApi.GetAsync<AssetStorageStructureDto>(route);
+            // The game gets its own operation: UseCompleted replaces the callback, so hooking the one returned
+            // to the game would let the game's own UseCompleted drop the catalog — and with it the cache and
+            // every path lookup — without a word.
+            var raw = _restApi.GetAsync<AssetStorageStructureDto>(route);
+            var result = new AsyncOperation<RestApiResult<AssetStorageStructureDto>>();
 
             // Swap the lists only once an answer arrives. Clearing up front left the service with an
             // empty catalog for the duration of the request — and permanently if it failed — which
             // also silently disables the cache, since the version lookup reads these lists.
-            response.UseCompleted(completed =>
+            raw.UseCompleted(completed =>
             {
                 if (completed.Result.IsSuccess && completed.Result.Data != null)
                 {
@@ -71,9 +75,11 @@ namespace MirraCloud.Core.AssetsStorage
                     _folders.Clear();
                     AddStorageItems(completed.Result.Data);
                 }
+
+                result.Complete(completed.Result);
             });
 
-            return response;
+            return result;
         }
 
         public List<Asset> GetAssetsFromType(AssetType assetType)
