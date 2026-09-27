@@ -95,7 +95,7 @@ values), so each view only writes the happy-path render.
 | Leaderboard | Tab per board, config chips + ranked table (medal ranks, avatars, scores) |
 | Economy | Wallet listing every defined currency (add/subtract/set per row) + item slots with grant/take/consume/properties + energy meters + catalog |
 | Friends | Counts strip + friends (presence) / incoming / outgoing requests |
-| Assets Storage | Summary stats + by-type breakdown + folders list + assets table |
+| Assets Storage | File-manager browser (folders, previews) → asset details: load by path, anonymous fetch of a public asset |
 | Chats | Lookup by channel/group id → channel header, members, recent messages |
 | Tournaments | Tab per tournament, leagues with rewards-for-places, standings, your rewards |
 | Challenges | Card per challenge with live progress bar, status, reward tiers, countdown |

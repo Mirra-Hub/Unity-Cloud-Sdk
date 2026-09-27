@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MirraCloud.Core.AssetsStorage;
+using MirraCloud.Core.Errors;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -67,13 +68,28 @@ if (op.Result.IsSuccess)
     audioSource.Play();
 }";
 
-        private const string PublicSnippet =
-@"// Anonymous fetch: no signed-in player, no token. The asset must be marked public in
-// the console — a private one answers 403 instead.
-var op = sdk.AssetsStorage.LoadPublicTextureFromId(assetId);
+        private const string PathSnippet =
+@"// The same file, named the way the console lays the branch out. The leading slash
+// is optional; the case is not. After LoadConfigAsync a path the catalog knows is
+// served from the same local cache as its stable id.
+var op = sdk.AssetsStorage.LoadTextureFromPath(""icons/coin.png"");
 await op.Task();
 
-bool servedAnonymously = op.Result.IsSuccess;";
+if (op.Result.IsSuccess)
+{
+    image.image = op.Result.Data;
+}";
+
+        private const string PublicSnippet =
+@"// Anonymous fetch: no signed-in player, no token. The asset must be marked public in
+// the console — a private one answers 403 (assets_storage.asset_not_public) instead.
+var op = sdk.AssetsStorage.LoadTextureFromId(assetId, access: AssetAccess.Public);
+await op.Task();
+
+bool servedAnonymously = op.Result.IsSuccess;
+
+// AssetAccess.Auto takes the player's route while there is a session and the
+// anonymous one otherwise — for code that runs both before and after sign-in.";
 
         // At most this many preview downloads run at once; the rest wait in _queue. A branch with a
         // hundred images must not open a hundred sockets on the first frame.
@@ -132,6 +148,8 @@ bool servedAnonymously = op.Result.IsSuccess;";
                 + " at a time, and cached for the session."));
             DeclareCall(new SdkCall("Download text or JSON", TextSnippet));
             DeclareCall(new SdkCall("Download audio", AudioSnippet));
+            DeclareCall(new SdkCall("Download by path", PathSnippet,
+                "Open an asset and press Load by path; the path is case-sensitive."));
             DeclareCall(new SdkCall("Download a public asset anonymously", PublicSnippet,
                 "Open an asset tagged Public and press Fetch without a token; a private one answers 403."));
 
@@ -984,6 +1002,12 @@ bool servedAnonymously = op.Result.IsSuccess;";
             kv.Add(Kv("Updated", Fmt.DateTime2(asset.updatedAt), null));
             body.Add(kv);
 
+            if (string.IsNullOrEmpty(asset.path) == false)
+            {
+                body.Add(new SectionHeader("By path"));
+                body.Add(BuildByPathRow(asset));
+            }
+
             if (IsServedAnonymously(asset))
             {
                 body.Add(new SectionHeader("Anonymous access"));
@@ -1247,6 +1271,10 @@ bool servedAnonymously = op.Result.IsSuccess;";
         /// bytes arrived. Everything else — a gif, an mp3, a json — is pulled as raw data:
         /// <c>DownloadHandlerTexture</c> decodes png and jpg only, and its failure on anything else
         /// would read here as a failure of the anonymous route, which it is not.
+        /// <para>
+        /// Past the local cache on purpose: with the catalog loaded, a cached copy would come back
+        /// without any request, and the button would vouch for a route it never called.
+        /// </para>
         /// </summary>
         private async void TryPublic(AssetDto asset, Button button, Label verdict)
         {
@@ -1256,7 +1284,7 @@ bool servedAnonymously = op.Result.IsSuccess;";
 
             if (asTexture)
             {
-                var op = Sdk.AssetsStorage.LoadPublicTextureFromId(asset.stableId);
+                var op = Sdk.AssetsStorage.LoadTextureFromId(asset.stableId, useCache: false, access: AssetAccess.Public);
                 if (op == null)
                 {
                     verdict.text = "Could not start the request.";
@@ -1272,7 +1300,8 @@ bool servedAnonymously = op.Result.IsSuccess;";
             }
             else
             {
-                var op = Sdk.AssetsStorage.LoadPublicTextFromId(asset.stableId, ExtractTextFileType.Data);
+                var op = Sdk.AssetsStorage.LoadTextFromId(asset.stableId, ExtractTextFileType.Data,
+                    useCache: false, access: AssetAccess.Public);
                 if (op == null)
                 {
                     verdict.text = "Could not start the request.";
@@ -1314,7 +1343,7 @@ bool servedAnonymously = op.Result.IsSuccess;";
 
             // The route answered and the client is what fell short. Saying "the request failed"
             // here would point the reader at the wrong half of the system.
-            if (result != null && result.IsSuccess)
+            if (IsServedButUnreadable(result))
             {
                 verdict.text = "Served anonymously (HTTP " + StatusText(code) + "), but "
                     + (asTexture
@@ -1323,10 +1352,122 @@ bool servedAnonymously = op.Result.IsSuccess;";
                 return;
             }
 
-            verdict.text = "The anonymous request failed (HTTP " + StatusText(code) + "): "
-                + (result != null && result.Error != null
-                    ? Fmt.OrDash(result.Error.Message)
-                    : "no response");
+            verdict.text = "The anonymous request failed (HTTP " + StatusText(code) + "): " + ErrorText(result);
+        }
+
+        /// <summary>
+        /// Loading by path is the same download named differently, so this row is offered for every
+        /// asset — private ones included, on the player's route.
+        /// </summary>
+        private VisualElement BuildByPathRow(AssetDto asset)
+        {
+            var wrap = new VisualElement();
+
+            var hint = new Label("The same file, asked for by the path the console shows instead of "
+                + "its stable id. The path is case-sensitive.");
+            hint.AddToClassList("sc-fs-hint");
+            wrap.Add(hint);
+
+            var verdict = new Label();
+            verdict.AddToClassList("sc-fs-detail__caption");
+
+            var button = new Button { text = "Load by path" };
+            button.AddToClassList("sc-btn");
+            button.clicked += () =>
+            {
+                button.SetEnabled(false);
+                verdict.text = "Requesting…";
+                TryByPath(asset, button, verdict);
+            };
+
+            wrap.Add(button);
+            wrap.Add(verdict);
+            return wrap;
+        }
+
+        /// <summary>
+        /// Pulled the way <see cref="TryPublic"/> pulls, and past the local cache for the same kind of
+        /// reason: with the catalog loaded, a path it knows is served by the stable id from the cache,
+        /// and the button would prove nothing about the path route.
+        /// </summary>
+        private async void TryByPath(AssetDto asset, Button button, Label verdict)
+        {
+            bool asTexture = IsTextureDecodable(asset);
+            MirraCloud.Core.RestApiResult result;
+            string proof = null;
+
+            if (asTexture)
+            {
+                var op = Sdk.AssetsStorage.LoadTextureFromPath(asset.path, useCache: false);
+                await op.Task();
+                result = op.Result;
+                if (op.Result != null && op.Result.IsSuccess && op.Result.Data != null)
+                {
+                    proof = op.Result.Data.width + " × " + op.Result.Data.height + " px";
+                }
+            }
+            else
+            {
+                var op = Sdk.AssetsStorage.LoadTextFromPath(asset.path, ExtractTextFileType.Data, useCache: false);
+                await op.Task();
+                result = op.Result;
+                if (op.Result != null && op.Result.IsSuccess
+                    && op.Result.Data != null && op.Result.Data.Data != null)
+                {
+                    proof = Fmt.Bytes(op.Result.Data.Data.Length) + " downloaded";
+                }
+            }
+
+            if (Ctx.Log != null && result != null)
+            {
+                Ctx.Log.Record("Path " + Fmt.Truncate(asset.path, 32), result, PathSnippet);
+            }
+
+            if (button.panel == null)
+            {
+                return;
+            }
+            button.SetEnabled(true);
+
+            if (proof != null)
+            {
+                verdict.text = "Served by path (" + proof + ").";
+                return;
+            }
+
+            long? code = result != null ? result.HttpStatusCode : null;
+
+            if (IsServedButUnreadable(result))
+            {
+                verdict.text = "Served by path (HTTP " + StatusText(code) + "), but "
+                    + (asTexture
+                        ? "Unity could not decode the bytes as an image."
+                        : "the response carried no bytes.");
+                return;
+            }
+
+            verdict.text = "The request by path failed (HTTP " + StatusText(code) + "): " + ErrorText(result);
+        }
+
+        /// <summary>
+        /// A 2xx that still failed: the file arrived and could not be read as what was asked for.
+        /// </summary>
+        private static bool IsServedButUnreadable(MirraCloud.Core.RestApiResult result)
+        {
+            long? code = result != null ? result.HttpStatusCode : null;
+            return result != null && result.IsSuccess == false && code >= 200 && code < 300;
+        }
+
+        /// <summary>The error code when the server sent one — it says more than the transport message.</summary>
+        private static string ErrorText(MirraCloud.Core.RestApiResult result)
+        {
+            if (result == null || result.Error == null)
+            {
+                return "no response";
+            }
+
+            var cloudError = result.Error.FirstCloudError();
+            return Fmt.OrDash(cloudError != null ? cloudError.Code : result.Error.Message);
         }
 
         /// <summary>Texture2D.LoadImage, which the texture handler builds on, reads png and jpg only.</summary>

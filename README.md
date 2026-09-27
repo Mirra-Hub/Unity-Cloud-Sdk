@@ -300,7 +300,7 @@ Every service is reachable through `IMirraCloudSdk` once `Initialize()` has run.
 
 | Service | What it does |
 | --- | --- |
-| [AssetsStorage](docs/services/AssetsStorage.md) | downloading assets (textures, audio, bundles) with a local cache |
+| [AssetsStorage](docs/services/AssetsStorage.md) | downloading assets (textures, audio, bundles) by stable id or path, for a signed-in player or anonymously, with a local cache |
 | [CloudCode](docs/services/CloudCode.md) | calling server-side functions |
 | [Analytics](docs/services/Analytics.md) | events, sessions, playtime |
 | [Attribution](docs/services/Attribution.md) | the install's Adjust id and campaign, recorded on the player's account |
