@@ -51,7 +51,7 @@ Unity **2022.3 LTS** — the version the SDK is developed and tested against. Pl
 One URL. `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.7.1
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.8.0
 ```
 
 The package is self-contained: the native plugins it needs — a WebView (external sign-in providers
@@ -67,7 +67,7 @@ Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
 <details>
 <summary>Updating and pinning a version</summary>
 
-The `#v0.7.1` at the end of the URL is a release tag. Package Manager resolves it once, writes the
+The `#v0.8.0` at the end of the URL is a release tag. Package Manager resolves it once, writes the
 commit it resolved to into `Packages/packages-lock.json`, and from then on never asks the remote
 again — nothing updates on its own.
 
@@ -300,7 +300,7 @@ Every service is reachable through `IMirraCloudSdk` once `Initialize()` has run.
 
 | Service | What it does |
 | --- | --- |
-| [AssetsStorage](docs/services/AssetsStorage.md) | downloading assets (textures, audio, bundles) with a local cache |
+| [AssetsStorage](docs/services/AssetsStorage.md) | downloading assets (textures, audio, bundles) by stable id or path, for a signed-in player or anonymously, with a local cache |
 | [CloudCode](docs/services/CloudCode.md) | calling server-side functions |
 | [Analytics](docs/services/Analytics.md) | events, sessions, playtime |
 | [Attribution](docs/services/Attribution.md) | the install's Adjust id and campaign, recorded on the player's account |

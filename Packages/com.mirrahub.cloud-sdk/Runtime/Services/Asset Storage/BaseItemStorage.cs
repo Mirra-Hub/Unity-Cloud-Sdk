@@ -9,6 +9,10 @@ namespace MirraCloud.Core.AssetsStorage
         public readonly string ItemId;
 
         public readonly string Name;
+
+        /// <summary>Where the item sits in the branch: <c>/icons/coin.png</c> for an asset, <c>/icons</c>
+        /// for a folder. What <c>Load*FromPath</c> and <c>GetAssetsInFolder</c> take, with or without the
+        /// leading slash; case-sensitive.</summary>
         public readonly string Path;
         public readonly DateTime CreatedAt;
         public readonly DateTime UpdatedAt;

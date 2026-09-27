@@ -19,7 +19,7 @@
         /// <summary>Whether the folder this asset sits in publishes it.</summary>
         public readonly bool IsPublicInherited;
 
-        /// <summary>Whether the anonymous <c>LoadPublic*</c> routes will serve it — either flag is
+        /// <summary>Whether a load with <see cref="AssetAccess.Public"/> will be served — either flag is
         /// enough. Publishing a folder publishes everything inside it, so an asset can be servable
         /// anonymously without <see cref="IsPublic"/> ever having been set on it.</summary>
         public bool IsEffectivelyPublic => IsPublic || IsPublicInherited;
