@@ -6,6 +6,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.8.0] — 2026-09-27
+
+Assets load by the path the console shows, and one set of `Load*` methods covers private and public
+assets: an optional `access` argument picks the player's route, the anonymous one, or whichever fits
+the session. Upgrade steps: replace each `LoadPublic*FromId(id, …)` with the same method without
+`Public` and `access: AssetAccess.Public`.
+
+Loading by path as the signed-in player needs the Cloud backend from 2026-09-27 or later; the
+anonymous route has always served paths.
+
+### Added
+
+- **Loading by path.** `LoadTextFromPath`, `LoadTextureFromPath`, `LoadSpriteFromPath`,
+  `LoadAudioFromPath`, `LoadAssetBundleFromPath` — the same parameters as their `*FromId` twins, and
+  the path as the console shows it: `icons/coin.png` or `/icons/coin.png`, case-sensitive. The SDK
+  escapes every segment itself, so spaces, Cyrillic, `#`, `?`, `%` and `+` in names are fine. After
+  `LoadConfigAsync()` a path the catalog knows is loaded by that asset's stable id and shares its cache
+  entry; any other path is resolved by the server, without the cache. An empty path or one with `..` is
+  refused without a request, with the server's code `assets_storage.asset_path_invalid`.
+- **`AssetAccess`** — an optional `access` argument on every `Load*FromId` and `Load*FromPath`:
+  `Player` (the default — the signed-in player's route, every asset), `Public` (anonymous, only assets
+  published in the console; a private one answers 403 `assets_storage.asset_not_public`) and `Auto`
+  (`Player` while there is a session, signed in or being restored, `Public` otherwise).
+- `TryGetAssetByPath(path, out Asset)` and `GetAssetsInFolder(folderPath, recursive = false)` —
+  lookups in the loaded catalog, without a request.
+
+### Changed
+
+- A failed load returns the server's answer — `HttpStatusCode` and the error codes in `Error.Errors`
+  (`assets_storage.asset_not_found`, `asset_not_public`, …) — instead of a validation error saying
+  "download failed". A file that arrived but is not what was asked for (not an image, not a bundle) is
+  still a validation error, and keeps its 2xx status. A successful load carries the status, URL and
+  timing of its request (none on a cache hit).
+- Anonymous loads use the local cache like the others once the version is known (after
+  `LoadConfigAsync()`), and an anonymous AssetBundle is built from the downloaded bytes, as the player's
+  route always did.
+- **Showcase — Assets Storage.** An asset's details load it again by its path (**Load by path**), and
+  the anonymous check goes through `access: AssetAccess.Public`, past the cache, so it always makes the
+  request it vouches for.
+
+### Removed
+
+- **Breaking — `LoadPublicTextFromId`, `LoadPublicTextureFromId`, `LoadPublicSpriteFromId`,
+  `LoadPublicAudioFromId`, `LoadPublicAssetBundleFromId`.** The same load with
+  `access: AssetAccess.Public` replaces each of them.
+
 ## [0.7.1] — 2026-09-27
 
 The Manager window (`Tools → Mirra Cloud → Manager`) checks the picked platform against the build
