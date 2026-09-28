@@ -49,7 +49,7 @@ namespace MirraCloud.Core.Storage.Blob
 
         public async Task<BlobResult> ReadAsync(string key)
         {
-            await _gate.WaitAsync();
+            await _gate.WaitAsync().ConfigureAwait(false);
 
             try
             {
@@ -57,7 +57,7 @@ namespace MirraCloud.Core.Storage.Blob
                 {
                     List<byte[]> rows = GetConnection().QueryScalars<byte[]>("SELECT data FROM blobs WHERE key = ?", key);
                     return rows.Count > 0 ? BlobResult.Ok(rows[0]) : BlobResult.NotFound();
-                });
+                }).ConfigureAwait(false);
             }
             catch (Exception exception)
             {
@@ -72,7 +72,7 @@ namespace MirraCloud.Core.Storage.Blob
 
         public async Task<bool> ExistsAsync(string key)
         {
-            await _gate.WaitAsync();
+            await _gate.WaitAsync().ConfigureAwait(false);
 
             try
             {
@@ -80,7 +80,7 @@ namespace MirraCloud.Core.Storage.Blob
                 {
                     List<int> rows = GetConnection().QueryScalars<int>("SELECT 1 FROM blobs WHERE key = ? LIMIT 1", key);
                     return rows.Count > 0;
-                });
+                }).ConfigureAwait(false);
             }
             finally
             {
@@ -98,35 +98,26 @@ namespace MirraCloud.Core.Storage.Blob
             List<string> foundKeys = new List<string>(keys.Count);
             List<byte[]> foundValues = new List<byte[]>(keys.Count);
 
-            await _gate.WaitAsync();
-
-            try
+            await ReadUnderGateAsync(() =>
             {
-                await Task.Run(() =>
+                SQLiteConnection connection = GetConnection();
+
+                using (SQLitePreparedStatement select = new SQLitePreparedStatement(connection, "SELECT data FROM blobs WHERE key = ?"))
                 {
-                    SQLiteConnection connection = GetConnection();
-
-                    using (SQLitePreparedStatement select = new SQLitePreparedStatement(connection, "SELECT data FROM blobs WHERE key = ?"))
+                    for (int i = 0; i < keys.Count; i++)
                     {
-                        for (int i = 0; i < keys.Count; i++)
+                        select.Bind(1, keys[i]);
+
+                        if (select.Step() == SQLite3.Result.Row)
                         {
-                            select.Bind(1, keys[i]);
-
-                            if (select.Step() == SQLite3.Result.Row)
-                            {
-                                foundKeys.Add(keys[i]);
-                                foundValues.Add(select.GetBytes(0));
-                            }
-
-                            select.Reset();
+                            foundKeys.Add(keys[i]);
+                            foundValues.Add(select.GetBytes(0));
                         }
+
+                        select.Reset();
                     }
-                });
-            }
-            finally
-            {
-                _gate.Release();
-            }
+                }
+            });
 
             for (int i = 0; i < foundKeys.Count; i++)
             {
@@ -139,23 +130,14 @@ namespace MirraCloud.Core.Storage.Blob
             List<string> keys = null;
             List<byte[]> values = null;
 
-            await _gate.WaitAsync();
-
-            try
+            await ReadUnderGateAsync(() =>
             {
-                await Task.Run(() =>
-                {
-                    SQLiteConnection connection = GetConnection();
-                    string rangeEnd = keyPrefix + RANGE_END_SUFFIX;
+                SQLiteConnection connection = GetConnection();
+                string rangeEnd = keyPrefix + RANGE_END_SUFFIX;
 
-                    keys = connection.QueryScalars<string>("SELECT key FROM blobs WHERE key >= ? AND key < ? ORDER BY key", keyPrefix, rangeEnd);
-                    values = connection.QueryScalars<byte[]>("SELECT data FROM blobs WHERE key >= ? AND key < ? ORDER BY key", keyPrefix, rangeEnd);
-                });
-            }
-            finally
-            {
-                _gate.Release();
-            }
+                keys = connection.QueryScalars<string>("SELECT key FROM blobs WHERE key >= ? AND key < ? ORDER BY key", keyPrefix, rangeEnd);
+                values = connection.QueryScalars<byte[]>("SELECT data FROM blobs WHERE key >= ? AND key < ? ORDER BY key", keyPrefix, rangeEnd);
+            });
 
             for (int i = 0; i < keys.Count; i++)
             {
@@ -170,14 +152,14 @@ namespace MirraCloud.Core.Storage.Blob
 
         public async Task DeleteByPrefixAsync(string keyPrefix)
         {
-            await _gate.WaitAsync();
+            await _gate.WaitAsync().ConfigureAwait(false);
 
             try
             {
                 await Task.Run(() =>
                 {
                     GetConnection().Execute("DELETE FROM blobs WHERE key >= ? AND key < ?", keyPrefix, keyPrefix + RANGE_END_SUFFIX);
-                });
+                }).ConfigureAwait(false);
             }
             finally
             {
@@ -187,7 +169,7 @@ namespace MirraCloud.Core.Storage.Blob
 
         internal async Task CommitBatchAsync(List<KeyValuePair<string, byte[]>> puts, List<string> deletes)
         {
-            await _gate.WaitAsync();
+            await _gate.WaitAsync().ConfigureAwait(false);
 
             try
             {
@@ -234,7 +216,27 @@ namespace MirraCloud.Core.Storage.Blob
                     }
 
                     connection.ExecuteScalar<int>("PRAGMA wal_checkpoint(TRUNCATE)");
-                });
+                }).ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        /// <summary>
+        /// Runs a read on the thread pool under the gate. Every await that holds the gate resumes off the main
+        /// thread: <see cref="CloseConnection"/> waits for the gate on the main thread, so a release queued there
+        /// would never run. The caller's own await still returns to its context, which keeps the <c>onBlob</c>
+        /// callbacks where they always ran.
+        /// </summary>
+        private async Task ReadUnderGateAsync(Action read)
+        {
+            await _gate.WaitAsync().ConfigureAwait(false);
+
+            try
+            {
+                await Task.Run(read).ConfigureAwait(false);
             }
             finally
             {

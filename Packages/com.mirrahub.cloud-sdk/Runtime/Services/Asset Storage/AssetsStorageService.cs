@@ -244,6 +244,13 @@ namespace MirraCloud.Core.AssetsStorage
                 return RestApiResult<T>.Fail(invalid);
             }
 
+            // Auto asks whether there is a session, and right after InitializeAsync the saved one may still be being
+            // read: answering "no" then would send a private asset to the public door.
+            if (access == AssetAccess.Auto && _authentication != null)
+            {
+                await _authentication.SavedSessionKnown;
+            }
+
             bool anonymous = AssetAccessResolver.IsAnonymous(access, _authentication != null && _authentication.HasSession);
 
             // Where the catalog knows the path, the path is only another name for the stable id: loading by the

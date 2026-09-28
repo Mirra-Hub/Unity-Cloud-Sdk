@@ -6,6 +6,58 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.9.0] — 2026-09-28
+
+The sign-in moves out of `PlayerPrefs` into the SDK's own local storage — SQLite, or IndexedDB in WebGL, the
+storage the asset cache already uses — and a player's chats can be listed. Upgrade note: a session or guest id
+saved by an earlier version is not picked up, so players sign in again, and a guest who never linked another
+sign-in method starts as a new player.
+
+`GetMyChannelsAsync` needs the Cloud backend with the `players/me/channels` chat route; the rest works with any
+backend.
+
+### Added
+
+- **`Chats.GetMyChannelsAsync(page, pageSize)`** — the chats the player (the selected profile) is in, rooms and
+  group chats, newest membership first, each with the player's `UnreadCount` (`ChatPlayerChannelDto`). Deleted
+  channels are left out, archived ones stay (`Channel.State`). `pageSize` is capped at 50. The player's own
+  messages count as unread until `MarkAsReadAsync` moves past them.
+- **Tools → Mirra Cloud → Clear Saved Sign-In** — forgets the editor's saved session and guest id, so the next
+  guest sign-in makes a new player. `Edit → Clear All PlayerPrefs` no longer does that.
+
+### Changed
+
+- **Breaking — where the sign-in is kept.** The guest id and the refresh token live in the SDK's local storage
+  (container `mirracloud_prefs`, under the project id), not in `PlayerPrefs`. Nothing is carried over from
+  `PlayerPrefs`: after the update every player signs in again, and an unlinked guest gets a new account. The
+  editor keeps a copy of its own (`mirracloud_prefs_editor`), separate from a build run on the same machine, so
+  the two stay two players, as they were with `PlayerPrefs`. The session id and its expiry are no longer stored:
+  nothing read them.
+- `InitializeAsync()` always completes on a later frame, also when there is nothing to restore — it reads the
+  saved session in the background. `OnCompleted` and `UseCompleted` attached after the call now fire in that case
+  too. A request sent right after it, and `access: AssetAccess.Auto`, still go out as the player while the saved
+  session is read.
+- `Login*`, `Link*`, `ResolveLinkConflictAsync` and `CompleteOpenIdLoginAsync` complete once the new session is
+  written to disk; `OnLogin` still fires before they do.
+- **Showcase — Chats.** The channel list shows the player's chats from the server (**My channels**) instead of the
+  ids of recently opened ones, which the sample kept in `PlayerPrefs`.
+
+### Fixed
+
+- `LoginOpenIdAsync` applies the session. It never did: the SDK hooked `UseCompleted` on an operation it had
+  already hooked, `UseCompleted` keeps one callback, and the sign-in came back successful while `IsAuth` stayed
+  false, the token was not sent and `OnLogin` never fired.
+- `UseCompleted` in game code on `Login*`, `Link*`, `ResolveLinkConflictAsync`, `LogoutAsync`, `LogoutAllAsync`
+  and the `Unlink*` methods no longer switches off the SDK's own handling: the session is applied and saved, or
+  cleared on sign-out, whatever the game hooks.
+- Disposing the SDK while it writes to SQLite no longer hangs the main thread.
+
+### Removed
+
+- **Breaking — `PrefsStorage`.** `IStorage` is reworked for the asynchronous storage: `Ready` and `FlushAsync`
+  are added, `DeleteKey` is removed (`DeleteKeys` takes a single key too), and `GetString` returns `null` for a
+  missing key.
+
 ## [0.8.0] — 2026-09-27
 
 Assets load by the path the console shows, and one set of `Load*` methods covers private and public

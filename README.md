@@ -51,7 +51,7 @@ Unity **2022.3 LTS** — the version the SDK is developed and tested against. Pl
 One URL. `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.8.0
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.9.0
 ```
 
 The package is self-contained: the native plugins it needs — a WebView (external sign-in providers
@@ -67,7 +67,7 @@ Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
 <details>
 <summary>Updating and pinning a version</summary>
 
-The `#v0.8.0` at the end of the URL is a release tag. Package Manager resolves it once, writes the
+The `#v0.9.0` at the end of the URL is a release tag. Package Manager resolves it once, writes the
 commit it resolved to into `Packages/packages-lock.json`, and from then on never asks the remote
 again — nothing updates on its own.
 
@@ -236,7 +236,7 @@ under [`docs/`](docs/README.md).
 | Section | What is inside |
 | --- | --- |
 | [Overview and architecture](docs/README.md) | the `Runtime/` layout, shared patterns, editor tools |
-| [Local storage](docs/Storage.md) | `IStorage` (PlayerPrefs) and `IBlobStorage` (SQLite / IndexedDB / File) |
+| [Local storage](docs/Storage.md) | `IBlobStorage` (SQLite / IndexedDB / File) and `IStorage` on top of it, which keeps the sign-in |
 | [Services](#services) | 24 services, table below |
 
 > The pages under `docs/` are currently written in Russian.
