@@ -236,7 +236,7 @@ under [`docs/`](docs/README.md).
 | Section | What is inside |
 | --- | --- |
 | [Overview and architecture](docs/README.md) | the `Runtime/` layout, shared patterns, editor tools |
-| [Local storage](docs/Storage.md) | `IStorage` (PlayerPrefs) and `IBlobStorage` (SQLite / IndexedDB / File) |
+| [Local storage](docs/Storage.md) | `IBlobStorage` (SQLite / IndexedDB / File) and `IStorage` on top of it, which keeps the sign-in |
 | [Services](#services) | 24 services, table below |
 
 > The pages under `docs/` are currently written in Russian.

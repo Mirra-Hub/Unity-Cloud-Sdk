@@ -10,7 +10,7 @@ Packages/com.mirrahub.cloud-sdk/
 │   ├── General/          — инициализация, async operations
 │   ├── RestApiClient/    — HTTP клиент, ISessionRefresher
 │   ├── Realtime/         — WebSocket (чаты)
-│   ├── Storage/          — локальное хранилище: IStorage (PlayerPrefs) + Blob (IBlobStorage)
+│   ├── Storage/          — локальное хранилище: IStorage (key-value поверх Blob) + Blob (IBlobStorage)
 │   ├── Logger/           — логирование
 │   ├── Json/             — сериализация
 │   ├── Services/         — сервисы (см. ниже)
@@ -58,7 +58,7 @@ Packages/com.mirrahub.cloud-sdk/
 
 ## Локальное хранилище
 
-- [Storage](Storage.md) — `IBlobStorage` (SQLite / IndexedDB / File) для durable локальных данных; используется кешем ассетов
+- [Storage](Storage.md) — `IBlobStorage` (SQLite / IndexedDB / File) для durable локальных данных и `IStorage` поверх него; используется Auth (сессия и guest-id) и кешем ассетов
 
 ## Editor Tools
 
