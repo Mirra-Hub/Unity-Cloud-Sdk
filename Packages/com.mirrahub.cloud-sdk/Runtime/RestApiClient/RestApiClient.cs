@@ -293,11 +293,14 @@ namespace MirraCloud.Core
                         }
                     }
 
-                    if (isEndpointRefusal == false && networkResult != UnityWebRequest.Result.Success && isHttpSuccess == false &&
-                        cfg.DisableRetry == false && cfg.RetryCount < cfg.MaxRetries)
+                    if (isHttpSuccess == false &&
+                        RetryPolicy.ShouldRetry(cfg.Method, cfg.Idempotent, httpCode, networkResult, cfg.RetryCount,
+                            cfg.MaxRetries, cfg.DisableRetry, request.GetResponseHeader("Retry-After"), out var retryDelay))
                     {
                         cfg.RetryCount++;
                         DisposeRequest(request, downloadOwnership, ownsUploadHandler, finalAttempt: false);
+                        // Realtime: a paused game (timeScale 0) must not hold its requests.
+                        yield return new WaitForSecondsRealtime(retryDelay);
                         continue;
                     }
 
@@ -460,11 +463,14 @@ namespace MirraCloud.Core
                         }
                     }
 
-                    if (isEndpointRefusal == false && networkResult != UnityWebRequest.Result.Success && isHttpSuccess == false &&
-                        cfg.DisableRetry == false && cfg.RetryCount < cfg.MaxRetries)
+                    if (isHttpSuccess == false &&
+                        RetryPolicy.ShouldRetry(cfg.Method, cfg.Idempotent, httpCode, networkResult, cfg.RetryCount,
+                            cfg.MaxRetries, cfg.DisableRetry, request.GetResponseHeader("Retry-After"), out var retryDelay))
                     {
                         cfg.RetryCount++;
                         DisposeRequest(request, downloadOwnership, ownsUploadHandler, finalAttempt: false);
+                        // Realtime: a paused game (timeScale 0) must not hold its requests.
+                        yield return new WaitForSecondsRealtime(retryDelay);
                         continue;
                     }
 
@@ -631,9 +637,9 @@ namespace MirraCloud.Core
             {
                 cfg.Body = body;
             }
-            if (cfg.MaxRetries <= 0)
+            if (cfg.MaxRetries < 0)
             {
-                cfg.MaxRetries = 1;
+                cfg.MaxRetries = 0; // 0 turns repeats off
             }
             if (cfg.MaxRedirects <= 0)
             {
@@ -656,9 +662,9 @@ namespace MirraCloud.Core
                 cfg.TraceUrl = GetUrl(cfg.TraceRoute);
             }
 
-            if (cfg.MaxRetries <= 0)
+            if (cfg.MaxRetries < 0)
             {
-                cfg.MaxRetries = 1;
+                cfg.MaxRetries = 0; // 0 turns repeats off
             }
 
             if (cfg.MaxRedirects <= 0)

@@ -39,6 +39,7 @@ if (result.IsSuccess)
     // inv.Wallet:   CurrencyId, Balance
     // inv.Items:    SlotId, ItemId, Quantity, InventoryKey, Properties
     // inv.Energies: EnergyId, CurrentValue, MaxValue, SecondsUntilNextRecharge, IsUnlimited
+    // inv.Rewards:  what leaderboards, tournaments and other sources granted, not claimed yet
 }";
 
         private const string ConfigsSnippet =
@@ -158,6 +159,9 @@ var allOfThem = sdk.Economy.GetEnergiesAsync();";
             DeclareCall(new SdkCall("Consume an item", ConsumeSnippet));
             DeclareCall(new SdkCall("Update slot properties", PropertiesSnippet));
             DeclareCall(new SdkCall("Spend, refill and read energy", EnergySnippet));
+            DeclareCall(new SdkCall("Rewards to claim", PendingRewardsPanel.ReadSnippet,
+                "Leaderboards, tournaments, challenges and other sources pay out here."));
+            DeclareCall(new SdkCall("Claim the rewards", PendingRewardsPanel.ClaimSnippet));
 
             UseToolbar()
                 .WithSearch("Filter by id", OnSearch)
@@ -168,6 +172,7 @@ var allOfThem = sdk.Economy.GetEnergiesAsync();";
             _tabs.Add("Wallet", LucideIcon.Wallet, BuildWallet)
                 .Add("Inventory", LucideIcon.Package, BuildInventory)
                 .Add("Energy", LucideIcon.Zap, BuildEnergy)
+                .Add("Rewards", LucideIcon.Gift, BuildRewards)
                 .Add("Catalog", LucideIcon.Boxes, BuildCatalog);
 
             LoadConfigs();
@@ -293,6 +298,18 @@ var allOfThem = sdk.Economy.GetEnergiesAsync();";
         private static int Count<T>(Dictionary<string, T> map)
         {
             return map == null ? 0 : map.Count;
+        }
+
+        // ----- rewards --------------------------------------------------------------------------
+
+        private VisualElement BuildRewards()
+        {
+            return new PendingRewardsPanel(Ctx, null,
+                "Rewards other services granted the player — a leaderboard or a tournament when its session "
+                + "ends, a challenge, a daily reward, a purchase, a promo code — wait here until the game claims "
+                + "them. Claiming moves them into the wallet, items and energies.",
+                "Nothing is waiting for this player. Rewards land here when a leaderboard or a tournament resets, "
+                + "a challenge ends, or another service grants something to claim.");
         }
 
         // ----- wallet ---------------------------------------------------------------------------

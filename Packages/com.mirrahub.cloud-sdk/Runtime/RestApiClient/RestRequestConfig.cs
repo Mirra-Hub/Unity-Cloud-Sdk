@@ -25,10 +25,18 @@ namespace MirraCloud.Core
         public bool NoAuthOnRedirect;
         public bool StripHeadersOnRedirect;
         public long[] AllowedHttpStatusCodes;
+
+        /// <summary>How many times a failed request may be sent again (see <see cref="RetryPolicy"/>); 0 turns repeats off.</summary>
         public int MaxRetries = 1;
         public int RetryCount;
         public bool AuthRetryAttempted;
         public bool DisableRetry;
+
+        /// <summary>
+        /// The request only reads although its method is POST or PATCH (a list sent in the body), so a network
+        /// failure or a 502/503/504 may repeat it like a GET.
+        /// </summary>
+        public bool Idempotent;
         public bool NoAuth;
 
         internal string Url;
@@ -69,6 +77,7 @@ namespace MirraCloud.Core
             RetryCount = source.RetryCount;
             AuthRetryAttempted = source.AuthRetryAttempted;
             DisableRetry = source.DisableRetry;
+            Idempotent = source.Idempotent;
             NoAuth = source.NoAuth;
             Url = source.Url;
         }
@@ -98,6 +107,7 @@ namespace MirraCloud.Core
             RetryCount = 0;
             AuthRetryAttempted = false;
             DisableRetry = false;
+            Idempotent = false;
             NoAuth = false;
             Url = null;
         }

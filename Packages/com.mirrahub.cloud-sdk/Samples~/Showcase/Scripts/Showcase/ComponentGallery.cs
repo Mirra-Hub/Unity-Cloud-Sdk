@@ -302,7 +302,7 @@ namespace MirraCloud.Example.Showcase
             wrap.style.minWidth = 420;
             var card = new ActionCard("Submit score", "Writes a score into the selected leaderboard.", LucideIcon.Trophy)
                 .WithFields(FormField.Int("score", "Score", 100))
-                .WithSnippet("await sdk.Leaderboard.SubmitScoreAsync(\"weekly\", 100).Task();")
+                .WithSnippet("await sdk.Leaderboard.SubmitScoreAsync(100d, \"weekly\").Task();")
                 .OnRun("Submit", v => Task.FromResult(ActionOutcome.Success("Submitted " + v.Int("score"))));
             wrap.Add(card);
             return wrap;
@@ -314,7 +314,7 @@ namespace MirraCloud.Example.Showcase
             wrap.style.minWidth = 520;
             wrap.Add(SdkCallDrawer.Build(new[]
             {
-                new SdkCall("Load the leaderboard", "var op = sdk.Leaderboard.GetLeaderboardTopEntries(\"weekly\");\nawait op.Task();", "Top entries for one config."),
+                new SdkCall("Load the leaderboard", "var op = sdk.Leaderboard.GetLeaderboardTopEntries(\"weekly\");\nawait op.Task();", "Top entries of the board with the key \"weekly\"."),
             }, null));
             return wrap;
         }

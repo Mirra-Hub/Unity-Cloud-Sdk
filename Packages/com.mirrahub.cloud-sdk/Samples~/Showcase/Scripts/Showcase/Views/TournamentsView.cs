@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
 using MirraCloud.Core;
+using MirraCloud.Core.Economy.Dto;
 using MirraCloud.Core.Friends.Dto;
 using MirraCloud.Core.Leaderboard.Dto;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
@@ -10,16 +11,15 @@ using Plugins.MirraCloud.Core.Services.Tournaments.Dto;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-// The tournament and the leaderboard DTO namespaces both declare a PlayerRewardsDto, and this
-// screen needs types out of both: a tournament's reward payload is the leaderboard's RewardDataDto.
-using TournamentRewardsDto = Plugins.MirraCloud.Core.Services.Tournaments.Dto.PlayerRewardsDto;
+// A league's reward ranges reuse the leaderboard's RewardDataDto.
 using TournamentEnums = MirraCloud.Core.Tournaments.Enums;
 using RewardDistribution = MirraCloud.Core.Leaderboard.Enums.RewardDistributionType;
 
 namespace MirraCloud.Example.Showcase
 {
     /// <summary>
-    /// Tournaments detail: one tab per configured tournament, plus a branch-wide Rewards tab.
+    /// Tournaments detail: one tab per configured tournament, plus a Rewards tab read from Economy,
+    /// where finished runs pay out.
     /// A tournament is a leaderboard cut into league tables, so a pane first asks which league the
     /// player sits in (<c>GetPlayerLeagueMetaAsync</c>), then fills that league's standings from
     /// whichever entries endpoint the toolbar's slice picker selects.
@@ -138,27 +138,10 @@ if (!op.Result.IsSuccess) { return; }
 // playerName is optional — left out, the SDK sends the nickname from PlayerAccount
 await sdk.Tournaments.SubmitScoreAsync(tournamentKey, 1250d, ""Ada"").Task();";
 
-        private const string RewardsSnippet = @"// what finished runs left for this player. Branch-wide: there is no tournament id here.
-// reset:false only peeks — reset:true hands the rewards over and clears them in the same call.
-var op = sdk.Tournaments.GetRewardsAsync(false);
-await op.Task();
-if (!op.Result.IsSuccess) { return; }
-
-foreach (var reward in op.Result.Data.rewards)
-{
-    // reward.rewardId is an economy resource id, reward.count the amount
-    Debug.Log(reward.rewardId + "" x"" + reward.count);
-}";
-
-        private const string ClaimSnippet = @"// claim: the server hands the pending rewards to the player
-var op = sdk.Tournaments.SubmitRewardsAsync();
-await op.Task();
-
-if (op.Result.IsSuccess)
-{
-    // read them again to see the list empty out
-    await sdk.Tournaments.GetRewardsAsync(false).Task();
-}";
+        private const string JoinSnippet = @"// scores are accepted from participants only: join once — the server places the
+// player into a league — before the first submit
+var op = sdk.Tournaments.JoinAsync(tournamentKey);
+await op.Task();";
 
         /// <summary>Which league each tournament is being read at, so a refresh or a slice change
         /// does not drop the reader back onto the player's own league.</summary>
@@ -167,7 +150,6 @@ if (op.Result.IsSuccess)
 
         private Slice _slice = Slice.Top;
         private Tabs _tabs;
-        private VisualElement _rewardsSlot;
         private int _rewardsTab = -1;
 
         public TournamentsView(ServiceMeta meta, Action onBack, ShowcaseContext ctx)
@@ -188,7 +170,6 @@ if (op.Result.IsSuccess)
         protected override void Populate()
         {
             _tabs = null;
-            _rewardsSlot = null;
             _rewardsTab = -1;
             SetStatus(null);
             SetSubtitle("One tab per configured tournament. A pane reads the player's league first, then "
@@ -211,9 +192,12 @@ if (op.Result.IsSuccess)
             DeclareCall(new SdkCall("Entries by country", CountrySnippet));
             DeclareCall(new SdkCall("The player's own entry", MeSnippet,
                 "Returns no entry until the player has submitted a score to this tournament."));
+            DeclareCall(new SdkCall("Join a tournament", JoinSnippet,
+                "Scores are accepted from participants only."));
             DeclareCall(new SdkCall("Submit a score", SubmitSnippet));
-            DeclareCall(new SdkCall("Pending rewards", RewardsSnippet));
-            DeclareCall(new SdkCall("Claim the rewards", ClaimSnippet));
+            DeclareCall(new SdkCall("Rewards the tournaments paid out", PendingRewardsPanel.ReadSnippet,
+                "Finished runs pay out into Economy."));
+            DeclareCall(new SdkCall("Claim the rewards", PendingRewardsPanel.ClaimSnippet));
 
             // Zero margin: this slot only carries the loading/failure state — on success the
             // tournaments land in the tab strip (chrome) and the panes inside Content.
@@ -248,8 +232,8 @@ if (op.Result.IsSuccess)
                 _tabs.Add(Title(captured), LucideIcon.Swords, () => BuildTournamentPane(captured));
             }
 
-            // Rewards are asked for per branch, not per tournament, so they get their own tab rather
-            // than the same section repeated inside every pane.
+            // Rewards are paid into Economy for every tournament at once, so they get their own tab
+            // rather than the same section repeated inside every pane.
             _rewardsTab = _tabs.Count;
             _tabs.Add("Rewards", LucideIcon.Gift, BuildRewards);
 
@@ -319,6 +303,7 @@ if (op.Result.IsSuccess)
 
             root.Add(new SectionHeader("Submit a score"));
             root.Add(SubmitHint(cfg));
+            root.Add(JoinCard(pane));
             root.Add(SubmitCard(pane));
 
             if (hasLeagues)
@@ -1161,6 +1146,29 @@ if (op.Result.IsSuccess)
             return hint;
         }
 
+        private VisualElement JoinCard(TournamentPane pane)
+        {
+            var card = new ActionCard("Join the tournament",
+                    "Makes the player a participant and places them into a league. Joining twice is harmless.",
+                    LucideIcon.UserPlus)
+                .WithSnippet(JoinSnippet)
+                .OnRun("Join", _ => Join(pane));
+            card.AddToClassList("sc-trn-submit");
+            return card;
+        }
+
+        private async Task<ActionOutcome> Join(TournamentPane pane)
+        {
+            var outcome = await AwaitData(Sdk.Tournaments.JoinAsync(Key(pane.Config)), "Tournaments: join");
+            if (!outcome.Ok)
+            {
+                return ActionOutcome.Failure(outcome.Message);
+            }
+
+            ReloadStandings(pane);
+            return ActionOutcome.Success("Joined — the standings above have been reloaded");
+        }
+
         private VisualElement SubmitCard(TournamentPane pane)
         {
             var card = new ActionCard("Submit a score",
@@ -1239,189 +1247,12 @@ if (op.Result.IsSuccess)
 
         private VisualElement BuildRewards()
         {
-            var col = new VisualElement();
-
-            var hint = new Label("When a run resets, the server settles the final standings of every league "
-                                 + "and works out what each place (or each score) earned. These two calls are "
-                                 + "branch-wide — no tournament id — and they are how a client finds out what "
-                                 + "is waiting and takes it. A 404 here means this branch hands rewards "
-                                 + "straight to the player's economy instead.");
-            hint.enableRichText = false;
-            hint.AddToClassList("sc-fs-hint");
-            col.Add(hint);
-
-            var header = new VisualElement();
-            header.AddToClassList("sc-row-actions");
-            header.style.justifyContent = Justify.SpaceBetween;
-            header.Add(new SectionHeader("Pending rewards"));
-
-            var clear = new Button(ConfirmReadAndClear) { text = "Read and clear" };
-            clear.AddToClassList("sc-btn");
-            clear.AddToClassList("sc-btn--danger");
-            clear.tooltip = "Calls GetRewardsAsync(reset: true), which empties the list";
-            header.Add(clear);
-            col.Add(header);
-
-            _rewardsSlot = new VisualElement();
-            col.Add(_rewardsSlot);
-            LoadRewards();
-
-            col.Add(new SectionHeader("Claiming"));
-            col.Add(new ActionCard("Claim the pending rewards",
-                    "Hands the pending rewards to the player, then re-reads the list above so the result "
-                    + "is visible.", LucideIcon.Gift)
-                .WithSnippet(ClaimSnippet)
-                .OnRun("Claim", ClaimRewards));
-            return col;
-        }
-
-        private void LoadRewards()
-        {
-            var slot = _rewardsSlot;
-            if (slot == null)
-            {
-                return;
-            }
-
-            ViewBind.Load(
-                () => Sdk.Tournaments.GetRewardsAsync(false),
-                slot,
-                BuildRewardsBody,
-                isEmpty: d => d == null || d.rewards == null || d.rewards.Length == 0,
-                options: new BindOptions
-                {
-                    Log = Ctx.Log,
-                    Label = "Tournament rewards",
-                    Snippet = RewardsSnippet,
-                    ServiceName = "Tournament reward",
-                    AllowRetry = true,
-                    EmptyView = () => ZeroState.Table(RewardColumns(),
-                        "Nothing is waiting for this player. A reward lands here when a tournament run "
-                        + "resets and the player's place (or score) matches one of the ranges configured "
-                        + "on their league.", 3),
-                });
-        }
-
-        private VisualElement BuildRewardsBody(TournamentRewardsDto data)
-        {
-            var rewards = data.rewards ?? Array.Empty<RewardDataDto>();
-
-            int total = 0;
-            foreach (var reward in rewards)
-            {
-                if (reward != null)
-                {
-                    total += reward.count;
-                }
-            }
-
-            var col = new VisualElement();
-            col.Add(new KpiRow()
-                .Add("Pending rewards", LucideIcon.Gift, rewards.Length.ToString(), null, rewards.Length > 0)
-                .Add("Total amount", LucideIcon.Sigma, Fmt.Number(total))
-                .Add("Player", LucideIcon.User, Fmt.Id(data.playerId, 10)));
-
-            col.Add(RewardChips(rewards));
-
-            var table = new DataTable(RewardColumns()).WithZebra().WithMaxHeight(320f);
-            table.Bind(rewards);
-            col.Add(table);
-            return col;
-        }
-
-        private static DataColumn[] RewardColumns()
-        {
-            return new[]
-            {
-                new DataColumn
-                {
-                    Header = "ECONOMY RESOURCE", Grow = 2f,
-                    SortKey = o => ((RewardDataDto)o).rewardId,
-                    Cell = o =>
-                    {
-                        var reward = (RewardDataDto)o;
-                        var label = new Label(Fmt.OrDash(reward.rewardId));
-                        label.enableRichText = false;
-                        // The id is what the Economy module looks up, so the full value stays reachable.
-                        label.tooltip = "Look this id up in the Economy module to see what it grants";
-                        return label;
-                    },
-                },
-                new DataColumn
-                {
-                    Header = "AMOUNT", FixedWidth = true, Px = 110, Align = "right",
-                    SortKey = o => ((RewardDataDto)o).count,
-                    Cell = o => new Label("×" + ((RewardDataDto)o).count),
-                },
-            };
-        }
-
-        private async Task<ActionOutcome> ClaimRewards(FormValues values)
-        {
-            var outcome = await Await(Sdk.Tournaments.SubmitRewardsAsync(), "Tournaments: claim rewards");
-            if (!outcome.Ok)
-            {
-                return ActionOutcome.Failure(outcome.Message);
-            }
-
-            if (Toasts != null)
-            {
-                Toasts.Ok("Rewards claimed");
-            }
-            LoadRewards();
-            return ActionOutcome.Success("Claimed — the pending list above has been re-read");
-        }
-
-        private void ConfirmReadAndClear()
-        {
-            if (Popup == null)
-            {
-                return;
-            }
-            ConfirmDialog.Open(Popup, "Read and clear the rewards",
-                "GetRewardsAsync(reset: true) returns what is pending and empties the list in the same "
-                + "call, so whatever comes back is gone from the server. Everything else on this screen "
-                + "reads with reset: false for exactly that reason.",
-                "Read and clear", ReadAndClear);
-        }
-
-        private async void ReadAndClear()
-        {
-            var op = Sdk.Tournaments.GetRewardsAsync(true);
-            var outcome = await AwaitData(op, "Tournaments: rewards (reset)");
-            if (!outcome.Ok)
-            {
-                if (Toasts != null)
-                {
-                    Toasts.Fail("Read and clear failed · " + outcome.Message);
-                }
-                return;
-            }
-
-            var data = op != null && op.Result != null ? op.Result.Data : null;
-            var rewards = data != null && data.rewards != null ? data.rewards : Array.Empty<RewardDataDto>();
-
-            if (Toasts != null)
-            {
-                Toasts.Ok(rewards.Length == 0
-                    ? "Nothing was pending"
-                    : rewards.Length + (rewards.Length == 1 ? " reward" : " rewards") + " handed over");
-            }
-
-            // The payload is the point of the call and it is gone from the server now, so it is shown
-            // rather than summarised into a toast.
-            if (Popup != null && rewards.Length > 0)
-            {
-                var body = new VisualElement();
-                var text = new Label("The server has handed these over and cleared them from the pending list.");
-                text.enableRichText = false;
-                text.AddToClassList("sc-fs-hint");
-                body.Add(text);
-                body.Add(RewardChips(rewards));
-                Popup.Open(body, "Rewards handed over");
-            }
-
-            LoadRewards();
+            return new PendingRewardsPanel(Ctx, RewardSourceType.Tournament,
+                "When a run resets, the server settles the final standings of every league, works out what "
+                + "each place (or score) earned and pays it into Economy, where the game reads and claims it. "
+                + "Nothing is claimed by reading.",
+                "Nothing is waiting for this player. A reward lands here when a tournament run resets and the "
+                + "player's place (or score) matches one of the ranges configured on their league.");
         }
 
         // ----- shared plumbing ----------------------------------------------------------------------

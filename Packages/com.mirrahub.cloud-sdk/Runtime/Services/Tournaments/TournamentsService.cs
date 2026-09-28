@@ -74,7 +74,8 @@ namespace Plugins.MirraCloud.Core.Services.Tournaments
         {
             string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/entries/top-by-friends?tableId={tableId}";
             var dto = new FriendsTopRequestDto { friendIds = friendIds ?? Array.Empty<string>() };
-            return _restApi.PostAsync<TournamentEntriesDto>(route, dto);
+            // A read sent as POST (the id list goes in the body): safe to repeat after a network failure.
+            return _restApi.PostAsync<TournamentEntriesDto>(route, dto, new RestRequestConfig { Idempotent = true });
         }
 
         public AsyncOperation<RestApiResult<TournamentPlayersAroundDto>> GetAroundAsync(string tournamentId, string tableId, int entriesRange = 10)
@@ -136,12 +137,16 @@ namespace Plugins.MirraCloud.Core.Services.Tournaments
             return _restApi.GetAsync<PlayerLeagueMetaDto>(route);
         }
 
+        [Obsolete("Tournament rewards are paid into Economy: EconomyService.GetPendingRewardsAsync / ClaimRewardsAsync. " +
+                  "This route does not exist on the server.")]
         public AsyncOperation<RestApiResult<PlayerRewardsDto>> GetRewardsAsync(bool reset = true)
         {
             string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/rewards?reset={reset.ToString().ToLowerInvariant()}";
             return _restApi.GetAsync<PlayerRewardsDto>(route);
         }
 
+        [Obsolete("Tournament rewards are paid into Economy: EconomyService.ClaimRewardsAsync. " +
+                  "This route does not exist on the server.")]
         public AsyncOperation<RestApiResult> SubmitRewardsAsync()
         {
             string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/rewards";

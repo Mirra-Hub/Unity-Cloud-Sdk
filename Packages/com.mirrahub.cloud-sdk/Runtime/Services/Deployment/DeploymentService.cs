@@ -27,10 +27,11 @@ namespace Plugins.MirraCloud.Core.Services.Deployment
         {
             string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/resolve-branch";
 
+            // Resolving only reads, so a network failure may repeat it.
             var response = _restApi.PostAsync<ResolveBranchResponseDto>(route, new ResolveBranchRequestDto
             {
                 ClientVersion = version,
-            });
+            }, new RestRequestConfig { Idempotent = true });
 
             response.UseCompleted(completed =>
             {
