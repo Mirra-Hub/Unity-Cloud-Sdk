@@ -6,6 +6,74 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.10.0] — 2026-09-28
+
+Leaderboards work end to end: boards are addressed by key, a submit returns the player's place, and the rewards
+boards and tournaments pay out are read and claimed through Economy. A failed request is repeated only when
+repeating cannot do harm — this applies to every service. Upgrade steps: pass `LeaderboardConfig.Key` wherever a
+leaderboard method took an id, and read leaderboard and tournament rewards with
+`Economy.GetPendingRewardsAsync` / `ClaimRewardsAsync`.
+
+The reset dates and reward keys in the configs, the profile name, icon and country on the entries, and the typed
+leaderboard errors need the Cloud backend from 2026-09-28 or later; with an older one those fields stay empty and
+refusals come as 400.
+
+### Added
+
+- **`LeaderboardService.GetLeaderboardGlobalTopEntries(leaderboardKey, top)`** — the whole board, every cohort
+  together. `GetLeaderboardTopEntries` is the player's table: their cohort on a board with cohorts.
+- **`SubmitScoreAsync(TimeSpan, leaderboardKey)`** — for time boards; sent as seconds with a fraction.
+- **`Economy.GetPendingRewardsAsync()`** and **`Economy.ClaimRewardsAsync()`** — what leaderboards, tournaments,
+  challenges, daily rewards, purchases and promo codes granted the player: read without claiming, and claimed all
+  at once into the wallet, items and energies. The same containers come in `PlayerInventoryDto.Rewards`
+  (`RewardContainerDto`: `SourceType`, `SourceId`, `Rewards` with `RewardKey`, `EconomyResourceKind`, `Count`).
+- Leaderboard fields the server sends and the SDK did not read: an entry's `iconKey` and `countryCode` (the
+  profile's), the entries' `leaderboardKey`, a config's `resetTimeHour` / `resetTimeMinute` (UTC),
+  `cohortsEnabled` / `cohortSize`, and each reward's `rewardKey` and `economyResourceKind`. A config's
+  `nextResetDate` — the next reset with its time of day, for a countdown — and `lastResetDate` are now filled.
+- `RestRequestConfig.Idempotent` — marks a POST or PATCH that only reads, so it is repeated like a GET.
+- `CloudErrorCodes`: `LeaderboardsEntryNotFound`, `LeaderboardsInvalidScore`, `LeaderboardsPersistenceFailed`
+  and the config validation codes (`LeaderboardsInvalidName`, `…InvalidCohortSize`, `…InvalidResetTime`,
+  `…InvalidResetInterval`, `…InvalidReward`).
+- **Showcase — Leaderboard.** A board plays: join, submit (a `TimeSpan` on a time board) and leave, with the
+  standings reloaded in place. A Global top slice, and a Rewards tab with what the boards paid out.
+- **Showcase — Economy.** A Rewards tab: every pending reward, and Claim.
+
+### Changed
+
+- **Breaking — boards by key.** Every `LeaderboardService` method takes `leaderboardKey`; the parameter was called
+  `leaderboardId`, but the server resolves boards by key only, so a config id never found a board.
+- **Breaking — `SubmitScoreAsync(double, leaderboardKey)`** returns the player's entry with the new place
+  (`RestApiResult<LeaderboardEntryDto>`, was `RestApiResult`). A `NaN` or an infinite score is refused without a
+  request. No name is sent any more: the board shows the profile's nickname, icon and country.
+- **Breaking — repeats.** A failed request used to be sent again once, at once, whatever it was: a refused submit
+  went out twice, a POST whose response was lost could be applied twice (a Total board counted the score
+  double), and a 429 was answered with another refused request. Now a network failure or a 502/503/504 is
+  repeated for GET, HEAD, PUT, DELETE and `Idempotent` calls, after a pause (0.5 s, doubling up to 4 s); a 429 is
+  repeated once the gateway's `Retry-After` has passed, if it is 10 seconds or less; no other 4xx is repeated.
+  `MaxRetries = 0` turns repeats off — it used to mean 1. The reads sent as POST — the profanity check, the branch
+  resolve, the leaderboard and tournament friends tops — are marked `Idempotent`.
+- `JoinAsync(leaderboardKey)` returns `null` until the player has a score, and `GetLeaderboardPlayer` answers
+  404 `leaderboards.entry_not_found` then.
+- An enum value the SDK does not know — added on the server after this build — reads as `null` (nullable
+  field) or the enum's default, with a warning (`JsonMapper.Warning`), instead of failing the whole response.
+- `LeaderboardService` no longer takes `PlayerAccountService`, and `SubmitScoreDto` has no `PlayerName`.
+- **Showcase — Tournaments.** Rewards come from Economy, and a pane has a Join card.
+
+### Deprecated
+
+- `SubmitScoreAsync(DateTime, leaderboardKey)` — pass a `TimeSpan`. It now submits the time elapsed since
+  `DateTime.MinValue`, in seconds; it sent a fraction of a day, and threw from one day up.
+- `LeaderboardService.GetRewardsAsync` / `SubmitRewardsAsync`, `TournamentsService.GetRewardsAsync` /
+  `SubmitRewardsAsync` and their `PlayerRewardsDto` — the server has no such routes; use Economy's pending
+  rewards.
+- Fields nothing fills: `LeaderboardEntriesDto.leaderboardId`, `LeaderboardTopAndPlayersAroundDto.leaderboardId`,
+  `RewardRangeDto.pLaceInLeaderboardMin` / `Max`, `RewardDataDto.rewardType` and the `RewardType` enum.
+
+### Fixed
+
+- **Showcase — Leaderboard** read every slice with the config id and so found no board.
+
 ## [0.9.0] — 2026-09-28
 
 The sign-in moves out of `PlayerPrefs` into the SDK's own local storage — SQLite, or IndexedDB in WebGL, the
