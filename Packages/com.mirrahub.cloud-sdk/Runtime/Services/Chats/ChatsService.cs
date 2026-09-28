@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MirraCloud.Core.Auth;
 using MirraCloud.Core.Chats.Dto;
 using MirraCloud.Core.Chats.Events;
+using MirraCloud.Core.Groups.Dto.Response;
 using MirraCloud.Core.Chats.Models;
 using MirraCloud.Core.Logger;
 using MirraCloud.Core.Realtime.Abstractions;
@@ -177,6 +178,18 @@ namespace MirraCloud.Core.Chats
             var route =
                 $"{ControllerApi}/{_configuration.ProjectId}/channels/lookup?ownerRefType=group&ownerRefId={UnityWebRequest.EscapeURL(groupId)}";
             return _restApi.GetAsync<ChatChannelDto>(route);
+        }
+
+        /// <summary>
+        /// The channels the player (the selected profile) is a member of — rooms and group chats, newest membership
+        /// first — each with the player's unread count. Deleted channels are left out; archived ones stay, and
+        /// <see cref="ChatChannelDto.State"/> tells them apart. <paramref name="pageSize"/> is capped at 50.
+        /// </summary>
+        public AsyncOperation<RestApiResult<PaginatedResult<ChatPlayerChannelDto>>> GetMyChannelsAsync(
+            int page = 1, int pageSize = 20)
+        {
+            var route = $"{ControllerApi}/{_configuration.ProjectId}/players/me/channels?page={page}&pageSize={pageSize}";
+            return _restApi.GetAsync<PaginatedResult<ChatPlayerChannelDto>>(route);
         }
 
         public AsyncOperation<RestApiResult<ChatChannelDto>> GetChannelAsync(string channelId)

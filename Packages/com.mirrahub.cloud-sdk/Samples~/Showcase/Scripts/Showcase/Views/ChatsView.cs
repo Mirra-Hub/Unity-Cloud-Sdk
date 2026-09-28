@@ -34,20 +34,20 @@ namespace MirraCloud.Example.Showcase
     public sealed class ChatsView : ServiceView
     {
         private const string ChannelsSnippet =
-@"// There is no ""list all channels"" endpoint: a channel belongs to something. For a group
-// chat, resolve it from the group.
-var groups = sdk.Groups.GetMyGroupsAsync();
-await groups.Task();
+@"// The chats the player is in — rooms and group chats, newest first — each with the
+// player's unread count. Deleted channels are left out.
+var mine = sdk.Chats.GetMyChannelsAsync();
+await mine.Task();
 
-foreach (GroupListItemDto g in groups.Result.Data.Items)
+foreach (ChatPlayerChannelDto c in mine.Result.Data.Items)
 {
-    var lookup = sdk.Chats.LookupGroupChannelAsync(g.GroupId);
-    await lookup.Task();
-    if (lookup.Result.IsSuccess)
-    {
-        string channelId = lookup.Result.Data.ChannelId;
-    }
-}";
+    Debug.Log($""{c.Channel.Name}: {c.UnreadCount} unread"");
+}
+
+// A group's chat is also found from the group — the way in for a member of the group
+// who has not joined its chat yet.
+var lookup = sdk.Chats.LookupGroupChannelAsync(groupId);
+await lookup.Task();";
 
         private const string CreateSnippet =
 @"// A room channel from a chat template. templateKey is required and must exist in the
@@ -123,10 +123,6 @@ foreach (ChatMemberDto m in op.Result.Data)
 await sdk.Chats.JoinAsync(channelId).Task();
 await sdk.Chats.LeaveAsync(channelId).Task();";
 
-        // Prefix only: the account id is mixed in, otherwise the next player to sign in on this
-        // device would open the screen looking at someone else's channels.
-        private const string RecentsKeyPrefix = "sc_showcase_chat_recents";
-        private const int RecentsMax = 6;
         private const int HistoryPage = 50;
 
         /// <summary>Server code behind every "this profile is not in that channel" refusal.</summary>
@@ -238,15 +234,24 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             lookup.Add(openBtn);
             _channelList.Add(lookup);
 
-            var recents = LoadRecents();
-            if (recents.Count > 0)
-            {
-                _channelList.Add(Subheader("Recent"));
-                foreach (var id in recents)
+            _channelList.Add(Subheader("My channels"));
+            var mineSlot = new VisualElement();
+            _channelList.Add(mineSlot);
+            ViewBind.Load(
+                () => Sdk.Chats.GetMyChannelsAsync(1, 20),
+                mineSlot,
+                BuildMyChannels,
+                p => p == null || p.Items == null || p.Items.Length == 0,
+                new BindOptions
                 {
-                    _channelList.Add(ChannelRow(Fmt.Id(id, 10), "opened before", id, LucideIcon.History));
-                }
-            }
+                    Log = Ctx.Log,
+                    Label = "My channels",
+                    Snippet = ChannelsSnippet,
+                    ServiceName = "Chats",
+                    AllowRetry = true,
+                    EmptyView = () => ZeroState.Panel(LucideIcon.MessageCircle, "No channels yet",
+                        "Rooms the player creates or joins, and the group chats they are in, appear here."),
+                });
 
             _channelList.Add(Subheader("My groups"));
             var groupsSlot = new VisualElement();
@@ -274,6 +279,32 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             var label = new Label(text);
             label.AddToClassList("sc-chat-channels__sub");
             return label;
+        }
+
+        private VisualElement BuildMyChannels(PaginatedResult<ChatPlayerChannelDto> page)
+        {
+            var list = new VisualElement();
+            foreach (var mine in page.Items)
+            {
+                var channel = mine.Channel;
+                if (channel == null || string.IsNullOrEmpty(channel.ChannelId))
+                {
+                    continue;
+                }
+                string glyph = channel.Type == "group" ? LucideIcon.Users : LucideIcon.MessageCircle;
+                list.Add(ChannelRow(Fmt.OrDash(channel.Name), MyChannelSubtitle(mine), channel.ChannelId, glyph));
+            }
+            return list;
+        }
+
+        private static string MyChannelSubtitle(ChatPlayerChannelDto mine)
+        {
+            string text = string.IsNullOrEmpty(mine.Channel.Type) ? "channel" : mine.Channel.Type;
+            if (mine.Channel.State == "archived")
+            {
+                text += " · archived";
+            }
+            return mine.UnreadCount > 0 ? text + " · " + mine.UnreadCount + " unread" : text;
         }
 
         private VisualElement BuildGroupChannels(PaginatedResult<GroupListItemDto> page)
@@ -421,6 +452,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             {
                 Toasts.Ok("Joined the channel");
             }
+            RenderChannelList();
             OpenChannel(channelId);
         }
 
@@ -475,8 +507,8 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
         {
             _chatPane.Clear();
             _chatPane.Add(ZeroState.Panel(LucideIcon.MessageCircle, "No channel open",
-                "Pick a group chat on the left, paste a channel id, or create a room from a chat "
-                + "template. Once a channel is open this pane becomes a live conversation.",
+                "Pick one of your channels or a group chat on the left, paste a channel id, or create a "
+                + "room from a chat template. Once a channel is open this pane becomes a live conversation.",
                 hint: "Sending needs the realtime connection — the chip in the header shows when it is up."));
         }
 
@@ -502,7 +534,6 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             _channel = null;
             _messages.Clear();
             _markedRead = 0L;
-            RememberRecent(channelId);
 
             BuildChatPane();
             LoadChannel();
@@ -1566,6 +1597,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 {
                     Popup.Close();
                 }
+                RenderChannelList();
                 if (join && _channelId == channelId)
                 {
                     LoadHistory(true);
@@ -1732,45 +1764,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             }
         }
 
-        // ----- recents and teardown -------------------------------------------------------------
-
-        private string RecentsKey()
-        {
-            var info = Sdk.PlayerAccount != null ? Sdk.PlayerAccount.PlayerAccountInfo : null;
-            string accountId = info != null ? info.Id : null;
-            return RecentsKeyPrefix + ":" + (string.IsNullOrEmpty(accountId) ? "unknown" : accountId);
-        }
-
-        private List<string> LoadRecents()
-        {
-            var list = new List<string>();
-            string raw = PlayerPrefs.GetString(RecentsKey(), string.Empty);
-            if (string.IsNullOrEmpty(raw))
-            {
-                return list;
-            }
-            foreach (var part in raw.Split('|'))
-            {
-                if (!string.IsNullOrEmpty(part) && !list.Contains(part))
-                {
-                    list.Add(part);
-                }
-            }
-            return list;
-        }
-
-        private void RememberRecent(string channelId)
-        {
-            var list = LoadRecents();
-            list.Remove(channelId);
-            list.Insert(0, channelId);
-            while (list.Count > RecentsMax)
-            {
-                list.RemoveAt(list.Count - 1);
-            }
-            PlayerPrefs.SetString(RecentsKey(), string.Join("|", list.ToArray()));
-            PlayerPrefs.Save();
-        }
+        // ----- teardown ---------------------------------------------------------------------------
 
         /// <summary>
         /// Leaves the connection itself up — it is shared per session — but drops this screen's
