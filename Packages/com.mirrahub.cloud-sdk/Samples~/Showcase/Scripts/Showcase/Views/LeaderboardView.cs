@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading.Tasks;
 using MirraCloud.Core;
+using MirraCloud.Core.Economy.Dto;
+using MirraCloud.Core.Errors;
 using MirraCloud.Core.Friends.Dto;
 using MirraCloud.Core.Leaderboard.Dto;
+using MirraCloud.Core.Leaderboard.Enums;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -12,9 +16,11 @@ namespace MirraCloud.Example.Showcase
 {
     /// <summary>
     /// Leaderboard detail: one tab per configured board, and a toolbar filter that swaps which
-    /// <c>slice</c> of the ranking the tab requests — global top, the rows around the player, the
-    /// friend list, or the player's country. Each of those is a different SDK endpoint returning the
-    /// same rows, which is exactly what this screen is meant to demonstrate.
+    /// <c>slice</c> of the ranking the tab requests — the player's table, the global top, the rows
+    /// around the player, the friend list, or the player's country. Each of those is a different SDK
+    /// endpoint returning the same rows, which is exactly what this screen is meant to demonstrate.
+    /// Every call takes the board's key. A pane also plays on its board — join, submit, leave — and a
+    /// last tab lists the rewards boards have paid out, which arrive in Economy.
     /// <para>
     /// Every pane fans out into two independent calls (the slice and the player's own entry), so the
     /// KPI strip is re-rendered from <see cref="BoardPane"/> state as each one lands instead of
@@ -36,7 +42,7 @@ namespace MirraCloud.Example.Showcase
         private static readonly Color Bronze = new Color(0.82f, 0.54f, 0.32f);
 
         // Index-aligned with the Slice enum — the dropdown hands back the label, not the value.
-        private static readonly string[] SliceNames = { "Top", "Around me", "Friends", "Country" };
+        private static readonly string[] SliceNames = { "My table", "Global top", "Around me", "Friends", "Country" };
 
         private const string BoardsSnippet = @"// every board configured for this project + branch
 var op = sdk.Leaderboard.InitializeAsync();
@@ -45,22 +51,29 @@ if (!op.Result.IsSuccess) { return; }
 
 foreach (var cfg in op.Result.Data)
 {
+    // cfg.key is what every other call takes; cfg.nextResetDate is the next reset, UTC
     Debug.Log(cfg.key + "" / "" + cfg.name + "" / "" + cfg.orderType);
 }
 // the service keeps them too: sdk.Leaderboard.LeaderboardConfigs";
 
-        private const string TopSnippet = @"// global ranking, best entries first
-var op = sdk.Leaderboard.GetLeaderboardTopEntries(leaderboardId, 100);
+        private const string TopSnippet = @"// the player's table, best entries first: their cohort on a board with cohorts,
+// the whole board otherwise. Every call takes the board's key (cfg.key), not its id.
+var op = sdk.Leaderboard.GetLeaderboardTopEntries(leaderboardKey, 100);
 await op.Task();
 if (!op.Result.IsSuccess) { return; }
 
 foreach (var e in op.Result.Data.entries)
 {
-    Debug.Log(e.position + "". "" + e.playerName + "" = "" + e.value);
+    // name, icon and country are the player's profile's own
+    Debug.Log(e.position + "". "" + e.playerName + "" ("" + e.countryCode + "") = "" + e.value);
 }";
 
-        private const string CountrySnippet = @"// same ranking, narrowed to the country on the player's account
-var op = sdk.Leaderboard.GetLeaderboardTopEntriesByCountry(leaderboardId, 100);
+        private const string GlobalTopSnippet = @"// the whole board, every cohort together
+var op = sdk.Leaderboard.GetLeaderboardGlobalTopEntries(leaderboardKey, 100);
+await op.Task();";
+
+        private const string CountrySnippet = @"// same ranking, narrowed to the country of the player's profile
+var op = sdk.Leaderboard.GetLeaderboardTopEntriesByCountry(leaderboardKey, 100);
 await op.Task();
 
 foreach (var e in op.Result.Data.entries)
@@ -78,11 +91,11 @@ foreach (var f in friends.Result.Data)
     ids.Add(f.PlayerId);
 }
 
-var op = sdk.Leaderboard.GetLeaderboardTopEntriesByFriends(leaderboardId, ids.ToArray());
+var op = sdk.Leaderboard.GetLeaderboardTopEntriesByFriends(leaderboardKey, ids.ToArray());
 await op.Task();";
 
         private const string AroundSnippet = @"// the player's neighbourhood: 10 rows above and below their own
-var op = sdk.Leaderboard.GetLeaderboardPlayerAroundEntries(leaderboardId, 10);
+var op = sdk.Leaderboard.GetLeaderboardPlayerAroundEntries(leaderboardKey, 10);
 await op.Task();
 
 var data = op.Result.Data;
@@ -90,17 +103,43 @@ var data = op.Result.Data;
 Debug.Log(data.targetPlayer != null ? data.targetPlayer.position.ToString() : ""unranked"");";
 
         private const string MeSnippet = @"// the signed-in player's own row on this board
-var op = sdk.Leaderboard.GetLeaderboardPlayer(leaderboardId);
+var op = sdk.Leaderboard.GetLeaderboardPlayer(leaderboardKey);
 await op.Task();
 
-// a player who has never submitted a score simply has no entry here
+// a player without a score this session gets 404 leaderboards.entry_not_found
 if (op.Result.IsSuccess && op.Result.Data != null)
 {
     Debug.Log(""#"" + op.Result.Data.position + "" with "" + op.Result.Data.value);
 }";
 
+        private const string JoinSnippet = @"// scores are accepted from participants only: join once, before the first submit
+var op = sdk.Leaderboard.JoinAsync(leaderboardKey);
+await op.Task();
+// op.Result.Data: the player's entry, null until they submit a score";
+
+        private const string SubmitSnippet = @"// a score of the current player; the board's update strategy (best / latest / total)
+// decides what happens to the stored one. Returns the entry with the new place.
+var op = sdk.Leaderboard.SubmitScoreAsync(1250d, leaderboardKey);
+await op.Task();
+
+if (op.Result.IsSuccess)
+{
+    Debug.Log(""now #"" + op.Result.Data.position);
+}
+else if (op.Result.Error.HasCode(CloudErrorCodes.LeaderboardsParticipationRequired))
+{
+    // join first
+}
+
+// a time board takes a TimeSpan, sent as seconds
+await sdk.Leaderboard.SubmitScoreAsync(TimeSpan.FromSeconds(95.4), leaderboardKey).Task();";
+
+        private const string LeaveSnippet = @"// removes the player and their score of the current session
+await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
+
         private Slice _slice = Slice.Top;
         private Tabs _boards;
+        private int _rewardsTab = -1;
 
         public LeaderboardView(ServiceMeta meta, Action onBack, ShowcaseContext ctx)
             : base(meta, onBack, ctx)
@@ -111,6 +150,7 @@ if (op.Result.IsSuccess && op.Result.Data != null)
         private enum Slice
         {
             Top,
+            GlobalTop,
             AroundMe,
             Friends,
             Country,
@@ -119,9 +159,10 @@ if (op.Result.IsSuccess && op.Result.Data != null)
         protected override void Populate()
         {
             _boards = null;
+            _rewardsTab = -1;
             SetStatus(null);
             SetSubtitle("One tab per configured board. The slice picker swaps the endpoint the tab "
-                        + "calls — the whole ranking, your neighbours, your friends, or your country.");
+                        + "calls — your table, the whole ranking, your neighbours, your friends, or your country.");
 
             UseToolbar()
                 .WithFilter("Slice", SliceNames, OnSliceChanged, SliceNames[(int)_slice])
@@ -129,13 +170,21 @@ if (op.Result.IsSuccess && op.Result.Data != null)
                 .WithRefresh(Refresh);
 
             DeclareCall(new SdkCall("List boards", BoardsSnippet,
-                "Call it once at startup: every other leaderboard call needs a board id from here."));
-            DeclareCall(new SdkCall("Top entries", TopSnippet));
+                "Call it once at startup: every other leaderboard call needs a board key from here."));
+            DeclareCall(new SdkCall("Join a board", JoinSnippet,
+                "Scores are accepted from participants only."));
+            DeclareCall(new SdkCall("Submit a score", SubmitSnippet));
+            DeclareCall(new SdkCall("Leave a board", LeaveSnippet));
+            DeclareCall(new SdkCall("Top of the player's table", TopSnippet));
+            DeclareCall(new SdkCall("Top of the whole board", GlobalTopSnippet));
             DeclareCall(new SdkCall("Entries around the player", AroundSnippet));
             DeclareCall(new SdkCall("Entries among friends", FriendsSnippet));
             DeclareCall(new SdkCall("Entries by country", CountrySnippet));
             DeclareCall(new SdkCall("The player's own entry", MeSnippet,
                 "Returns no entry until the player has submitted a score to this board."));
+            DeclareCall(new SdkCall("Rewards the boards paid out", PendingRewardsPanel.ReadSnippet,
+                "Boards pay out into Economy when a session ends."));
+            DeclareCall(new SdkCall("Claim the rewards", PendingRewardsPanel.ClaimSnippet));
 
             // Zero margin: this slot only carries the loading/failure state — on success the boards
             // land in the tab strip (chrome) and the panes at the bottom of Content.
@@ -170,8 +219,21 @@ if (op.Result.IsSuccess && op.Result.Data != null)
                 _boards.Add(BoardTitle(captured), LucideIcon.Trophy, () => BuildBoardPane(captured));
             }
 
+            // Rewards are paid into Economy for every board at once, so they get one tab of their own.
+            _rewardsTab = _boards.Count;
+            _boards.Add("Rewards", LucideIcon.Gift, BuildRewards);
+
             // The strip and its panes live outside this slot, so the slot itself renders nothing.
             return new VisualElement();
+        }
+
+        private VisualElement BuildRewards()
+        {
+            return new PendingRewardsPanel(Ctx, RewardSourceType.Leaderboard,
+                "When a board resets, the server works out what each place (or score) earned and pays it "
+                + "into Economy, where the game reads and claims it. Nothing is claimed by reading.",
+                "Nothing is waiting for this player. A reward lands here when a board resets and the "
+                + "player's place (or score) falls in one of the board's reward ranges.");
         }
 
         private VisualElement NoBoards()
@@ -189,9 +251,17 @@ if (op.Result.IsSuccess && op.Result.Data != null)
             }
             _slice = (Slice)index;
 
+            if (_boards == null || _rewardsTab < 0)
+            {
+                return;
+            }
             // Panes cache their data, so the visible one has to be thrown away for the new endpoint
-            // to be called; the hidden ones rebuild when they are selected again.
-            _boards?.InvalidateAll();
+            // to be called; the hidden ones rebuild when they are selected again. The rewards tab is
+            // left alone — it does not depend on the slice.
+            for (int i = 0; i < _rewardsTab; i++)
+            {
+                _boards.Invalidate(i);
+            }
         }
 
         private VisualElement BuildBoardPane(LeaderboardConfigDto cfg)
@@ -205,11 +275,16 @@ if (op.Result.IsSuccess && op.Result.Data != null)
             root.Add(pane.Kpis);
             RenderKpis(pane);
 
-            var entriesSlot = new VisualElement();
-            root.Add(entriesSlot);
+            root.Add(pane.EntriesSlot);
+
+            root.Add(new SectionHeader("Play on this board"));
+            root.Add(PlayHint(cfg));
+            root.Add(JoinCard(pane));
+            root.Add(SubmitCard(pane));
+            root.Add(LeaveCard(pane));
 
             LoadMyEntry(pane);
-            LoadSlice(pane, entriesSlot);
+            LoadSlice(pane, pane.EntriesSlot);
             return root;
         }
 
@@ -226,10 +301,18 @@ if (op.Result.IsSuccess && op.Result.Data != null)
             {
                 row.Add(new Chip("key: " + cfg.key, ChipTone.Neutral));
             }
+            if (cfg.cohortsEnabled)
+            {
+                row.Add(new Chip("cohorts of " + cfg.cohortSize, ChipTone.Neutral));
+            }
 
             if (cfg.isReset)
             {
-                row.Add(new Chip("resets " + cfg.resetIntervalType, ChipTone.Warn));
+                var resets = new Chip("resets " + cfg.resetIntervalType, ChipTone.Warn);
+                resets.tooltip = string.Format(CultureInfo.InvariantCulture, "at {0:00}:{1:00} UTC",
+                    cfg.resetTimeHour, cfg.resetTimeMinute);
+                row.Add(resets);
+                // Filled once the board's first score started a session.
                 if (cfg.nextResetDate.HasValue)
                 {
                     var chip = new CountdownChip(cfg.nextResetDate.Value.ToUniversalTime());
@@ -290,6 +373,7 @@ if (op.Result.IsSuccess && op.Result.Data != null)
         {
             switch (_slice)
             {
+                case Slice.GlobalTop: return "Players on the board";
                 case Slice.AroundMe: return "Rows around you";
                 case Slice.Friends: return "Friends ranked";
                 case Slice.Country: return "In your country";
@@ -299,12 +383,19 @@ if (op.Result.IsSuccess && op.Result.Data != null)
 
         private void LoadSlice(BoardPane pane, VisualElement slot)
         {
-            string id = pane.Config.id;
+            string key = pane.Config.key;
             switch (_slice)
             {
+                case Slice.GlobalTop:
+                    BindSlice(pane, slot,
+                        () => Sdk.Leaderboard.GetLeaderboardGlobalTopEntries(key, TopCount),
+                        d => d?.entries, "Leaderboard global top", GlobalTopSnippet,
+                        "This board has no entries yet. The first score submitted to it creates the ranking.");
+                    return;
+
                 case Slice.AroundMe:
                     BindSlice(pane, slot,
-                        () => Sdk.Leaderboard.GetLeaderboardPlayerAroundEntries(id, AroundRange),
+                        () => Sdk.Leaderboard.GetLeaderboardPlayerAroundEntries(key, AroundRange),
                         Around, "Leaderboard around me", AroundSnippet,
                         "You have no entry on this board yet. Submit a score and the players just "
                         + "above and below you show up here.");
@@ -316,18 +407,21 @@ if (op.Result.IsSuccess && op.Result.Data != null)
 
                 case Slice.Country:
                     BindSlice(pane, slot,
-                        () => Sdk.Leaderboard.GetLeaderboardTopEntriesByCountry(id, TopCount),
+                        () => Sdk.Leaderboard.GetLeaderboardTopEntriesByCountry(key, TopCount),
                         d => d?.entries, "Leaderboard top by country", CountrySnippet,
                         "Nobody from your country has scored on this board yet. Entries appear after "
-                        + "the first SubmitScoreAsync from an account with the same country.");
+                        + "the first SubmitScoreAsync from a profile with the same country.");
                     return;
 
                 default:
                     BindSlice(pane, slot,
-                        () => Sdk.Leaderboard.GetLeaderboardTopEntries(id, TopCount),
+                        () => Sdk.Leaderboard.GetLeaderboardTopEntries(key, TopCount),
                         d => d?.entries, "Leaderboard top", TopSnippet,
-                        "This board has no entries yet. The first SubmitScoreAsync call against it "
-                        + "creates the ranking, and every later score updates it.");
+                        pane.Config.cohortsEnabled
+                            ? "You have no table on this board yet: a board with cohorts places you in one "
+                              + "with your first score. The Global top slice shows every cohort."
+                            : "This board has no entries yet. The first SubmitScoreAsync call against it "
+                              + "creates the ranking, and every later score updates it.");
                     return;
             }
         }
@@ -338,7 +432,7 @@ if (op.Result.IsSuccess && op.Result.Data != null)
         /// </summary>
         private void LoadFriendsSlice(BoardPane pane, VisualElement slot)
         {
-            string id = pane.Config.id;
+            string key = pane.Config.key;
             ViewBind.Load(
                 () => Sdk.Friends.GetFriendsAsync(false),
                 slot,
@@ -346,7 +440,7 @@ if (op.Result.IsSuccess && op.Result.Data != null)
                 {
                     var inner = new VisualElement();
                     BindSlice(pane, inner,
-                        () => Sdk.Leaderboard.GetLeaderboardTopEntriesByFriends(id, FriendIds(friends)),
+                        () => Sdk.Leaderboard.GetLeaderboardTopEntriesByFriends(key, FriendIds(friends)),
                         d => d?.entries, "Leaderboard top by friends", FriendsSnippet,
                         "None of your friends has scored on this board yet.");
                     return inner;
@@ -517,7 +611,7 @@ if (op.Result.IsSuccess && op.Result.Data != null)
 
             var name = new Label(Fmt.OrDash(label));
             name.enableRichText = false;
-            name.tooltip = e.playerId;
+            name.tooltip = e.playerId + " · " + e.countryCode;
             wrap.Add(name);
 
             if (pane.IsMine(row))
@@ -550,7 +644,7 @@ if (op.Result.IsSuccess && op.Result.Data != null)
             RestApiResult<LeaderboardEntryDto> result = null;
             try
             {
-                var op = Sdk.Leaderboard.GetLeaderboardPlayer(pane.Config.id);
+                var op = Sdk.Leaderboard.GetLeaderboardPlayer(pane.Config.key);
                 if (op != null)
                 {
                     await op.Task();
@@ -582,6 +676,154 @@ if (op.Result.IsSuccess && op.Result.Data != null)
             {
                 pane.Table.Bind(pane.Rows, pane.IsMine);
             }
+        }
+
+        // ----- playing on a board ---------------------------------------------------------------------
+
+        private static VisualElement PlayHint(LeaderboardConfigDto cfg)
+        {
+            string strategy;
+            switch (cfg.updateStrategy)
+            {
+                case UpdateStrategy.Best:
+                    strategy = "This board keeps the best value, so a worse score leaves the entry alone.";
+                    break;
+                case UpdateStrategy.Total:
+                    strategy = "This board totals the values, so every submission adds to the entry.";
+                    break;
+                default:
+                    strategy = "This board keeps the latest value, so every submission replaces the entry.";
+                    break;
+            }
+
+            string unit = cfg.type == LeaderboardType.Time
+                ? " It is a time board: pass a TimeSpan, which the SDK sends as seconds."
+                : string.Empty;
+
+            var hint = new Label("Scores are accepted from participants only, so join once first. " + strategy
+                                 + unit + " The name, icon and country shown are your profile's.");
+            hint.enableRichText = false;
+            hint.AddToClassList("sc-fs-hint");
+            return hint;
+        }
+
+        private VisualElement JoinCard(BoardPane pane)
+        {
+            return new ActionCard("Join the board",
+                    "Makes the player a participant. Joining twice is harmless.", LucideIcon.UserPlus)
+                .WithSnippet(JoinSnippet)
+                .OnRun("Join", _ => Join(pane));
+        }
+
+        private VisualElement SubmitCard(BoardPane pane)
+        {
+            return new ActionCard("Submit a score",
+                    "Writes one value and reloads the standings above.", LucideIcon.Send)
+                .WithFields(FormField.Float("score", pane.Config.type == LeaderboardType.Time ? "Seconds" : "Score", 1000f)
+                    .WithPlaceholder("Any number; the update strategy above decides what the server does with it.")
+                    .AsRequired())
+                .WithSnippet(SubmitSnippet)
+                .OnRun("Submit", values => Submit(pane, values));
+        }
+
+        private VisualElement LeaveCard(BoardPane pane)
+        {
+            return new ActionCard("Leave the board",
+                    "Removes the player and their score of the current session.", LucideIcon.UserMinus)
+                .WithSnippet(LeaveSnippet)
+                .OnRun("Leave", _ => Leave(pane), destructive: true);
+        }
+
+        private async Task<ActionOutcome> Join(BoardPane pane)
+        {
+            var op = Sdk.Leaderboard.JoinAsync(pane.Config.key);
+            await op.Task();
+            Ctx.Log?.Record("Leaderboard: join", op.Result, JoinSnippet);
+            if (!op.Result.IsSuccess)
+            {
+                return ActionOutcome.Failure(ErrorText(op.Result));
+            }
+
+            ReloadStandings(pane);
+            var entry = op.Result.Data;
+            return ActionOutcome.Success(entry != null && entry.position > 0
+                ? "Joined — you are #" + entry.position
+                : "Joined — submit a score to get a place");
+        }
+
+        private async Task<ActionOutcome> Submit(BoardPane pane, FormValues values)
+        {
+            double score;
+            // Parsed here rather than through FormValues.Float: the SDK takes a double, and a score can
+            // easily be larger than a float represents exactly.
+            if (!double.TryParse(values.Text("score").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out score))
+            {
+                return ActionOutcome.Failure("Score must be a number (use a dot for decimals).");
+            }
+
+            var op = pane.Config.type == LeaderboardType.Time
+                ? Sdk.Leaderboard.SubmitScoreAsync(TimeSpan.FromSeconds(score), pane.Config.key)
+                : Sdk.Leaderboard.SubmitScoreAsync(score, pane.Config.key);
+            await op.Task();
+            Ctx.Log?.Record("Leaderboard: submit score", op.Result, SubmitSnippet);
+            if (!op.Result.IsSuccess)
+            {
+                return ActionOutcome.Failure(op.Result.Error.HasCode(CloudErrorCodes.LeaderboardsParticipationRequired)
+                    ? "Join the board first — scores are accepted from participants only."
+                    : ErrorText(op.Result));
+            }
+
+            Toasts?.Ok("Score " + Fmt.Number(score) + " submitted");
+            ReloadStandings(pane);
+            var entry = op.Result.Data;
+            return ActionOutcome.Success(entry != null
+                ? "Submitted — you are #" + entry.position + " with " + Fmt.Number(entry.value)
+                : "Submitted " + Fmt.Number(score));
+        }
+
+        private async Task<ActionOutcome> Leave(BoardPane pane)
+        {
+            var op = Sdk.Leaderboard.LeaveAsync(pane.Config.key);
+            await op.Task();
+            Ctx.Log?.Record("Leaderboard: leave", op.Result, LeaveSnippet);
+            if (!op.Result.IsSuccess)
+            {
+                return ActionOutcome.Failure(ErrorText(op.Result));
+            }
+
+            ReloadStandings(pane);
+            return ActionOutcome.Success("Left the board — your score of this session is gone");
+        }
+
+        /// <summary>
+        /// Re-reads the player's entry and the current slice in place, so the result the reader just
+        /// clicked for stays on the card instead of the whole tab being rebuilt.
+        /// </summary>
+        private void ReloadStandings(BoardPane pane)
+        {
+            pane.Me = null;
+            pane.MeLoaded = false;
+            pane.Entries = 0;
+            pane.EntriesLoaded = false;
+            pane.Table = null;
+            RenderKpis(pane);
+
+            LoadMyEntry(pane);
+            LoadSlice(pane, pane.EntriesSlot);
+        }
+
+        private static string ErrorText(RestApiResult result)
+        {
+            if (result == null || result.Error == null)
+            {
+                return "no response";
+            }
+            var errors = result.Error.Errors;
+            if (errors != null && errors.Count > 0 && errors[0] != null && !string.IsNullOrEmpty(errors[0].Message))
+            {
+                return errors[0].Message;
+            }
+            return string.IsNullOrEmpty(result.Error.Message) ? "HTTP " + result.HttpStatusCode : result.Error.Message;
         }
 
         /// <summary>Flattens the around-me response into one ranked list (the table sorts it).</summary>
@@ -675,6 +917,9 @@ if (op.Result.IsSuccess && op.Result.Data != null)
 
             /// <summary>True once the entry call finished — tells "no score" apart from "still loading".</summary>
             public bool MeLoaded;
+
+            /// <summary>Host of the standings, re-filled in place after a join, submit or leave.</summary>
+            public readonly VisualElement EntriesSlot = new VisualElement();
 
             public LeaderboardEntryDto[] Rows = Array.Empty<LeaderboardEntryDto>();
             public int Entries;
