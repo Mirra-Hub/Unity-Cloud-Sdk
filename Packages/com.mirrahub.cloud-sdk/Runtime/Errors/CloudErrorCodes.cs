@@ -570,12 +570,20 @@ namespace MirraCloud.Core.Errors
 
         // === leaderboards ===
         public const string LeaderboardsBranchNotEditable = "leaderboards.branch_not_editable";
+        public const string LeaderboardsEntryNotFound = "leaderboards.entry_not_found";
+        public const string LeaderboardsInvalidCohortSize = "leaderboards.invalid_cohort_size";
         public const string LeaderboardsInvalidKey = "leaderboards.invalid_key";
+        public const string LeaderboardsInvalidName = "leaderboards.invalid_name";
+        public const string LeaderboardsInvalidResetInterval = "leaderboards.invalid_reset_interval";
+        public const string LeaderboardsInvalidResetTime = "leaderboards.invalid_reset_time";
+        public const string LeaderboardsInvalidReward = "leaderboards.invalid_reward";
+        public const string LeaderboardsInvalidScore = "leaderboards.invalid_score";
         public const string LeaderboardsKeyAlreadyExists = "leaderboards.key_already_exists";
         public const string LeaderboardsKeyImmutable = "leaderboards.key_immutable";
         public const string LeaderboardsNotFound = "leaderboards.not_found";
         public const string LeaderboardsNotInBranch = "leaderboards.not_in_branch";
         public const string LeaderboardsParticipationRequired = "leaderboards.participation_required";
+        public const string LeaderboardsPersistenceFailed = "leaderboards.persistence_failed";
 
         // === organizations ===
         public const string OrganizationsOrganizationIdInvalid = "organizations.organization_id_invalid";

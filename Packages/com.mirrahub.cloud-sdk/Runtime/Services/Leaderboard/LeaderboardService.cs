@@ -5,10 +5,18 @@ using MirraCloud.Core.Leaderboard.Entities;
 using MirraCloud.Core.Logger;
 using MirraCloud.Json;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
-using Plugins.MirraCloud.Core.Services.PlayerAccount;
 
 namespace MirraCloud.Core.Leaderboard
 {
+    /// <summary>
+    /// Leaderboards of the project. Every method takes the board's <b>key</b> (<see cref="LeaderboardConfig.Key"/>),
+    /// not its console id.
+    /// </summary>
+    /// <remarks>
+    /// A player joins a board once (<see cref="JoinAsync"/>), then submits scores. The name, icon and country shown
+    /// on the board are the player's profile's own. Rewards are paid into Economy when a session ends: read them with
+    /// <c>EconomyService.GetPendingRewardsAsync</c> and claim them with <c>EconomyService.ClaimRewardsAsync</c>.
+    /// </remarks>
     public class LeaderboardService : ICloudSdkService
     {        
         private const string ControllerApi = "/leaderboards/v1";
@@ -17,25 +25,25 @@ namespace MirraCloud.Core.Leaderboard
         private readonly ILogger _logger;
         private readonly RestApiClient _restApi;
         private readonly Configuration _configuration;
-        private readonly PlayerAccountService _playerAccountService;
 
         private readonly List<LeaderboardConfig> _leaderboardConfigs = new List<LeaderboardConfig>();
         public IReadOnlyList<LeaderboardConfig> LeaderboardConfigs => _leaderboardConfigs;
 
-        public LeaderboardService(Configuration configuration, PlayerAccountService playerAccountService, ILogger logger, IJsonService jsonService, RestApiClient restApi) 
+        public LeaderboardService(Configuration configuration, ILogger logger, IJsonService jsonService, RestApiClient restApi) 
         {
             _configuration = configuration;
-            _playerAccountService = playerAccountService;
             _restApi = restApi;
             _logger = logger;
             _jsonService = jsonService;
         }
 
+        private string BoardsPath => $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards";
+
+        private string EntriesPath(string leaderboardKey) => $"{BoardsPath}/{Uri.EscapeDataString(leaderboardKey ?? string.Empty)}/entries";
+
         public AsyncOperation<RestApiResult<LeaderboardConfigDto[]>> InitializeAsync()
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards";
-
-            var operation = _restApi.GetAsync<LeaderboardConfigDto[]>(route);
+            var operation = _restApi.GetAsync<LeaderboardConfigDto[]>(BoardsPath);
 
             operation.UseCompleted(completed =>
             {
@@ -53,107 +61,126 @@ namespace MirraCloud.Core.Leaderboard
             return operation;
         }
 
-        public AsyncOperation<RestApiResult<LeaderboardConfigDto>> GetConfigAsync(string leaderboardId)
+        public AsyncOperation<RestApiResult<LeaderboardConfigDto>> GetConfigAsync(string leaderboardKey)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards/{leaderboardId}";
-            return _restApi.GetAsync<LeaderboardConfigDto>(route);
+            return _restApi.GetAsync<LeaderboardConfigDto>($"{BoardsPath}/{Uri.EscapeDataString(leaderboardKey ?? string.Empty)}");
         }
 
         /// <summary>
         /// Joins the current player to the leaderboard. Scores are only accepted from participants,
         /// so this has to happen once before the first <see cref="SubmitScoreAsync(double, string)"/>.
-        /// Joining twice is harmless. Returns the player's entry, empty until a score is submitted.
+        /// Joining twice is harmless. Returns the player's entry, null until a score is submitted.
         /// </summary>
-        public AsyncOperation<RestApiResult<LeaderboardEntryDto>> JoinAsync(string leaderboardId)
+        public AsyncOperation<RestApiResult<LeaderboardEntryDto>> JoinAsync(string leaderboardKey)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards/{leaderboardId}/entries/join";
-
-            return _restApi.PostAsync<LeaderboardEntryDto>(route, new { });
+            return _restApi.PostAsync<LeaderboardEntryDto>($"{EntriesPath(leaderboardKey)}/join", new { });
         }
 
-        /// <summary>Removes the current player from the leaderboard along with their result.</summary>
-        public AsyncOperation<RestApiResult> LeaveAsync(string leaderboardId)
+        /// <summary>
+        /// Removes the current player from the leaderboard along with their result in the current session. The
+        /// rewards of a session that already ended are not affected.
+        /// </summary>
+        public AsyncOperation<RestApiResult> LeaveAsync(string leaderboardKey)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards/{leaderboardId}/entries/leave";
-
-            return _restApi.PostAsync(route, new { });
+            return _restApi.PostAsync($"{EntriesPath(leaderboardKey)}/leave", new { });
         }
 
-        public AsyncOperation<RestApiResult> SubmitScoreAsync(DateTime score, string leaderboardId)
+        /// <summary>
+        /// Submits a time to a <see cref="Enums.LeaderboardType.Time"/> board, as seconds with a fraction.
+        /// </summary>
+        public AsyncOperation<RestApiResult<LeaderboardEntryDto>> SubmitScoreAsync(TimeSpan time, string leaderboardKey)
         {
-            return SubmitScoreAsync(score.ToOADate(), leaderboardId);
+            return SubmitScoreAsync(time.TotalSeconds, leaderboardKey);
+        }
+
+        /// <summary>Reads <paramref name="score"/> as the time elapsed since <see cref="DateTime.MinValue"/>.</summary>
+        [Obsolete("Pass the time as a TimeSpan: SubmitScoreAsync(TimeSpan, string). This overload submits the DateTime " +
+                  "as the seconds elapsed since DateTime.MinValue; it used to send a fraction of a day and threw from one day up.")]
+        public AsyncOperation<RestApiResult<LeaderboardEntryDto>> SubmitScoreAsync(DateTime score, string leaderboardKey)
+        {
+            return SubmitScoreAsync(new TimeSpan(score.Ticks), leaderboardKey);
         }
         
-        public AsyncOperation<RestApiResult> SubmitScoreAsync(double score, string leaderboardId)
+        /// <summary>
+        /// Submits a score of the current player, who must have joined the board (<see cref="JoinAsync"/>); otherwise
+        /// the server refuses it with <c>leaderboards.participation_required</c>. How the score combines with the
+        /// stored one is the board's <see cref="Enums.UpdateStrategy"/>. Returns the player's entry after the submit,
+        /// with their place.
+        /// </summary>
+        /// <remarks>NaN and infinities are refused here, without a request.</remarks>
+        public AsyncOperation<RestApiResult<LeaderboardEntryDto>> SubmitScoreAsync(double score, string leaderboardKey)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards/{leaderboardId}/entries";
-
-            SubmitScoreDto submitScoreDto = new SubmitScoreDto()
+            if (double.IsNaN(score) || double.IsInfinity(score))
             {
-                PlayerName = _playerAccountService.PlayerAccountInfo.Nickname,
-                Value = score,
-            };
-            
-            var operation = _restApi.PostAsync(route, submitScoreDto);
+                return AsyncOperation<RestApiResult<LeaderboardEntryDto>>.CreateCompleted(
+                    RestApiResult<LeaderboardEntryDto>.ValidationFail("The score must be a finite number."));
+            }
 
-            return operation; 
+            return _restApi.PostAsync<LeaderboardEntryDto>(EntriesPath(leaderboardKey), new SubmitScoreDto { Value = score });
         }
         
-        public AsyncOperation<RestApiResult<LeaderboardEntriesDto>> GetLeaderboardTopEntries(string leaderboardId, int top = 100)
+        /// <summary>
+        /// The top of the current player's table: their cohort on a board with cohorts, the whole board otherwise.
+        /// Before the player's first score a board with cohorts has no table for them and returns an empty list.
+        /// </summary>
+        public AsyncOperation<RestApiResult<LeaderboardEntriesDto>> GetLeaderboardTopEntries(string leaderboardKey, int top = 100)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards/{leaderboardId}/entries/top?entriesCount={top}";
-
-            var operation = _restApi.GetAsync<LeaderboardEntriesDto>(route);
-
-            return operation;
+            return _restApi.GetAsync<LeaderboardEntriesDto>($"{EntriesPath(leaderboardKey)}/top?entriesCount={top}");
         }
 
-        public AsyncOperation<RestApiResult<LeaderboardEntriesDto>> GetLeaderboardTopEntriesByCountry(string leaderboardId, int entriesCount = 100)
+        /// <summary>The top of the whole board, every cohort together.</summary>
+        public AsyncOperation<RestApiResult<LeaderboardEntriesDto>> GetLeaderboardGlobalTopEntries(string leaderboardKey, int top = 100)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards/{leaderboardId}/entries/top-by-country?entriesCount={entriesCount}";
-            return _restApi.GetAsync<LeaderboardEntriesDto>(route);
+            return _restApi.GetAsync<LeaderboardEntriesDto>($"{EntriesPath(leaderboardKey)}/top/global?entriesCount={top}");
         }
 
-        public AsyncOperation<RestApiResult<LeaderboardEntriesDto>> GetLeaderboardTopEntriesByFriends(string leaderboardId, string[] friendIds)
+        /// <summary>The top among players of the current player's country (the country of their profile).</summary>
+        public AsyncOperation<RestApiResult<LeaderboardEntriesDto>> GetLeaderboardTopEntriesByCountry(string leaderboardKey, int entriesCount = 100)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards/{leaderboardId}/entries/top-by-friends";
+            return _restApi.GetAsync<LeaderboardEntriesDto>($"{EntriesPath(leaderboardKey)}/top-by-country?entriesCount={entriesCount}");
+        }
+
+        /// <summary>The top among the given players (profile ids).</summary>
+        public AsyncOperation<RestApiResult<LeaderboardEntriesDto>> GetLeaderboardTopEntriesByFriends(string leaderboardKey, string[] friendIds)
+        {
             var dto = new FriendsTopRequestDto { FriendIds = friendIds ?? Array.Empty<string>() };
-            return _restApi.PostAsync<LeaderboardEntriesDto>(route, dto);
+            // A read sent as POST (the id list goes in the body): safe to repeat after a network failure.
+            return _restApi.PostAsync<LeaderboardEntriesDto>($"{EntriesPath(leaderboardKey)}/top-by-friends", dto,
+                new RestRequestConfig { Idempotent = true });
         }
         
-        public AsyncOperation<RestApiResult<LeaderboardAroundEntriesDto>> GetLeaderboardPlayerAroundEntries(string leaderboardId, int around = 10)
+        /// <summary>The players right above and below the current player in their table.</summary>
+        public AsyncOperation<RestApiResult<LeaderboardAroundEntriesDto>> GetLeaderboardPlayerAroundEntries(string leaderboardKey, int around = 10)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards/{leaderboardId}/entries/around?entriesRange={around}";
-
-            var operation = _restApi.GetAsync<LeaderboardAroundEntriesDto>(route);
-
-            return operation;
+            return _restApi.GetAsync<LeaderboardAroundEntriesDto>($"{EntriesPath(leaderboardKey)}/around?entriesRange={around}");
         }
         
-        public AsyncOperation<RestApiResult<LeaderboardTopAndPlayersAroundDto>> GetLeaderboardEntries(string leaderboardId, int top = 100, int around = 10)
+        /// <summary>The top of the whole board and the players around the current player on it, in one call.</summary>
+        public AsyncOperation<RestApiResult<LeaderboardTopAndPlayersAroundDto>> GetLeaderboardEntries(string leaderboardKey, int top = 100, int around = 10)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards/{leaderboardId}/entries/top-and-around?topEntriesCount={top}&aroundEntriesRange={around}";
-
-            var operation = _restApi.GetAsync<LeaderboardTopAndPlayersAroundDto>(route);
-
-            return operation;
+            return _restApi.GetAsync<LeaderboardTopAndPlayersAroundDto>(
+                $"{EntriesPath(leaderboardKey)}/top-and-around?topEntriesCount={top}&aroundEntriesRange={around}");
         }
         
-        public AsyncOperation<RestApiResult<LeaderboardEntryDto>> GetLeaderboardPlayer(string leaderboardId)
+        /// <summary>
+        /// The current player's entry with their place in their table. Before their first score this session the
+        /// server answers 404 <c>leaderboards.entry_not_found</c>.
+        /// </summary>
+        public AsyncOperation<RestApiResult<LeaderboardEntryDto>> GetLeaderboardPlayer(string leaderboardKey)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards/{leaderboardId}/entries";
-
-            var operation = _restApi.GetAsync<LeaderboardEntryDto>(route);
-
-            return operation;
+            return _restApi.GetAsync<LeaderboardEntryDto>(EntriesPath(leaderboardKey));
         }
 
+        [Obsolete("Leaderboard rewards are paid into Economy: EconomyService.GetPendingRewardsAsync / ClaimRewardsAsync. " +
+                  "This route does not exist on the server.")]
         public AsyncOperation<RestApiResult<PlayerRewardsDto>> GetRewardsAsync(bool reset = true)
         {
             string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/rewards?reset={reset.ToString().ToLowerInvariant()}";
             return _restApi.GetAsync<PlayerRewardsDto>(route);
         }
 
+        [Obsolete("Leaderboard rewards are paid into Economy: EconomyService.ClaimRewardsAsync. " +
+                  "This route does not exist on the server.")]
         public AsyncOperation<RestApiResult> SubmitRewardsAsync()
         {
             string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/rewards";

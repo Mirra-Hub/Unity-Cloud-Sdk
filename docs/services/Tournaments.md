@@ -22,8 +22,9 @@
 - `GetPlayerLeagueMetaAsync(tournamentId)` → `PlayerLeagueMetaDto`
 
 ### Награды
-- `GetRewardsAsync(reset)` → `PlayerRewardsDto`
-- `SubmitRewardsAsync()` — забрать награды
+Награды выплачиваются в Economy, когда забег сбрасывается: `EconomyService.GetPendingRewardsAsync()`
+(контейнеры с `SourceType == Tournament`) и `EconomyService.ClaimRewardsAsync()`. `GetRewardsAsync` /
+`SubmitRewardsAsync` этого сервиса — `[Obsolete]`: такого маршрута на сервере нет.
 
 ## Свойства
 
