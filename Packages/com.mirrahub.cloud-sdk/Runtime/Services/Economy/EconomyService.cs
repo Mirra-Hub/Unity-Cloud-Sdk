@@ -58,6 +58,26 @@ namespace MirraCloud.Core.Economy
         }
 
         /// <summary>
+        /// Rewards waiting to be claimed — what leaderboards, tournaments, challenges and other sources granted the
+        /// player — without claiming them. Resources are named by key.
+        /// </summary>
+        public AsyncOperation<RestApiResult<List<RewardContainerDto>>> GetPendingRewardsAsync()
+        {
+            string route = $"{BasePath}/inventories/rewards?reset=false";
+            return _restApi.GetAsync<List<RewardContainerDto>>(route);
+        }
+
+        /// <summary>
+        /// Claims every pending reward: the resources go to the wallet, items and energies. Returns what was claimed;
+        /// an empty list when nothing was pending.
+        /// </summary>
+        public AsyncOperation<RestApiResult<List<RewardContainerDto>>> ClaimRewardsAsync()
+        {
+            string route = $"{BasePath}/inventories/rewards/submit";
+            return _restApi.PostAsync<List<RewardContainerDto>>(route, new { });
+        }
+
+        /// <summary>
         /// Adds currency to the player's wallet. Returns the balance after the change.
         /// </summary>
         public AsyncOperation<RestApiResult<WalletEntryDto>> AddCurrencyAsync(string currencyId, decimal amount)

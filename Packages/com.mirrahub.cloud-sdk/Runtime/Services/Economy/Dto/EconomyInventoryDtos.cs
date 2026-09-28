@@ -10,6 +10,48 @@ namespace MirraCloud.Core.Economy.Dto
         [JsonNameCamel] public List<WalletEntryDto> Wallet;
         [JsonNameCamel] public List<ItemSlotDto> Items;
         [JsonNameCamel] public List<EnergyBalanceDto> Energies;
+
+        /// <summary>
+        /// Rewards waiting to be claimed (<see cref="EconomyService.ClaimRewardsAsync"/>): what leaderboards,
+        /// tournaments, challenges and other sources granted the player.
+        /// </summary>
+        [JsonNameCamel] public List<RewardContainerDto> Rewards;
+    }
+
+    /// <summary>What granted a reward container.</summary>
+    public enum RewardSourceType
+    {
+        Leaderboard = 1,
+        Tournament = 2,
+        Challenge = 3,
+        DailyReward = 4,
+        Purchase = 5,
+        PromoCode = 6
+    }
+
+    /// <summary>The rewards one source granted the player — e.g. a leaderboard for the session that ended.</summary>
+    [Serializable]
+    public sealed class RewardContainerDto
+    {
+        [JsonNameCamel] public RewardSourceType SourceType;
+
+        /// <summary>
+        /// The id the granting config had when it paid out, e.g. a leaderboard's <c>LeaderboardConfig.Id</c> — an edit
+        /// of the config since gives it a new id.
+        /// </summary>
+        [JsonNameCamel] public string SourceId;
+
+        [JsonNameCamel] public List<RewardEntryDto> Rewards;
+    }
+
+    [Serializable]
+    public sealed class RewardEntryDto
+    {
+        /// <summary>The key of the economy resource, as in <see cref="EconomyService.Currencies"/> and the rest.</summary>
+        [JsonName("rewardId")] public string RewardKey;
+
+        [JsonNameCamel] public EconomyResourceKind EconomyResourceKind;
+        [JsonNameCamel] public int Count;
     }
 
     [Serializable]

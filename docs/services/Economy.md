@@ -19,6 +19,18 @@
 - `UpdateItemPropertiesAsync(itemId, slotId, properties, inventoryKey)` — обновить свойства слота
 - `ConsumeItemAsync(itemId, slotId, inventoryKey)` → `ConsumeItemResponseDto` — потребить предмет
 
+## Награды к получению
+
+То, что начислили другие сервисы — лидерборд или турнир по окончании сессии, челлендж, дейлик, покупка,
+промокод, — ждёт здесь, пока игра не заберёт.
+
+- `GetPendingRewardsAsync()` → `List<RewardContainerDto>` — без забора. Контейнер: `SourceType`
+  (`Leaderboard`, `Tournament`, `Challenge`, `DailyReward`, `Purchase`, `PromoCode`), `SourceId` (id конфига-источника
+  на момент выплаты, например `LeaderboardConfig.Id`), `Rewards` — `RewardKey` (ключ ресурса), `EconomyResourceKind`, `Count`
+- `ClaimRewardsAsync()` → `List<RewardContainerDto>` — забирает всё ожидающее (валюты, предметы, энергии);
+  возвращает забранное, пустой список — если нечего
+- `PlayerInventoryDto.Rewards` — те же контейнеры в ответе `LoadInventoryAsync()`
+
 ## Энергии
 
 - `GetEnergiesAsync()` → `List<EnergyBalanceDto>` — все энергии
