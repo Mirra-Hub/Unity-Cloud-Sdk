@@ -7,6 +7,12 @@ namespace MirraCloud.Json {
     /// registered for specific types.
     /// Writes values to JsonTokenWriter and reads values from JsonTokenReader.
     public partial class JsonMapper { // statics
+        /// <summary>
+        /// Receives what reading tolerated instead of failing: an enum value this build does not know is read as
+        /// null (nullable field) or the enum's default. Unity's console by default; null silences it.
+        /// </summary>
+        public static System.Action<string> Warning = message => UnityEngine.Debug.LogWarning(message);
+
         #region Static Methods
         /// <summary>
         /// Generates a JSON string by serializing the given object.

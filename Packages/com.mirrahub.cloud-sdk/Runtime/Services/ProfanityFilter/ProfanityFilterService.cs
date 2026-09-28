@@ -72,7 +72,8 @@ namespace MirraCloud.Core.ProfanityFilter
                 groupKey = groupKey
             };
 
-            return _restApi.PostAsync<ProfanityCheckResponse>(route, body);
+            // A check only reads, so a network failure may repeat it.
+            return _restApi.PostAsync<ProfanityCheckResponse>(route, body, new RestRequestConfig { Idempotent = true });
         }
 
         public void CloudSdkInitialize() { }

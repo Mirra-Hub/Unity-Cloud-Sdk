@@ -88,10 +88,15 @@ namespace MirraCloud.Json {
                         try {
                             var enumValue = Enum.Parse(valueType, stringValue, ignoreCase: true);
                             return Coerce(enumValue, destinationType, underlyingType);
-                        } catch (Exception ex) {
-                            throw new InvalidJsonException(
-                                $"{tokenReader.LineColString} Can't parse \"{stringValue}\" as enum {valueType}: {ex.Message}"
-                            );
+                        } catch (ArgumentException) {
+                            // A value the server added after this build was released. Failing here threw away the
+                            // whole response — a new reward kind hid the leaderboard it belonged to — so the field
+                            // reads as unknown (null) or the enum's default, and the rest of the response is kept.
+                            var fallback = underlyingType != null ? null : Activator.CreateInstance(valueType);
+                            Warning?.Invoke(
+                                $"{tokenReader.LineColString} Unknown value \"{stringValue}\" of {valueType.Name}, " +
+                                $"read as {fallback ?? "null"}. Update the SDK to read it.");
+                            return fallback == null ? null : Coerce(fallback, destinationType, underlyingType);
                         }
                     }
 
