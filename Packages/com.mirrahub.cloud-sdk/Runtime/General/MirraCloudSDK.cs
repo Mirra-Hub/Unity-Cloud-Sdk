@@ -35,6 +35,7 @@ namespace MirraCloud.Core
     {
         private AnalyticsTracker _analyticsTracker;
         private IBlobStorage _blobStorage;
+        private BlobKeyValueStorage _storage;
 
         public AuthenticationService Authentication { get; private set; }
         public PlayerAccountService PlayerAccount { get; private set; }
@@ -101,8 +102,6 @@ namespace MirraCloud.Core
 
             RestApiClient restApiClient = new RestApiClient(restApiClientOptions, coroutineRunner, jsonService, logger);
 
-            IStorage storage = new PrefsStorage();
-
 #if UNITY_WEBGL && !UNITY_EDITOR
             _blobStorage = new IndexedDbBlobStorage();
             RegisterService(new BlobStorageWebSmokeTest(_blobStorage));
@@ -110,8 +109,12 @@ namespace MirraCloud.Core
             _blobStorage = new SqliteBlobStorage();
 #endif
 
+            // The guest id and the session. Loading starts here, so it is usually over before the game restores the
+            // session; the calls that read it wait for it themselves.
+            _storage = new BlobKeyValueStorage(_blobStorage, LocalDataContainers.Prefs, configuration.ProjectId, logger);
+
             WebView = RegisterService(new WebViewService());
-            Authentication = RegisterService(new AuthenticationService(configuration, logger, storage, restApiClient, WebView));
+            Authentication = RegisterService(new AuthenticationService(configuration, logger, _storage, restApiClient, WebView));
             PlayerAccount = RegisterService(new PlayerAccountService(Authentication, restApiClient, configuration, logger));
             Friends = RegisterService(new FriendsService(configuration, logger, restApiClient));
             Groups = RegisterService(new GroupsService(configuration, logger, restApiClient));
@@ -172,6 +175,8 @@ namespace MirraCloud.Core
             {
                 cloudSdkDisposable.CloudSdkDispose();
             }
+
+            _storage?.Dispose();
 
             if (_blobStorage is System.IDisposable disposable)
             {

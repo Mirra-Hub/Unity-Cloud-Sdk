@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using MirraCloud.Core.Storage;
 using MirraCloud.Core.Auth.OpenId;
 using MirraCloud.Core.Errors;
@@ -32,11 +33,6 @@ namespace MirraCloud.Core.Auth
         // login-methods); on link it takes the platform from the session instead and the gateway drops this header.
         private const string PLATFORM_KEY_HEADER = "PlatformKey";
 
-        private const string GUESTID_KEY = "GuestId";
-        private const string REFRESH_TOKEN_KEY = "RefreshToken";
-        private const string SESSIONID_KEY = "SessionId";
-        private const string SESSION_EXPIRESAT_KEY = "SessionExpiresAt";
-
         private string _authToken;
         public string AuthToken => _authToken;
 
@@ -51,6 +47,13 @@ namespace MirraCloud.Core.Auth
         private List<AsyncOperation<RestApiResult>> _refreshWaiters;
         private bool _refreshSignsOutOnTransientFailure;
         private bool _missingPlatformKeyReported;
+
+        // InitializeAsync calls still reading the saved refresh token, and the refreshes asked for meanwhile. A request
+        // sent right after InitializeAsync can come back 401 before the token is known; its refresh has to be the
+        // restore's — as it was when the token was read on the spot — not a refusal for want of a token.
+        private int _restoresReading;
+        private List<(AsyncOperation<RestApiResult> Waiter, bool SignOutOnTransientFailure)> _restoreWaiters;
+        private TaskCompletionSource<bool> _savedSessionRead;
 
         public bool IsAuth { get; private set; }
         public string SessionId => _sessionId;
@@ -88,32 +91,92 @@ namespace MirraCloud.Core.Auth
         private string SessionScope() => $"{AUTH_ROUTE}/{_configuration.ProjectId}";
         private string AccountsScope() => $"{ACCOUNTS_ROUTE}/{_configuration.ProjectId}";
 
+        /// <summary>
+        /// Restores the session saved by an earlier launch, if there is one: success with <c>null</c> data either
+        /// way, and <see cref="IsAuth"/> tells which. A saved session is refreshed, so a stale one fails here
+        /// instead of on the first call. Completes on a later frame even with nothing to restore — the saved session
+        /// is read from the SDK's local storage (SQLite, or IndexedDB in WebGL) in the background.
+        /// </summary>
         public AsyncOperation<RestApiResult<GetAuthDataDto>> InitializeAsync()
         {
-            if (_storage.HasKey(REFRESH_TOKEN_KEY) == false)
+            var op = new AsyncOperation<RestApiResult<GetAuthDataDto>>();
+            BeginReadingSavedSession();
+            RestoreSavedSessionAsync(op);
+            return op;
+        }
+
+        private async void RestoreSavedSessionAsync(AsyncOperation<RestApiResult<GetAuthDataDto>> op)
+        {
+            string savedRefresh = null;
+
+            try
             {
-                return AsyncOperation<RestApiResult<GetAuthDataDto>>.CreateCompleted(RestApiResult<GetAuthDataDto>.Success(null));
+                // Never complete inside InitializeAsync itself, even when the storage is loaded and holds nothing:
+                // a handler attached after the call returns would not hear about an operation already complete.
+                await Task.Yield();
+                await _storage.Ready;
+                savedRefresh = _storage.GetString(AuthStorageKeys.RefreshToken);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
             }
 
-            var savedRefresh = _storage.GetString(REFRESH_TOKEN_KEY);
             if (string.IsNullOrWhiteSpace(savedRefresh))
             {
-                ClearSessionAndStorage();
-                return AsyncOperation<RestApiResult<GetAuthDataDto>>.CreateCompleted(RestApiResult<GetAuthDataDto>.Success(null));
+                EndReadingSavedSession();
+                op.Complete(RestApiResult<GetAuthDataDto>.Success(null));
+                return;
             }
 
             _refreshToken = savedRefresh;
+            EndReadingSavedSession();
 
             // Restore session via the refresh endpoint — branch comes from the stored Session, not the URL.
-            var op = new AsyncOperation<RestApiResult<GetAuthDataDto>>();
-            var refreshOp = RefreshSessionAsync();
-            refreshOp.UseCompleted(_ =>
+            OnDone(RefreshSessionAsync(), refreshed => op.Complete(refreshed.IsSuccess
+                ? RestApiResult<GetAuthDataDto>.Success(null)
+                : RestApiResult<GetAuthDataDto>.Fail(refreshed.Error).WithMetaFrom(refreshed)));
+        }
+
+        /// <summary>
+        /// Completes once no <see cref="InitializeAsync"/> is still reading the saved session — from then on
+        /// <see cref="HasSession"/> knows whether there is one to restore. Complete at once when nothing is read.
+        /// </summary>
+        internal Task SavedSessionKnown => _savedSessionRead?.Task ?? Task.CompletedTask;
+
+        private void BeginReadingSavedSession()
+        {
+            if (_restoresReading++ == 0)
             {
-                op.Complete(refreshOp.Result.IsSuccess
-                    ? RestApiResult<GetAuthDataDto>.Success(null)
-                    : RestApiResult<GetAuthDataDto>.Fail(refreshOp.Result.Error).WithMetaFrom(refreshOp.Result));
-            });
-            return op;
+                _savedSessionRead = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+
+        /// <summary>
+        /// The saved token is known (or known to be absent): refreshes asked for while it was read go ahead now — with
+        /// a token they join the restore's refresh, without one they fail as any refresh without a token does.
+        /// </summary>
+        private void EndReadingSavedSession()
+        {
+            if (--_restoresReading > 0)
+            {
+                return;
+            }
+
+            var read = _savedSessionRead;
+            var waiters = _restoreWaiters;
+            _savedSessionRead = null;
+            _restoreWaiters = null;
+
+            if (waiters != null)
+            {
+                foreach (var (waiter, signOut) in waiters)
+                {
+                    OnDone(RefreshSessionAsync(signOut), waiter.Complete);
+                }
+            }
+
+            read?.TrySetResult(true);
         }
 
         #region Login
@@ -127,13 +190,35 @@ namespace MirraCloud.Core.Auth
         {
             var route = $"{AuthLoginScope()}/guest";
             var dto = new LoginAsGuestDto { CreateAccount = createAccount };
+            return PostWithSavedGuestId(dto, () => PostAuthAsync(route, dto, noAuth: true));
+        }
 
-            if (_storage.HasKey(GUESTID_KEY))
+        /// <summary>
+        /// Sends a guest sign-in or link once the saved guest id is known. It is read from local storage in the
+        /// background at start, and a request sent before that would make a returning guest a new one.
+        /// </summary>
+        private AsyncOperation<RestApiResult<GetAuthDataDto>> PostWithSavedGuestId(LoginAsGuestDto dto,
+            Func<AsyncOperation<RestApiResult<GetAuthDataDto>>> post)
+        {
+            var op = new AsyncOperation<RestApiResult<GetAuthDataDto>>();
+            PostWithSavedGuestIdAsync(dto, post, op);
+            return op;
+        }
+
+        private async void PostWithSavedGuestIdAsync(LoginAsGuestDto dto,
+            Func<AsyncOperation<RestApiResult<GetAuthDataDto>>> post, AsyncOperation<RestApiResult<GetAuthDataDto>> op)
+        {
+            try
             {
-                dto.GuestId = _storage.GetString(GUESTID_KEY);
+                await _storage.Ready;
+                dto.GuestId = _storage.GetString(AuthStorageKeys.GuestId);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
             }
 
-            return PostAuthAsync(route, dto, noAuth: true);
+            OnDone(post(), op.Complete);
         }
 
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginDeviceAsync(string deviceId, bool createAccount = true, string nickname = null)
@@ -215,7 +300,7 @@ namespace MirraCloud.Core.Auth
         {
             var op = new AsyncOperation<RestApiResult>();
             var urlOp = BeginOpenIdLoginUrlAsync(providerKey, successUrl);
-            urlOp.UseCompleted(_ =>
+            OnDone(urlOp, _ =>
             {
                 if (!urlOp.Result.IsSuccess)
                 {
@@ -303,7 +388,7 @@ namespace MirraCloud.Core.Auth
             }
 
             var beginOp = beginLoginUrlAsync(receiver.SuccessUrl);
-            beginOp.UseCompleted(_ =>
+            OnDone(beginOp, _ =>
             {
                 if (!beginOp.Result.IsSuccess)
                 {
@@ -327,7 +412,7 @@ namespace MirraCloud.Core.Auth
                 }
 
                 var waitOp = receiver.WaitForCallbackAsync();
-                waitOp.UseCompleted(_ =>
+                OnDone(waitOp, _ =>
                 {
                     receiver.Dispose();
 
@@ -344,8 +429,9 @@ namespace MirraCloud.Core.Auth
                         return;
                     }
 
-                    var completeOp = CompleteOpenIdLoginAsync(callbackResult.Key);
-                    completeOp.UseCompleted(completed => op.Complete(completed.Result));
+                    // CompleteOpenIdLoginAsync hands out an operation of its own, so this no longer replaces the
+                    // SDK's handling of the sign-in — it did, and the player stayed signed out.
+                    OnDone(CompleteOpenIdLoginAsync(callbackResult.Key), op.Complete);
                 });
             });
 
@@ -381,13 +467,7 @@ namespace MirraCloud.Core.Auth
         {
             var route = $"{LinkScope()}/guest";
             var dto = new LoginAsGuestDto { CreateAccount = createAccount };
-
-            if (_storage.HasKey(GUESTID_KEY))
-            {
-                dto.GuestId = _storage.GetString(GUESTID_KEY);
-            }
-
-            return PostAuthAsync(route, dto);
+            return PostWithSavedGuestId(dto, () => PostAuthAsync(route, dto));
         }
 
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkDeviceAsync(string deviceId, bool createAccount = false)
@@ -508,16 +588,7 @@ namespace MirraCloud.Core.Auth
         private AsyncOperation<RestApiResult> DeleteAsync(string route, object dto)
         {
             // Unlink revokes all sessions on success — clear local state too.
-            var op = _restApi.DeleteAsync(route, dto);
-            op.UseCompleted(_ =>
-            {
-                if (op.Result.IsSuccess)
-                {
-                    ClearSessionAndStorage();
-                    OnSessionExpired?.Invoke();
-                }
-            });
-            return op;
+            return EndSessionAfter(_restApi.DeleteAsync(route, dto), onlyOnSuccess: true);
         }
 
         #endregion
@@ -539,6 +610,15 @@ namespace MirraCloud.Core.Auth
         /// </summary>
         internal AsyncOperation<RestApiResult> RefreshSessionAsync(bool signOutOnTransientFailure)
         {
+            if (string.IsNullOrEmpty(_refreshToken) && _restoresReading > 0)
+            {
+                // InitializeAsync is still reading the saved token: this refresh is the restore's.
+                var waiter = new AsyncOperation<RestApiResult>();
+                _restoreWaiters ??= new List<(AsyncOperation<RestApiResult>, bool)>();
+                _restoreWaiters.Add((waiter, signOutOnTransientFailure));
+                return waiter;
+            }
+
             if (string.IsNullOrEmpty(_refreshToken))
             {
                 _logger.Log("RefreshSessionAsync called without refresh token.");
@@ -685,26 +765,13 @@ namespace MirraCloud.Core.Auth
         {
             var route = $"{AccountsScope()}/logout";
             var dto = new LogoutSessionDto { SessionId = _sessionId };
-
-            var op = _restApi.PostAsync(route, dto);
-            op.UseCompleted(_ =>
-            {
-                ClearSessionAndStorage();
-                OnSessionExpired?.Invoke();
-            });
-            return op;
+            return EndSessionAfter(_restApi.PostAsync(route, dto), onlyOnSuccess: false);
         }
 
         public AsyncOperation<RestApiResult> LogoutAllAsync()
         {
             var route = $"{AccountsScope()}/logout/all";
-            var op = _restApi.PostAsync(route, new { });
-            op.UseCompleted(_ =>
-            {
-                ClearSessionAndStorage();
-                OnSessionExpired?.Invoke();
-            });
-            return op;
+            return EndSessionAfter(_restApi.PostAsync(route, new { }), onlyOnSuccess: false);
         }
 
         /// <summary>
@@ -750,17 +817,102 @@ namespace MirraCloud.Core.Auth
 
         private AsyncOperation<RestApiResult<GetAuthDataDto>> PostAuthAsync(string route, object dto, bool noAuth = false)
         {
-            var op = _restApi.PostAsync<GetAuthDataDto>(route, dto, AuthRequestConfig(noAuth));
-            op.UseCompleted(HandleAuthCompleted);
-            return op;
+            return CompleteAfterAuthHandled(_restApi.PostAsync<GetAuthDataDto>(route, dto, AuthRequestConfig(noAuth)));
         }
 
         private AsyncOperation<RestApiResult<GetAuthDataDto>> GetAuthAsync(string route, bool noAuth = false)
         {
-            var operation = _restApi.GetAsync<GetAuthDataDto>(route, AuthRequestConfig(noAuth));
+            return CompleteAfterAuthHandled(_restApi.GetAsync<GetAuthDataDto>(route, AuthRequestConfig(noAuth)));
+        }
 
-            operation.UseCompleted(HandleAuthCompleted);
-            return operation;
+        /// <summary>
+        /// The game gets an operation of its own, completed once the SDK has handled the answer. UseCompleted keeps a
+        /// single callback, so while the SDK hooked the operation it handed out, a UseCompleted of the game's — or the
+        /// SDK's own, as in LoginOpenIdAsync — replaced the handling and the session was never applied. A new session
+        /// completes the operation only once it is on disk: a guest id lost to a crash right after sign-in is a lost
+        /// account, and a refresh token not kept signs the player out on the next launch.
+        /// </summary>
+        private AsyncOperation<RestApiResult<GetAuthDataDto>> CompleteAfterAuthHandled(
+            AsyncOperation<RestApiResult<GetAuthDataDto>> raw)
+        {
+            var op = new AsyncOperation<RestApiResult<GetAuthDataDto>>();
+            OnDone(raw, result => FinishAuthAsync(result, op));
+            return op;
+        }
+
+        private async void FinishAuthAsync(RestApiResult<GetAuthDataDto> result, AsyncOperation<RestApiResult<GetAuthDataDto>> op)
+        {
+            var signedIn = ApplyAuthResult(result);
+
+            if (signedIn != null)
+            {
+                Raise(OnLogin, signedIn);
+                await _storage.FlushAsync();
+            }
+
+            op.Complete(result);
+        }
+
+        /// <summary>
+        /// The game's own operation for a call that ends the session: the SDK drops the session before the game hears
+        /// back, and a UseCompleted of the game's can no longer skip that and leave a revoked session on disk.
+        /// </summary>
+        private AsyncOperation<RestApiResult> EndSessionAfter(AsyncOperation<RestApiResult> raw, bool onlyOnSuccess)
+        {
+            var op = new AsyncOperation<RestApiResult>();
+            OnDone(raw, result =>
+            {
+                if (onlyOnSuccess == false || result.IsSuccess)
+                {
+                    ClearSessionAndStorage();
+                    Raise(OnSessionExpired);
+                }
+
+                op.Complete(result);
+            });
+            return op;
+        }
+
+        /// <summary>
+        /// Runs <paramref name="then"/> when <paramref name="operation"/> completes, or at once if it already has:
+        /// UseCompleted never fires for an operation that is already complete, and a request refused before it was
+        /// sent comes back that way.
+        /// </summary>
+        private static void OnDone<T>(AsyncOperation<T> operation, Action<T> then)
+        {
+            if (operation.IsDone)
+            {
+                then(operation.Result);
+                return;
+            }
+
+            operation.UseCompleted(completed => then(completed.Result));
+        }
+
+        // The game's handlers run inside the SDK's own completion: one that throws must not leave the operation
+        // hanging, so its exception is logged instead.
+        private static void Raise<T>(Action<T> handler, T value)
+        {
+            try
+            {
+                handler?.Invoke(value);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+        }
+
+        private static void Raise(Action handler)
+        {
+            try
+            {
+                handler?.Invoke();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
         }
 
         /// <summary>
@@ -790,10 +942,13 @@ namespace MirraCloud.Core.Auth
             return config;
         }
 
-        private void HandleAuthCompleted(IAsyncOperation<RestApiResult<GetAuthDataDto>> operation)
+        /// <summary>
+        /// Applies the answer to a sign-in or link and stores what the next launch needs. Returns the answer when it
+        /// brought a new session — for <see cref="OnLogin"/> — and null otherwise.
+        /// </summary>
+        private GetAuthDataDto ApplyAuthResult(RestApiResult<GetAuthDataDto> result)
         {
             _logger.Log("handle auth");
-            var result = operation.Result;
 
             if (!result.IsSuccess)
             {
@@ -801,26 +956,26 @@ namespace MirraCloud.Core.Auth
                 _logger.Error(cloudError != null
                     ? $"{cloudError.Code} — {cloudError.Message}"
                     : result.Error?.Message ?? "Auth request failed.");
-                return;
+                return null;
             }
 
             var data = result.Data;
             if (data == null)
             {
                 _logger.Error("Empty auth response");
-                return;
+                return null;
             }
 
             if (data.Status == AuthResultStatus.Conflict)
             {
-                OnAuthConflict?.Invoke(data);
-                return;
+                Raise(OnAuthConflict, data);
+                return null;
             }
 
             if (string.IsNullOrEmpty(data.Token) || data.Session == null)
             {
                 _logger.Error("Auth response without token or session");
-                return;
+                return null;
             }
 
             SetAuthToken(data.Token);
@@ -829,11 +984,11 @@ namespace MirraCloud.Core.Auth
 
             if (string.IsNullOrEmpty(data.GuestId) == false)
             {
-                _storage.SaveString(GUESTID_KEY, data.GuestId);
+                _storage.SaveString(AuthStorageKeys.GuestId, data.GuestId);
             }
 
             SaveSessionToStorage();
-            OnLogin?.Invoke(data);
+            return data;
         }
 
         private void ApplySession(SessionInfoDto session)
@@ -859,24 +1014,18 @@ namespace MirraCloud.Core.Auth
             IsAuth = false;
         }
 
+        // The refresh token is all a later launch needs: the session id and its expiry come back with the refresh.
         private void SaveSessionToStorage()
         {
             if (!string.IsNullOrEmpty(_refreshToken))
             {
-                _storage.SaveString(REFRESH_TOKEN_KEY, _refreshToken);
+                _storage.SaveString(AuthStorageKeys.RefreshToken, _refreshToken);
             }
-
-            if (!string.IsNullOrEmpty(_sessionId))
-            {
-                _storage.SaveString(SESSIONID_KEY, _sessionId);
-            }
-
-            _storage.SaveString(SESSION_EXPIRESAT_KEY, _sessionExpiresAt.ToString("o"));
         }
 
         private void ClearSessionStorage()
         {
-            _storage.DeleteKeys(REFRESH_TOKEN_KEY, SESSIONID_KEY, SESSION_EXPIRESAT_KEY);
+            _storage.DeleteKeys(AuthStorageKeys.RefreshToken);
         }
 
         private void ClearSessionAndStorage()
@@ -907,7 +1056,8 @@ namespace MirraCloud.Core.Auth
             OnSessionExpired?.Invoke();
         }
 
-        bool ISessionRefresher.CanRefresh => string.IsNullOrEmpty(_refreshToken) == false;
+        // While InitializeAsync reads the saved token a refresh is still possible: it waits for the token.
+        bool ISessionRefresher.CanRefresh => _restoresReading > 0 || string.IsNullOrEmpty(_refreshToken) == false;
 
         /// <summary>
         /// A signed-in player, or a saved session <see cref="InitializeAsync"/> is still restoring: either way a
