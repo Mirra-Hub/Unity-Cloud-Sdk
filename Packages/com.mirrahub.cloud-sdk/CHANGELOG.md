@@ -6,6 +6,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.11.0] — 2026-10-04
+
+Settings can come from code: `Initialize(MirraCloudOptions)` sets the project, branch, API token and platform over
+`Configuration.asset`. The editor tools are gathered under one top-level **MirraCloud** menu, which also gains a
+look into the asset cache. Upgrade steps: replace `Configuration.BranchId` with `Configuration.Branch` in your code,
+and find the Manager under `MirraCloud → Manager`.
+
+### Added
+
+- **`IMirraCloudSdk.Initialize(MirraCloudOptions)`** — `ProjectId`, `Branch`, `Token` and `PlatformKey` set from code.
+  A field the options set wins over the asset and is trimmed; one left `null`, empty or blank comes from the asset.
+  The asset itself does not change — the SDK runs on a copy — so `MirraCloud → Manager` keeps showing the asset's own
+  values. With `ProjectId` and `Branch` both set, the SDK starts without `Configuration.asset`. The SDK logs which
+  fields came from code (never the token's value). Calling `Initialize` again changes nothing; with options it
+  warns that they are ignored. `Initialize()` without arguments works as before. Code that implements
+  `IMirraCloudSdk` itself has to add the new overload.
+- **`MirraCloud → Data → Clear Cache`** — deletes the downloaded assets. A standalone build of the same project on
+  this machine shares the cache, so it downloads again too.
+- **`MirraCloud → Data → Show Cache`** — a window listing the cached assets by project, branch, asset, version and
+  size, largest first, with the total, **Clear** and a button that opens the cache's folder. It reads in Play Mode too.
+
+### Changed
+
+- **Breaking:** `Configuration.BranchId` is renamed to `Configuration.Branch` — it holds the branch name, like
+  `MirraCloudOptions.Branch`. Saved `Configuration.asset` files keep their value (`[FormerlySerializedAs]`) and are
+  rewritten with the new name the next time the Manager window saves them; code that reads the field has to be
+  updated.
+- **Every editor tool is in the top-level MirraCloud menu.** `Tools → Mirra Cloud` is gone: the Manager is
+  `MirraCloud → Manager`, the Request Inspector moves to `MirraCloud → Debug → Request Inspector`, and
+  `Clear Saved Sign-In` becomes `MirraCloud → Data → Clear Sign-In`. The Clear items are greyed out in Play Mode,
+  where the running SDK holds the data open.
+
 ## [0.10.1] — 2026-10-04
 
 ### Changed

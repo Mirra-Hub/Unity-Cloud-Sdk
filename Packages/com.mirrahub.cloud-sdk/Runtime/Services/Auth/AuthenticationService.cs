@@ -85,8 +85,8 @@ namespace MirraCloud.Core.Auth
 
         // Helpers for URL composition. All login/link routes are scoped per branch;
         // refresh / logout / unlink are NOT — they use the branch already stored on the Session.
-        private string AuthLoginScope() => $"{AUTH_BRANCH_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.BranchId}/login";
-        private string LinkScope() => $"{LINK_BRANCH_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.BranchId}";
+        private string AuthLoginScope() => $"{AUTH_BRANCH_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.Branch}/login";
+        private string LinkScope() => $"{LINK_BRANCH_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.Branch}";
         private string UnlinkScope() => $"{UNLINK_ROUTE}/{_configuration.ProjectId}";
         private string SessionScope() => $"{AUTH_ROUTE}/{_configuration.ProjectId}";
         private string AccountsScope() => $"{ACCOUNTS_ROUTE}/{_configuration.ProjectId}";
@@ -936,7 +936,7 @@ namespace MirraCloud.Core.Auth
                 _logger.Error(
                     "Configuration.PlatformKey is empty, so the server refuses every sign-in " +
                     $"({CloudErrorCodes.PlatformsPlatformKeyRequired}). Pick the platform of this build in " +
-                    "Tools > Mirra Cloud > Manager.");
+                    "MirraCloud > Manager or pass it in MirraCloudOptions.PlatformKey.");
             }
 
             return config;

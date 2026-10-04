@@ -28,7 +28,7 @@ namespace Plugins.MirraCloud.Core.Services.Segments
 
         public AsyncOperation<RestApiResult<SegmentDto[]>> LoadConfigAsync()
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/segments";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/segments";
 
             var op = _restApi.GetAsync<SegmentDto[]>(route);
             op.UseCompleted(completed =>

@@ -18,25 +18,25 @@ namespace MirraCloud.Core.DailyRewards
 
         public AsyncOperation<RestApiResult<DailyRewardCalendarDto[]>> GetCalendarsAsync()
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/daily-rewards/calendars";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/daily-rewards/calendars";
             return _restApi.GetAsync<DailyRewardCalendarDto[]>(route);
         }
 
         public AsyncOperation<RestApiResult<DailyRewardStatusDto[]>> GetStatusAsync()
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/daily-rewards/status";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/daily-rewards/status";
             return _restApi.GetAsync<DailyRewardStatusDto[]>(route);
         }
 
         public AsyncOperation<RestApiResult<DailyRewardStatusDto>> GetStatusAsync(string calendarId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/daily-rewards/status/{calendarId}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/daily-rewards/status/{calendarId}";
             return _restApi.GetAsync<DailyRewardStatusDto>(route);
         }
 
         public AsyncOperation<RestApiResult<ClaimDailyRewardResponseDto>> ClaimAsync(string calendarId, int? dayNumber = null)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/daily-rewards/claim";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/daily-rewards/claim";
 
             var requestDto = new ClaimDailyRewardRequestDto
             {

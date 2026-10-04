@@ -21,7 +21,7 @@ namespace MirraCloud.Core.Localization
             _restApi = restApi;
         }
 
-        private string BasePath => $"{ControllerApi}/{_configuration.ProjectId}/branches/{_configuration.BranchId}";
+        private string BasePath => $"{ControllerApi}/{_configuration.ProjectId}/branches/{_configuration.Branch}";
 
         public AsyncOperation<RestApiResult<List<LocalizationValueDto>>> GetValuesAsync(string collectionId, string key)
         {

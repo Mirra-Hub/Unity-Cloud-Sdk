@@ -22,6 +22,22 @@ Packages/com.mirrahub.cloud-sdk/
 
 Все сервисы используют паттерн `AsyncOperation<RestApiResult<T>>` для асинхронных вызовов.
 
+## Конфигурация и `Initialize`
+
+`MirraCloudSDK.Initialize()` берёт настройки из `Resources/Configuration.asset` (его пишет окно Manager): `ProjectId`,
+`Branch` (имя ветки), `Token`, `PlatformKey`. Перегрузка `Initialize(MirraCloudOptions)` задаёт любое из четырёх полей
+из кода поверх ассета:
+
+- заданное поле важнее ассета и обрезается по краям; `null`, `""` и пробелы значат «взять из ассета»;
+- SDK работает с **копией** ассета (`Configuration.Load(options)` → `Instantiate`). Сам ассет не меняется: иначе в
+  редакторе значения из кода остались бы в нём до конца сессии, а окно Manager записало бы их на диск;
+- без ассета SDK запускается молча, если код задал `ProjectId` и `Branch`; иначе в лог уходит ошибка «Configuration.asset not found»;
+- какие поля заданы из кода, SDK пишет одной строкой в лог при старте. Значение токена в лог не попадает;
+- повторный `Initialize` ничего не меняет; если ему переданы опции — предупреждение в лог;
+- публичный `Configuration.Load()` по-прежнему отдаёт сам ассет, без опций.
+
+Поле `Branch` до 0.11.0 называлось `BranchId`; `[FormerlySerializedAs("BranchId")]` сохраняет значение в старых ассетах.
+
 ## Сервисы
 
 ### Authentication & Accounts
@@ -62,7 +78,19 @@ Packages/com.mirrahub.cloud-sdk/
 
 ## Editor Tools
 
-Окно `Tools > Mirra Cloud > Manager` для настройки SDK в Unity Editor.
+Все инструменты — в меню верхнего уровня **MirraCloud** (пути и приоритеты — `Editor/MirraCloudMenu.cs`):
+
+| Пункт | Что делает |
+|---|---|
+| `Manager` | окно настройки SDK: проект, ветка, платформа, токен |
+| `Debug → Request Inspector` | трассировка HTTP-запросов SDK |
+| `Data → Clear Sign-In` | удаляет `mirracloud_prefs_editor` — сессию и guest-id редактора |
+| `Data → Clear Cache` | удаляет `asset_cache` — кэш ассетов (общий с standalone-билдом проекта на этой машине) |
+| `Data → Show Cache` | окно `AssetCacheWindow`: записи кэша (проект, ветка, ассет, версия, размер), Clear, открыть папку |
+
+Пункты `Clear …` неактивны в Play Mode: запущенный SDK держит эти базы открытыми. Общий код — `EditorLocalData`.
+
+Окно `MirraCloud > Manager`:
 
 ### Архитектура
 
@@ -103,7 +131,7 @@ SA Key → POST /api/cloud/public/auth/service-account/token → JWT + OrgId
 - **API Token** — выбор токена для SDK (авто-выбор первого доступного)
 - **Create Token** — создание Game-токена прямо из редактора (`POST /organizations/{orgId}/projects/{projectId}/tokens`)
 
-Выбранные значения сохраняются в `Configuration` ScriptableObject (`Resources/Configuration.asset`).
+Выбранные значения сохраняются в `Configuration` ScriptableObject (`Resources/Configuration.asset`). Значения, заданные игрой в `MirraCloudOptions`, окно не видит.
 
 ### EditorApiService API
 
@@ -119,5 +147,5 @@ SA Key → POST /api/cloud/public/auth/service-account/token → JWT + OrgId
 
 ### Дополнительные инструменты
 
-- **RestApiInspectorWindow** (`Tools > Mirra Cloud > REST Inspector`) — трассировка HTTP запросов SDK для отладки
+- **RestApiInspectorWindow** (`MirraCloud > Debug > Request Inspector`) — трассировка HTTP запросов SDK для отладки
 - **DeveloperSettings** — переопределение Editor API URL для локальной разработки

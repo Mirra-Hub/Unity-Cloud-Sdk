@@ -53,7 +53,14 @@ namespace MirraCloud.Core
         WebViewService WebView { get; }
         bool IsInitialized { get; }
 
+        /// <summary>Starts the SDK with the settings of <c>Configuration.asset</c>.</summary>
         void Initialize();
+
+        /// <summary>
+        /// Starts the SDK with <paramref name="options"/> set over <c>Configuration.asset</c>: each field the options
+        /// set wins, the rest comes from the asset. Once the SDK is initialized, another call changes nothing.
+        /// </summary>
+        void Initialize(MirraCloudOptions options);
         void Dispose();
     }
 }

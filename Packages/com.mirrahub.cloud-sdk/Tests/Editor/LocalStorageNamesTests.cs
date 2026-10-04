@@ -28,5 +28,12 @@ namespace MirraCloud.Core.Tests
             // These tests compile for the editor, where the SDK has to use the editor's container.
             Assert.That(LocalDataContainers.Prefs, Is.EqualTo(LocalDataContainers.PrefsInEditor));
         }
+
+        [Test]
+        public void The_asset_cache_container_is_pinned()
+        {
+            // Renamed, it would leave every cache already downloaded orphaned on disk.
+            Assert.That(LocalDataContainers.AssetCache, Is.EqualTo("asset_cache"));
+        }
     }
 }

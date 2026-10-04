@@ -88,7 +88,7 @@ namespace MirraCloud.Core.Storage.Blob
             container.CloseConnection();
         }
 
-        private string GetDatabasePath(string containerId)
+        internal string GetDatabasePath(string containerId)
         {
             return Path.Combine(RootPath, containerId + DB_EXTENSION);
         }

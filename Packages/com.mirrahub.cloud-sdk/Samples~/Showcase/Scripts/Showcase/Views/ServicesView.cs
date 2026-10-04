@@ -241,7 +241,7 @@ namespace MirraCloud.Example.Showcase
                 if (cfg != null)
                 {
                     project = cfg.ProjectId;
-                    branch = cfg.BranchId;
+                    branch = cfg.Branch;
                 }
             }
             catch (Exception e)
@@ -261,7 +261,7 @@ namespace MirraCloud.Example.Showcase
             bool hasBranch = !string.IsNullOrWhiteSpace(branch);
             row.Add(Pill(LucideIcon.GitBranch,
                 hasBranch ? Fmt.Truncate(branch, 18) : "default branch",
-                hasBranch ? "Branch " + branch : "No BranchId set — the project default is used",
+                hasBranch ? "Branch " + branch : "No Branch set — the project default is used",
                 false));
 
             _backendPill = Pill(LucideIcon.Wifi, "checking…", "Contacting the backend", false);
