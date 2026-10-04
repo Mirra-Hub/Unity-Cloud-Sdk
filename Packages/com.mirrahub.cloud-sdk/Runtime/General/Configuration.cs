@@ -88,7 +88,7 @@ namespace MirraCloud
             {
                 Debug.LogError(
                     "Mirra Cloud: Configuration.asset not found in any Resources folder. Open " +
-                    "Tools > Mirra Cloud > Manager and connect the project — the asset is created " +
+                    "MirraCloud > Manager and connect the project — the asset is created " +
                     "for you. Requests will fail until then.");
 
                 configuration = CreateInstance<Configuration>();

@@ -21,7 +21,7 @@ namespace MirraCloud.Editor
         private LoginView _loginView;
         private ProjectSettingsView _settingsView;
 
-        [MenuItem("Tools/Mirra Cloud/Manager")]
+        [MenuItem(MirraCloudMenu.Manager, false, MirraCloudMenu.ManagerPriority)]
         public static void Open()
         {
             MirraCloudEditorWindow window = GetWindow<MirraCloudEditorWindow>();

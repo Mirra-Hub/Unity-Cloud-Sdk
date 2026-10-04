@@ -159,7 +159,7 @@ namespace Plugins.MirraCloud.Core.Services.Analytics
                     _missingPlatformKeyReported = true;
                     _logger.Error(
                         "Analytics: Configuration.PlatformKey is empty, so nothing is sent. Pick the platform of this " +
-                        "build in Tools > Mirra Cloud > Manager.");
+                        "build in MirraCloud > Manager.");
                 }
 
                 return AsyncOperation<RestApiResult>.CreateCompleted(

@@ -62,7 +62,19 @@ Packages/com.mirrahub.cloud-sdk/
 
 ## Editor Tools
 
-Окно `Tools > Mirra Cloud > Manager` для настройки SDK в Unity Editor.
+Все инструменты — в меню верхнего уровня **MirraCloud** (пути и приоритеты — `Editor/MirraCloudMenu.cs`):
+
+| Пункт | Что делает |
+|---|---|
+| `Manager` | окно настройки SDK: проект, ветка, платформа, токен |
+| `Debug → Request Inspector` | трассировка HTTP-запросов SDK |
+| `Data → Clear Sign-In` | удаляет `mirracloud_prefs_editor` — сессию и guest-id редактора |
+| `Data → Clear Cache` | удаляет `asset_cache` — кэш ассетов (общий с standalone-билдом проекта на этой машине) |
+| `Data → Show Cache` | окно `AssetCacheWindow`: записи кэша (проект, ветка, ассет, версия, размер), Clear, открыть папку |
+
+Пункты `Clear …` неактивны в Play Mode: запущенный SDK держит эти базы открытыми. Общий код — `EditorLocalData`.
+
+Окно `MirraCloud > Manager`:
 
 ### Архитектура
 
@@ -119,5 +131,5 @@ SA Key → POST /api/cloud/public/auth/service-account/token → JWT + OrgId
 
 ### Дополнительные инструменты
 
-- **RestApiInspectorWindow** (`Tools > Mirra Cloud > REST Inspector`) — трассировка HTTP запросов SDK для отладки
+- **RestApiInspectorWindow** (`MirraCloud > Debug > Request Inspector`) — трассировка HTTP запросов SDK для отладки
 - **DeveloperSettings** — переопределение Editor API URL для локальной разработки

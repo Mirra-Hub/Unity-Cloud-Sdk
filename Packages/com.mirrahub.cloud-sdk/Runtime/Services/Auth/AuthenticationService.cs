@@ -936,7 +936,7 @@ namespace MirraCloud.Core.Auth
                 _logger.Error(
                     "Configuration.PlatformKey is empty, so the server refuses every sign-in " +
                     $"({CloudErrorCodes.PlatformsPlatformKeyRequired}). Pick the platform of this build in " +
-                    "Tools > Mirra Cloud > Manager.");
+                    "MirraCloud > Manager.");
             }
 
             return config;

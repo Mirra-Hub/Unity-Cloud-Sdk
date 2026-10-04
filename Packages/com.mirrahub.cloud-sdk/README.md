@@ -26,11 +26,11 @@ purchase flows, SQLite for the local asset cache — ship inside it under `Third
 
 You need git 2.14+ on your `PATH`.
 
-Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
+Check: the **MirraCloud** menu appears in Unity's top menu.
 
 ## Connecting a project
 
-`Tools → Mirra Cloud → Manager` → paste your service account key → **Connect** → pick a **Project**,
+`MirraCloud → Manager` → paste your service account key → **Connect** → pick a **Project**,
 **Branch**, **Platform** and **API Token**.
 
 The platform comes from the console (**Platforms**) and decides which sign-in methods the game gets:

@@ -9,6 +9,7 @@ using UnityEngine.Networking;
 using MirraCloud.Core;
 using MirraCloud.Core.Auth;
 using MirraCloud.Core.Errors;
+using MirraCloud.Core.Storage;
 using MirraCloud.Core.Storage.Blob;
 using ILogger = MirraCloud.Core.Logger.ILogger;
 
@@ -31,8 +32,6 @@ namespace MirraCloud.Core.AssetsStorage
     /// </summary>
     public class AssetsStorageService : ICloudSdkService
     {
-        private const string CacheContainerId = "asset_cache";
-
         private readonly Configuration _configuration;
         private readonly RestApiClient _restApi;
         private readonly ILogger _logger;
@@ -51,7 +50,7 @@ namespace MirraCloud.Core.AssetsStorage
             _restApi = restApi;
             _logger = logger;
             _authentication = authentication;
-            _cache = new AssetCache(blobStorage, CacheContainerId);
+            _cache = new AssetCache(blobStorage, LocalDataContainers.AssetCache);
         }
 
         public AsyncOperation<RestApiResult<AssetStorageStructureDto>> LoadConfigAsync()

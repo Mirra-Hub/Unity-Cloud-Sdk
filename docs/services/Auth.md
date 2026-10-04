@@ -5,7 +5,7 @@
 ## Платформа
 
 Каждая сборка игры — это одна платформа проекта (консоль Cloud → «Платформы»). Её **ключ** лежит в
-`Configuration.PlatformKey`; выбирается в `Tools → Mirra Cloud → Manager` (дропдаун **Platform**). Ключ
+`Configuration.PlatformKey`; выбирается в `MirraCloud → Manager` (дропдаун **Platform**). Ключ
 регистрозависимый. Игра, которая выходит на несколько платформ, переключает его перед каждой сборкой.
 
 - SDK шлёт ключ заголовком `PlatformKey` на **каждом вызове входа**: все `Login*`, начало OpenID-входа
@@ -177,7 +177,7 @@ var op = MirraCloudSDK.Authentication.LoginOpenIdAsync(method.IntegrationKey, op
 
 - `InitializeAsync()` — восстановить сессию прошлого запуска: сохранённый refresh-токен меняется на новую сессию. Успех с `null` в обоих случаях — была сессия или нет, скажет `IsAuth`. Завершается всегда на более позднем кадре: сохранённое читается из локального хранилища в фоне. Запрос, отправленный сразу после вызова, и `AssetAccess.Auto` уходят от игрока и пока идёт это чтение.
 - **Где лежит вход.** Guest-id и refresh-токен — в локальном хранилище SDK (SQLite, в WebGL — IndexedDB; см. [Storage](../Storage.md)), отдельно для каждого проекта; PlayerPrefs SDK не использует. Вход и привязка (`Login*`, `Link*`, `ResolveLinkConflictAsync`, `CompleteOpenIdLoginAsync`) завершаются, когда сессия уже на диске; `OnLogin` приходит раньше. Refresh-токен одноразовый: каждый refresh записывает новый.
-- **Редактор** хранит вход отдельно от сборки. Забыть его, чтобы следующий гостевой вход дал нового игрока, — `Tools → Mirra Cloud → Clear Saved Sign-In`; `Edit → Clear All PlayerPrefs` на это больше не влияет.
+- **Редактор** хранит вход отдельно от сборки. Забыть его, чтобы следующий гостевой вход дал нового игрока, — `MirraCloud → Data → Clear Sign-In`; `Edit → Clear All PlayerPrefs` на это больше не влияет.
 - `RefreshSessionAsync()` — обновление сессии. Один запрос на refresh token: вызовы, пришедшие во время обновления (например, несколько одновременных 401), ждут его результата, а не тратят тот же токен повторно — сервер отклонил бы повтор и разлогинил игрока. Неудачный refresh завершает сессию (`OnSessionExpired`); исключение — refresh после смены профиля (`PlayerAccount.SelectProfileAsync`): его сетевой сбой или 5xx игрока не разлогинивает, отказ сервера (4xx) — разлогинивает как обычно.
 - Автоматический refresh на 401/403: вызов с токеном SDK повторяет один раз после refresh сессии, только если отказ касается самой сессии — ответ шлюза без кода ошибки (нет/битый/просроченный JWT) или код `common.unauthorized`, `purchases.selected_profile_required`, `player_accounts.session_expired` / `session_mismatch` / `session_project_mismatch`. Отказ самого эндпоинта (`player_accounts.invalid_credentials`, `external_auth_invalid_id_token`, `provider_not_on_platform`, `avatar_change_disabled`, `common.forbidden`, отказы платформы `platforms.*` и любой другой код) возвращается сразу: без refresh и без повторной отправки. Вызовы входа (`NoAuth`) сессию не обновляют, как и раньше.
 - `LogoutAsync()` — выход из текущей сессии
