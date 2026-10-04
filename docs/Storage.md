@@ -30,7 +30,7 @@ FlushAsync    — всё записанное до вызова — на дис�
   не перетирает. Пустое значение = удаление ключа.
 - **`TryAcquireExclusiveAsync` не вызывается:** вторая вкладка WebGL иначе стала бы read-only и не сохранила бы свой
   refresh-токен.
-- **Сброс в редакторе** — `Tools → Mirra Cloud → Clear Saved Sign-In` (удаляет `mirracloud_prefs_editor`).
+- **Сброс в редакторе** — `MirraCloud → Data → Clear Sign-In` (удаляет `mirracloud_prefs_editor`).
   `Edit → Clear All PlayerPrefs` на вход SDK больше не влияет.
 
 ## `IBlobStorage`

@@ -145,6 +145,33 @@ namespace MirraCloud.Core.Storage.Blob
             }
         }
 
+        /// <summary>
+        /// Every key with the size of its value, in key order, without reading the values — what the editor's cache
+        /// window lists. Not on <see cref="IBlobContainer"/>: the editor always runs on SQLite.
+        /// </summary>
+        internal async Task<IReadOnlyList<KeyValuePair<string, long>>> ListEntriesAsync()
+        {
+            List<string> keys = null;
+            List<long> sizes = null;
+
+            await ReadUnderGateAsync(() =>
+            {
+                SQLiteConnection connection = GetConnection();
+
+                keys = connection.QueryScalars<string>("SELECT key FROM blobs ORDER BY key");
+                sizes = connection.QueryScalars<long>("SELECT length(data) FROM blobs ORDER BY key");
+            });
+
+            List<KeyValuePair<string, long>> entries = new List<KeyValuePair<string, long>>(keys.Count);
+
+            for (int i = 0; i < keys.Count; i++)
+            {
+                entries.Add(new KeyValuePair<string, long>(keys[i], sizes[i]));
+            }
+
+            return entries;
+        }
+
         public IBlobWriteBatch BeginWrite()
         {
             return new SqliteBlobWriteBatch(this);

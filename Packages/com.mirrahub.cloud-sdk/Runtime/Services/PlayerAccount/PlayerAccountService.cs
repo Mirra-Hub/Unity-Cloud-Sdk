@@ -998,7 +998,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
         /// </summary>
         public AsyncOperation<RestApiResult<PlayerRoleInfo[]>> GetPlayerRolesAsync()
         {
-            var route = $"{ACCOUNTS_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.BranchId}/player-roles";
+            var route = $"{ACCOUNTS_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.Branch}/player-roles";
             return _restApi.GetAsync<PlayerRoleInfo[]>(route);
         }
 

@@ -146,7 +146,7 @@ namespace Plugins.MirraCloud.Core.Services.Analytics
                 return null;
             }
 
-            return $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/platforms/{Uri.EscapeDataString(platformKey)}/{endpoint}";
+            return $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/platforms/{Uri.EscapeDataString(platformKey)}/{endpoint}";
         }
 
         private AsyncOperation<RestApiResult> PostWithErrorLogging(string route, object body, Action<RestApiResult> onSuccess = null)
@@ -159,7 +159,7 @@ namespace Plugins.MirraCloud.Core.Services.Analytics
                     _missingPlatformKeyReported = true;
                     _logger.Error(
                         "Analytics: Configuration.PlatformKey is empty, so nothing is sent. Pick the platform of this " +
-                        "build in Tools > Mirra Cloud > Manager.");
+                        "build in MirraCloud > Manager or pass it in MirraCloudOptions.PlatformKey.");
                 }
 
                 return AsyncOperation<RestApiResult>.CreateCompleted(

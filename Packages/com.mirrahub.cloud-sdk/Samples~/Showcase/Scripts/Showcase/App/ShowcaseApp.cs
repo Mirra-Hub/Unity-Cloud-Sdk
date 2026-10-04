@@ -185,7 +185,7 @@ namespace MirraCloud.Example.Showcase
                 if (cfg != null)
                 {
                     project = cfg.ProjectId;
-                    branch = cfg.BranchId;
+                    branch = cfg.Branch;
                     platform = cfg.PlatformKey;
                 }
             }

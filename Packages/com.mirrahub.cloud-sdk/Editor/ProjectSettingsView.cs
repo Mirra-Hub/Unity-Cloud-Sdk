@@ -184,7 +184,7 @@ namespace MirraCloud.Editor
                 names[i] = PopupLabel(_branches[i].name);
             }
 
-            var currentIndex = FindCurrentIndex(_branches, _configuration.BranchId, b => b.name);
+            var currentIndex = FindCurrentIndex(_branches, _configuration.Branch, b => b.name);
             if (_selectedBranchIndex < 0) _selectedBranchIndex = currentIndex;
 
             EditorGUI.BeginChangeCheck();
@@ -453,7 +453,7 @@ namespace MirraCloud.Editor
                 if (op.Result.IsSuccess)
                 {
                     _branches = op.Result.Data ?? new List<EditorBranchDto>();
-                    var idx = FindCurrentIndex(_branches, _configuration.BranchId, b => b.name);
+                    var idx = FindCurrentIndex(_branches, _configuration.Branch, b => b.name);
                     _selectedBranchIndex = idx >= 0 ? idx : (_branches.Count > 0 ? 0 : -1);
                     if (_selectedBranchIndex >= 0)
                     {
@@ -559,7 +559,7 @@ namespace MirraCloud.Editor
         private void ApplyBranch()
         {
             if (_branches == null || _selectedBranchIndex < 0 || _selectedBranchIndex >= _branches.Count) return;
-            _configuration.BranchId = _branches[_selectedBranchIndex].name;
+            _configuration.Branch = _branches[_selectedBranchIndex].name;
             SaveConfiguration();
         }
 

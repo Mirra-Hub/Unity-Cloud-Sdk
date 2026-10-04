@@ -14,7 +14,7 @@ The full description, a quick start and the per-service reference live in the
 One URL — `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.10.1
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.11.0
 ```
 
 The package is self-contained. The native plugins it needs — a WebView for external sign-in and
@@ -26,11 +26,11 @@ purchase flows, SQLite for the local asset cache — ship inside it under `Third
 
 You need git 2.14+ on your `PATH`.
 
-Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
+Check: the **MirraCloud** menu appears in Unity's top menu.
 
 ## Connecting a project
 
-`Tools → Mirra Cloud → Manager` → paste your service account key → **Connect** → pick a **Project**,
+`MirraCloud → Manager` → paste your service account key → **Connect** → pick a **Project**,
 **Branch**, **Platform** and **API Token**.
 
 The platform comes from the console (**Platforms**) and decides which sign-in methods the game gets:
@@ -42,6 +42,9 @@ The choice is saved to `Assets/MirraCloud/Resources/Configuration.asset` — the
 you and belongs to your project, not to the package. **It holds your project API token: do not
 commit it to a public repository.** The service account key lives only in `EditorPrefs` and never
 reaches a build.
+
+Any of the four can also be set from code, over the asset: `sdk.Initialize(new MirraCloudOptions { Branch = "qa" })`.
+A field left `null` or empty comes from the asset, and the asset itself does not change.
 
 ## Example
 

@@ -34,7 +34,7 @@ namespace MirraCloud.Editor
         private readonly BodyLayoutCache _requestBodyLayout = new BodyLayoutCache();
         private readonly BodyLayoutCache _responseBodyLayout = new BodyLayoutCache();
 
-        [MenuItem("MirraCloud/Request Inspector")]
+        [MenuItem(MirraCloudMenu.RequestInspector, false, MirraCloudMenu.RequestInspectorPriority)]
         public static void Open()
         {
             GetWindow<RestApiInspectorWindow>("MirraCloud Requests");

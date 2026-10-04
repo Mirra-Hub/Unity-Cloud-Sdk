@@ -9,6 +9,7 @@ using UnityEngine.Networking;
 using MirraCloud.Core;
 using MirraCloud.Core.Auth;
 using MirraCloud.Core.Errors;
+using MirraCloud.Core.Storage;
 using MirraCloud.Core.Storage.Blob;
 using ILogger = MirraCloud.Core.Logger.ILogger;
 
@@ -31,8 +32,6 @@ namespace MirraCloud.Core.AssetsStorage
     /// </summary>
     public class AssetsStorageService : ICloudSdkService
     {
-        private const string CacheContainerId = "asset_cache";
-
         private readonly Configuration _configuration;
         private readonly RestApiClient _restApi;
         private readonly ILogger _logger;
@@ -51,12 +50,12 @@ namespace MirraCloud.Core.AssetsStorage
             _restApi = restApi;
             _logger = logger;
             _authentication = authentication;
-            _cache = new AssetCache(blobStorage, CacheContainerId);
+            _cache = new AssetCache(blobStorage, LocalDataContainers.AssetCache);
         }
 
         public AsyncOperation<RestApiResult<AssetStorageStructureDto>> LoadConfigAsync()
         {
-            string route = AssetRoutes.Config(_configuration.ProjectId, _configuration.BranchId);
+            string route = AssetRoutes.Config(_configuration.ProjectId, _configuration.Branch);
 
             // The game gets its own operation: UseCompleted replaces the callback, so hooking the one returned
             // to the game would let the game's own UseCompleted drop the catalog — and with it the cache and
@@ -263,7 +262,7 @@ namespace MirraCloud.Core.AssetsStorage
                 address = ResolveKnownPath(address);
             }
 
-            string route = AssetRoutes.Download(_configuration.ProjectId, _configuration.BranchId, anonymous, address);
+            string route = AssetRoutes.Download(_configuration.ProjectId, _configuration.Branch, anonymous, address);
 
             // What the request answered, when one was made — a cache hit makes none. Its status and timing stay
             // on the result whatever came of the bytes.
@@ -377,7 +376,7 @@ namespace MirraCloud.Core.AssetsStorage
         // the key, switching branches would serve the other branch's file.
         private string CacheKeyFor(string stableId)
         {
-            return $"{_configuration.ProjectId}/{_configuration.BranchId}/{stableId}";
+            return $"{_configuration.ProjectId}/{_configuration.Branch}/{stableId}";
         }
 
         // Texture / Sprite: typed handler decodes on a worker thread and also exposes the raw

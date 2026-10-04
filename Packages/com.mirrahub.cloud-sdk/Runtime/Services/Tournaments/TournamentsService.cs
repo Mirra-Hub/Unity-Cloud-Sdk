@@ -29,7 +29,7 @@ namespace Plugins.MirraCloud.Core.Services.Tournaments
 
         public AsyncOperation<RestApiResult<TournamentConfigDto[]>> InitializeAsync()
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments";
 
             var operation = _restApi.GetAsync<TournamentConfigDto[]>(route);
 
@@ -54,25 +54,25 @@ namespace Plugins.MirraCloud.Core.Services.Tournaments
 
         public AsyncOperation<RestApiResult<TournamentConfigDto>> GetConfigAsync(string tournamentId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}";
             return _restApi.GetAsync<TournamentConfigDto>(route);
         }
 
         public AsyncOperation<RestApiResult<TournamentEntriesDto>> GetTopAsync(string tournamentId, string tableId, int entriesCount = 100)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/entries/top?tableId={tableId}&entriesCount={entriesCount}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}/entries/top?tableId={tableId}&entriesCount={entriesCount}";
             return _restApi.GetAsync<TournamentEntriesDto>(route);
         }
 
         public AsyncOperation<RestApiResult<TournamentEntriesDto>> GetTopByCountryAsync(string tournamentId, string tableId, int entriesCount = 100)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/entries/top-by-country?tableId={tableId}&entriesCount={entriesCount}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}/entries/top-by-country?tableId={tableId}&entriesCount={entriesCount}";
             return _restApi.GetAsync<TournamentEntriesDto>(route);
         }
 
         public AsyncOperation<RestApiResult<TournamentEntriesDto>> GetTopByFriendsAsync(string tournamentId, string tableId, string[] friendIds)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/entries/top-by-friends?tableId={tableId}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}/entries/top-by-friends?tableId={tableId}";
             var dto = new FriendsTopRequestDto { friendIds = friendIds ?? Array.Empty<string>() };
             // A read sent as POST (the id list goes in the body): safe to repeat after a network failure.
             return _restApi.PostAsync<TournamentEntriesDto>(route, dto, new RestRequestConfig { Idempotent = true });
@@ -80,19 +80,19 @@ namespace Plugins.MirraCloud.Core.Services.Tournaments
 
         public AsyncOperation<RestApiResult<TournamentPlayersAroundDto>> GetAroundAsync(string tournamentId, string tableId, int entriesRange = 10)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/entries/around?tableId={tableId}&entriesRange={entriesRange}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}/entries/around?tableId={tableId}&entriesRange={entriesRange}";
             return _restApi.GetAsync<TournamentPlayersAroundDto>(route);
         }
 
         public AsyncOperation<RestApiResult<TournamentTopAndPlayersAroundDto>> GetTopAndAroundAsync(string tournamentId, string tableId, int topEntriesCount = 100, int aroundEntriesRange = 10)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/entries/top-and-around?tableId={tableId}&topEntriesCount={topEntriesCount}&aroundEntriesRange={aroundEntriesRange}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}/entries/top-and-around?tableId={tableId}&topEntriesCount={topEntriesCount}&aroundEntriesRange={aroundEntriesRange}";
             return _restApi.GetAsync<TournamentTopAndPlayersAroundDto>(route);
         }
 
         public AsyncOperation<RestApiResult<TournamentEntryDto>> GetPlayerAsync(string tournamentId, string tableId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/entries?tableId={tableId}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}/entries?tableId={tableId}";
             return _restApi.GetAsync<TournamentEntryDto>(route);
         }
 
@@ -103,7 +103,7 @@ namespace Plugins.MirraCloud.Core.Services.Tournaments
         /// </summary>
         public AsyncOperation<RestApiResult<TournamentEntryDto>> JoinAsync(string tournamentId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/entries/join";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}/entries/join";
 
             return _restApi.PostAsync<TournamentEntryDto>(route, new { });
         }
@@ -111,14 +111,14 @@ namespace Plugins.MirraCloud.Core.Services.Tournaments
         /// <summary>Removes the current player from the tournament along with their result.</summary>
         public AsyncOperation<RestApiResult> LeaveAsync(string tournamentId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/entries/leave";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}/entries/leave";
 
             return _restApi.PostAsync(route, new { });
         }
 
         public AsyncOperation<RestApiResult> SubmitScoreAsync(string tournamentId, double score, string playerName = null)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/entries";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}/entries";
 
             var name = playerName ?? _playerAccountService?.PlayerAccountInfo?.Nickname ?? string.Empty;
 
@@ -133,7 +133,7 @@ namespace Plugins.MirraCloud.Core.Services.Tournaments
 
         public AsyncOperation<RestApiResult<PlayerLeagueMetaDto>> GetPlayerLeagueMetaAsync(string tournamentId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/tournaments/{tournamentId}/players-league";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/tournaments/{tournamentId}/players-league";
             return _restApi.GetAsync<PlayerLeagueMetaDto>(route);
         }
 
@@ -141,7 +141,7 @@ namespace Plugins.MirraCloud.Core.Services.Tournaments
                   "This route does not exist on the server.")]
         public AsyncOperation<RestApiResult<PlayerRewardsDto>> GetRewardsAsync(bool reset = true)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/rewards?reset={reset.ToString().ToLowerInvariant()}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/rewards?reset={reset.ToString().ToLowerInvariant()}";
             return _restApi.GetAsync<PlayerRewardsDto>(route);
         }
 
@@ -149,7 +149,7 @@ namespace Plugins.MirraCloud.Core.Services.Tournaments
                   "This route does not exist on the server.")]
         public AsyncOperation<RestApiResult> SubmitRewardsAsync()
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/rewards";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/rewards";
             return _restApi.PostAsync(route, new { });
         }
 

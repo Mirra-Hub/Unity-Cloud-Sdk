@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace MirraCloud
 {
@@ -22,7 +23,9 @@ namespace MirraCloud
         /// Branch reference used in API routes (<c>branches/{branch}</c>). Holds the branch NAME;
         /// the server resolves a branch by name.
         /// </summary>
-        public string BranchId;
+        /// <remarks>Was <c>BranchId</c>; assets saved before the rename keep their value.</remarks>
+        [FormerlySerializedAs("BranchId")]
+        public string Branch;
         public string Token;
 
         /// <summary>
@@ -80,6 +83,9 @@ namespace MirraCloud
         /// project, not in the SDK itself — the Manager window creates it under
         /// <c>Assets/MirraCloud/Resources</c> the first time you connect.
         /// </summary>
+        /// <remarks>
+        /// Returns the asset itself, so it does not show what the game set in <see cref="MirraCloudOptions"/>.
+        /// </remarks>
         public static Configuration Load()
         {
             Configuration configuration = Resources.Load<Configuration>(RESOURCES_PATH);
@@ -88,7 +94,7 @@ namespace MirraCloud
             {
                 Debug.LogError(
                     "Mirra Cloud: Configuration.asset not found in any Resources folder. Open " +
-                    "Tools > Mirra Cloud > Manager and connect the project — the asset is created " +
+                    "MirraCloud > Manager and connect the project — the asset is created " +
                     "for you. Requests will fail until then.");
 
                 configuration = CreateInstance<Configuration>();
@@ -96,6 +102,54 @@ namespace MirraCloud
 
             configuration.ResolveEnvironment();
             return configuration;
+        }
+
+        /// <summary>
+        /// What the SDK runs with: a copy of the asset with <paramref name="options"/> applied over it. A copy, since
+        /// options applied to the asset itself would stay in it for the rest of the editor session, and the Manager
+        /// window would write them to disk on its next save.
+        /// </summary>
+        internal static Configuration Load(MirraCloudOptions options)
+        {
+            Configuration asset = Resources.Load<Configuration>(RESOURCES_PATH);
+
+            Configuration configuration = asset != null ? Instantiate(asset) : CreateInstance<Configuration>();
+            configuration.ApplyOverrides(options);
+
+            if (asset == null && configuration.HasProjectAndBranch == false)
+            {
+                Debug.LogError(
+                    "Mirra Cloud: Configuration.asset not found in any Resources folder. Open " +
+                    "MirraCloud > Manager and connect the project — the asset is created for you — or pass " +
+                    "ProjectId and Branch in MirraCloudOptions. Requests will fail until then.");
+            }
+
+            configuration.ResolveEnvironment();
+            return configuration;
+        }
+
+        /// <summary>
+        /// Overwrites each field <paramref name="options"/> sets — not null, empty or blank — with its trimmed value.
+        /// </summary>
+        internal void ApplyOverrides(MirraCloudOptions options)
+        {
+            if (options == null)
+            {
+                return;
+            }
+
+            ProjectId = Override(ProjectId, options.ProjectId);
+            Branch = Override(Branch, options.Branch);
+            Token = Override(Token, options.Token);
+            PlatformKey = Override(PlatformKey, options.PlatformKey);
+        }
+
+        private bool HasProjectAndBranch =>
+            string.IsNullOrWhiteSpace(ProjectId) == false && string.IsNullOrWhiteSpace(Branch) == false;
+
+        private static string Override(string current, string fromCode)
+        {
+            return string.IsNullOrWhiteSpace(fromCode) ? current : fromCode.Trim();
         }
     }
 }

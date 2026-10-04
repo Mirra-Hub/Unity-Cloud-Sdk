@@ -34,7 +34,7 @@ What the SDK gives you:
 - **Errors are values, not exceptions.** The SDK does not throw on network failures or HTTP errors —
   you read them from `Result.Error`.
 - **Set up from the editor.** Project, branch and token are picked in
-  `Tools → Mirra Cloud → Manager`; your service account key never reaches a build.
+  `MirraCloud → Manager`; your service account key never reaches a build.
 - **Platforms:** Windows / macOS / Linux, Android, iOS, WebGL.
 
 ---
@@ -51,7 +51,7 @@ Unity **2022.3 LTS** — the version the SDK is developed and tested against. Pl
 One URL. `Window → Package Manager → + → Add package from git URL…`:
 
 ```
-https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.10.1
+https://github.com/Mirra-Hub/Unity-Cloud-Sdk.git?path=/Packages/com.mirrahub.cloud-sdk#v0.11.0
 ```
 
 The package is self-contained: the native plugins it needs — a WebView (external sign-in providers
@@ -62,12 +62,12 @@ and purchase flows) and SQLite (the local asset cache) — ship inside it, along
 > inside this package. Adding them again gives you two copies of the same assemblies and native
 > libraries, and Unity refuses to build that.
 
-Check: the **Tools → Mirra Cloud** entry appears in Unity's top menu.
+Check: the **MirraCloud** menu appears in Unity's top menu.
 
 <details>
 <summary>Updating and pinning a version</summary>
 
-The `#v0.10.1` at the end of the URL is a release tag. Package Manager resolves it once, writes the
+The `#v0.11.0` at the end of the URL is a release tag. Package Manager resolves it once, writes the
 commit it resolved to into `Packages/packages-lock.json`, and from then on never asks the remote
 again — nothing updates on its own.
 
@@ -106,7 +106,7 @@ No code, done once — [full walkthrough ↗](https://mirrahub.com/documentation
    role or explicit project permissions) and issue a **key** — it is shown once.
 2. In the dashboard: **Platforms** → create the platform the game runs on (for example `android`)
    and switch on its sign-in methods. A project without a platform refuses every sign-in.
-3. In Unity: `Tools → Mirra Cloud → Manager` → paste the key into **Service Account Key** →
+3. In Unity: `MirraCloud → Manager` → paste the key into **Service Account Key** →
    **Connect**.
 4. Pick a **Project**, **Branch**, **Platform** and **API Token** (you can create a token right
    there with **+ Create Token**). The platform's key goes with every sign-in and analytics
@@ -170,6 +170,24 @@ public class CloudBootstrap : MonoBehaviour
 The singleton above is just an example. If your project already has a DI container (VContainer,
 Zenject), registering the instance as `IMirraCloudSdk` is nicer — see
 [Initialization ↗](https://mirrahub.com/documentation/mirra-cloud/sdk-initialize).
+
+#### Settings from code
+
+`Initialize` also takes `MirraCloudOptions` — the project, branch, API token and platform set from code over
+`Configuration.asset`. A field you set wins; one left `null` or empty comes from the asset. Useful when one build
+runs against several branches, or a game picks its platform at startup:
+
+```csharp
+sdk.Initialize(new MirraCloudOptions
+{
+    Branch = "qa",                 // the branch NAME, as the console shows it
+    PlatformKey = "yandex_games",
+});
+```
+
+The asset itself does not change, so `MirraCloud → Manager` keeps showing its own values. With `ProjectId` and
+`Branch` both set from code, the SDK runs without the asset at all. The options are read once: a second
+`Initialize` call is ignored.
 
 ---
 
@@ -335,8 +353,11 @@ How it is put together is covered in
 
 | Tool | Where | What for |
 | --- | --- | --- |
-| **Manager** | `Tools → Mirra Cloud → Manager` | sign in with a service account key, pick project / branch / platform / token, create tokens |
-| **Request Inspector** | `MirraCloud → Request Inspector` | tracing the SDK's HTTP requests while debugging |
+| **Manager** | `MirraCloud → Manager` | sign in with a service account key, pick project / branch / platform / token, create tokens |
+| **Request Inspector** | `MirraCloud → Debug → Request Inspector` | tracing the SDK's HTTP requests while debugging |
+| **Clear Sign-In** | `MirraCloud → Data → Clear Sign-In` | forget the editor's saved session and guest id, so the next guest sign-in makes a new player |
+| **Clear Cache** | `MirraCloud → Data → Clear Cache` | delete the downloaded assets; a standalone build of the same project on this machine shares the cache and downloads again too |
+| **Show Cache** | `MirraCloud → Data → Show Cache` | list the cached assets by project, branch, version and size; clear the cache or open its folder |
 | **Developer Settings** | `Create → Mirra Cloud → Developer Settings` in any `Resources` folder | optional asset: environment profiles that override the API hosts for local development |
 
 ---
@@ -352,7 +373,7 @@ Packages/com.mirrahub.cloud-sdk/     ← what UPM installs
 ├── package.json
 ├── Runtime/          SDK runtime: services, HTTP client, realtime, storage, logging
 │   └── External/     vendored SimpleWebTransport (WebSocket, WebGL included)
-├── Editor/           the Manager window and Request Inspector
+├── Editor/           the MirraCloud menu: Manager, Request Inspector, local data tools
 ├── ThirdParty/       vendored dependencies, unmodified upstream copies
 │   ├── UnityWebView/ net.gree.unity-webview 1.0.0 (zlib)
 │   └── SqliteNet/    com.gilzoide.sqlite-net 1.3.2 (MIT) + native SQLite

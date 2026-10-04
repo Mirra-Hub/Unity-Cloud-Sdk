@@ -22,7 +22,7 @@ namespace MirraCloud.Core.PromoCodes
         /// <summary>Redeem a promo code. Returns granted rewards/effects and a structured status.</summary>
         public AsyncOperation<RestApiResult<RedeemPromoCodeResponseDto>> RedeemAsync(string code)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/redeem";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/redeem";
             var dto = new RedeemPromoCodeRequestDto { code = code };
             return _restApi.PostAsync<RedeemPromoCodeResponseDto>(route, dto);
         }
@@ -31,7 +31,7 @@ namespace MirraCloud.Core.PromoCodes
         public AsyncOperation<RestApiResult<PromoHistoryItemDto[]>> GetHistoryAsync(int limit = 50)
         {
             string route =
-                $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/history?limit={limit}";
+                $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/history?limit={limit}";
             return _restApi.GetAsync<PromoHistoryItemDto[]>(route);
         }
 
@@ -39,7 +39,7 @@ namespace MirraCloud.Core.PromoCodes
         public AsyncOperation<RestApiResult<PromoActiveEffectDto[]>> GetActiveEffectsAsync()
         {
             string route =
-                $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/active-effects";
+                $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/active-effects";
             return _restApi.GetAsync<PromoActiveEffectDto[]>(route);
         }
 

@@ -641,7 +641,7 @@ namespace MirraCloud.Core.Errors
         public const string PlatformsPlatformNameDuplicate = "platforms.platform_name_duplicate";
         /// <summary>
         /// 403 on sign-in: the project has no platform yet. Create one in the console (Platforms), then pick it in
-        /// Tools > Mirra Cloud > Manager.
+        /// MirraCloud > Manager.
         /// </summary>
         public const string PlatformsPlatformNotConfigured = "platforms.platform_not_configured";
         public const string PlatformsPlatformNotFound = "platforms.platform_not_found";

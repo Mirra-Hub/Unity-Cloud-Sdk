@@ -31,7 +31,7 @@ namespace Plugins.MirraCloud.Core.Services.Challenges
 
         public AsyncOperation<RestApiResult<ChallengeConfigDto[]>> InitializeAsync()
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/challenges";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/challenges";
 
             var operation = _restApi.GetAsync<ChallengeConfigDto[]>(route);
 
@@ -55,13 +55,13 @@ namespace Plugins.MirraCloud.Core.Services.Challenges
 
         public AsyncOperation<RestApiResult<ChallengeConfigDto>> GetConfigAsync(string challengeId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/challenges/{challengeId}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/challenges/{challengeId}";
             return _restApi.GetAsync<ChallengeConfigDto>(route);
         }
 
         public AsyncOperation<RestApiResult<SubmitScoreResponseDto>> SubmitScoreAsync(string challengeId, double score, string playerName = null)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/challenges/{challengeId}/entries";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/challenges/{challengeId}/entries";
 
             var name = playerName ?? _playerAccountService?.PlayerAccountInfo?.Nickname ?? string.Empty;
 
@@ -76,43 +76,43 @@ namespace Plugins.MirraCloud.Core.Services.Challenges
 
         public AsyncOperation<RestApiResult> JoinAsync(string challengeId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/challenges/{challengeId}/entries/join";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/challenges/{challengeId}/entries/join";
             return _restApi.PostAsync(route, new { });
         }
 
         public AsyncOperation<RestApiResult> LeaveAsync(string challengeId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/challenges/{challengeId}/entries/leave";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/challenges/{challengeId}/entries/leave";
             return _restApi.PostAsync(route, new { });
         }
 
         public AsyncOperation<RestApiResult<ChallengeEntriesDto>> GetTopAsync(string challengeId, int entriesCount = 100)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/challenges/{challengeId}/entries/top/global?entriesCount={entriesCount}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/challenges/{challengeId}/entries/top/global?entriesCount={entriesCount}";
             return _restApi.GetAsync<ChallengeEntriesDto>(route);
         }
 
         public AsyncOperation<RestApiResult<ChallengeEntriesDto>> GetMyTopAsync(string challengeId, int entriesCount = 100)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/challenges/{challengeId}/entries/top?entriesCount={entriesCount}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/challenges/{challengeId}/entries/top?entriesCount={entriesCount}";
             return _restApi.GetAsync<ChallengeEntriesDto>(route);
         }
 
         public AsyncOperation<RestApiResult<ChallengeEntriesDto>> GetAroundPlayerAsync(string challengeId, int entriesRange = 10)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/challenges/{challengeId}/entries/around/global?entriesRange={entriesRange}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/challenges/{challengeId}/entries/around/global?entriesRange={entriesRange}";
             return _restApi.GetAsync<ChallengeEntriesDto>(route);
         }
 
         public AsyncOperation<RestApiResult<ChallengeEntryDto>> GetPlayerAsync(string challengeId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/challenges/{challengeId}/entries/global";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/challenges/{challengeId}/entries/global";
             return _restApi.GetAsync<ChallengeEntryDto>(route);
         }
 
         public AsyncOperation<RestApiResult<SubmitScoreResponseDto>> ClaimRewardAsync(string challengeId)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/challenges/{challengeId}/entries/claim";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/challenges/{challengeId}/entries/claim";
             return _restApi.PostAsync<SubmitScoreResponseDto>(route, new { });
         }
 

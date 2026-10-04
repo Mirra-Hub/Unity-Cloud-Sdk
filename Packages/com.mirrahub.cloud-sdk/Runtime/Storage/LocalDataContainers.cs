@@ -16,6 +16,13 @@ namespace MirraCloud.Core.Storage
         /// </summary>
         public const string PrefsInEditor = "mirracloud_prefs_editor";
 
+/// <summary>
+        /// Downloaded assets, one entry per asset of every project and branch the game has talked to. Shared by the
+        /// editor and a standalone build of the same project, like everything in <c>persistentDataPath</c>. Named
+        /// before the prefix was introduced; renaming it would orphan every cache already on disk.
+        /// </summary>
+        public const string AssetCache = "asset_cache";
+
 #if UNITY_EDITOR
         public const string Prefs = PrefsInEditor;
 #else

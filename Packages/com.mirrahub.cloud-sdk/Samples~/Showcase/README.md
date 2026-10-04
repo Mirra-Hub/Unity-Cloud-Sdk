@@ -20,7 +20,7 @@ https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer#1.1
 ```
 
 1. Import the sample: `Package Manager → Mirra Cloud SDK → Samples → Showcase → Import`.
-2. Connect the project: `Tools → Mirra Cloud → Manager`, including the **Platform** the build signs
+2. Connect the project: `MirraCloud → Manager`, including the **Platform** the build signs
    in on. That writes `Assets/MirraCloud/Resources/Configuration.asset`, which the sample reads like
    any other game.
 3. Open `Assets/Samples/Mirra Cloud SDK/<version>/Showcase/Scenes/MC_Showcase.unity` and press
@@ -62,7 +62,7 @@ the nav/overlay/toast hosts, gates on auth, and routes provider buttons to the S
 
 **Auth.** `AuthView` draws the sign-in methods of the build's platform — nothing is hard-coded:
 `ShowcaseApp` asks `Authentication.GetLoginMethodsAsync()` and the screen shows exactly what the
-platform (`Configuration.PlatformKey`, picked in `Tools → Mirra Cloud → Manager`) has switched on in
+platform (`Configuration.PlatformKey`, picked in `MirraCloud → Manager`) has switched on in
 the console, in its order. Guest / Device / Email / Username are buttons; OpenID, Google, Apple and
 Yandex ID are provider tiles that sign in **over an in-app WebView**
 (`LoginOpenIdAsync(method.IntegrationKey, new OpenIdLoginOptions { UseInAppWebView = true })`) — no

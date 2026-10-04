@@ -65,7 +65,7 @@ namespace MirraCloud.Core.ProfanityFilter
             }
 
             var route =
-                $"{SERVICE_ROUTE}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/check";
+                $"{SERVICE_ROUTE}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/check";
             var body = new ProfanityCheckRequest
             {
                 text = text,
