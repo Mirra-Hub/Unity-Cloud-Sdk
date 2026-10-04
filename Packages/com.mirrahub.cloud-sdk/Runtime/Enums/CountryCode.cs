@@ -1,7 +1,12 @@
 namespace MirraCloud.Core.Enums
 {
+    /// <summary>
+    /// Countries by name, the same numbers as the server's <c>Country</c>. <see cref="Undefined"/> is the zero value:
+    /// an account that never set a country used to read as Afghanistan.
+    /// </summary>
     public enum CountryCode
     {
+        Undefined,
         Afghanistan,
         AlandIslands,
         Albania,
