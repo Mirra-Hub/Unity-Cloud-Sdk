@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.10.1] — 2026-10-04
+
+### Changed
+
+- **Breaking:** `CountryCode.Undefined` is the zero value — an account that never set a country reads as
+  `Undefined`, not `Afghanistan`. Every other member moved up by one (`Afghanistan` is 1, `Zimbabwe` is 249), the same
+  numbers as the server's `Country`. Code that stored a `CountryCode` as a number must re-read it; code that compared
+  with `default(CountryCode)` to mean "not set" should compare with `CountryCode.Undefined`. Needs the Cloud backend
+  from 2026-10-04 or later: an older one sends the old numbers and never sends `Undefined`.
+
 ## [0.10.0] — 2026-09-28
 
 Leaderboards work end to end: boards are addressed by key, a submit returns the player's place, and the rewards

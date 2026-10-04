@@ -222,10 +222,10 @@ if (result != null && result.IsSuccess)
             {
                 traits.Add(new Chip(a.Age + " yrs"));
             }
-            // CountryCode and LanguageCode have no "unset" member — their zero values are
-            // Afghanistan and En. An account that never set a country would otherwise be labelled
-            // Afghanistan, so the default value is treated as "not set" and the hint says so.
-            bool countrySet = a.Country != default(CountryCode);
+            // An account that never set a country has CountryCode.Undefined. LanguageCode has no
+            // "unset" member — its zero value is En, so the default is treated as "not set" and the
+            // hint says so.
+            bool countrySet = a.Country != CountryCode.Undefined;
             bool languageSet = a.LanguageCode != default(LanguageCode);
             if (countrySet)
             {
@@ -235,11 +235,14 @@ if (result != null && result.IsSuccess)
             {
                 traits.Add(new Chip(a.LanguageCode.ToString()));
             }
-            if (!countrySet || !languageSet)
+            if (!countrySet)
             {
-                traits.Add(new InfoHint("Country and language are plain enums in the SDK with no "
-                    + "\"unset\" member, so their default values (" + default(CountryCode) + ", "
-                    + default(LanguageCode) + ") are shown as not set."));
+                traits.Add(new InfoHint("Country is not set (" + CountryCode.Undefined + ")."));
+            }
+            if (!languageSet)
+            {
+                traits.Add(new InfoHint("Language is a plain enum in the SDK with no \"unset\" member, "
+                    + "so its default value (" + default(LanguageCode) + ") is shown as not set."));
             }
             if (!string.IsNullOrEmpty(a.Status))
             {
