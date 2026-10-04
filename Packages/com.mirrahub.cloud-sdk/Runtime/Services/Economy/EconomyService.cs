@@ -31,7 +31,7 @@ namespace MirraCloud.Core.Economy
             _logger = logger;
         }
 
-        private string BasePath => $"{ControllerApi}/{_configuration.ProjectId}/branches/{_configuration.BranchId}";
+        private string BasePath => $"{ControllerApi}/{_configuration.ProjectId}/branches/{_configuration.Branch}";
 
         public AsyncOperation<RestApiResult<EconomyConfigsDto>> LoadConfigsAsync()
         {

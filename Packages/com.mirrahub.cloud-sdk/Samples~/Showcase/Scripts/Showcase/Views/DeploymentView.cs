@@ -83,7 +83,7 @@ if (op.Result.IsSuccess)
                 if (config != null)
                 {
                     project = config.ProjectId;
-                    branch = config.BranchId;
+                    branch = config.Branch;
                     url = config.Url;
                     platform = config.PlatformKey;
                 }
@@ -200,7 +200,7 @@ if (op.Result.IsSuccess)
             try
             {
                 var config = MirraCloud.Configuration.Load();
-                return config != null ? config.BranchId : null;
+                return config != null ? config.Branch : null;
             }
             catch (Exception)
             {

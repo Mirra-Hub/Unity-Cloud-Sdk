@@ -172,7 +172,7 @@ namespace MirraCloud.Core.CloudSave
 
         private string BuildDataRoute(string path, string[] keys = null, int? offset = null, int? limit = null)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/{path}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/{path}";
 
             var parts = new System.Collections.Generic.List<string>();
             if (keys != null && keys.Length > 0)
@@ -336,7 +336,7 @@ namespace MirraCloud.Core.CloudSave
 
         private string BuildFileRoute(string path)
         {
-            return $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/{path}";
+            return $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/{path}";
         }
 
         private List<IMultipartFormSection> BuildUploadForm(

@@ -84,15 +84,28 @@ namespace MirraCloud.Core
 
         public void Initialize()
         {
+            Initialize(null);
+        }
+
+        public void Initialize(MirraCloudOptions options)
+        {
             if (IsInitialized)
             {
+                if (options != null)
+                {
+                    // Silently running on another project or branch than the code asks for would be worse.
+                    UnityEngine.Debug.LogWarning("Mirra Cloud: the SDK is already initialized, so these options are ignored.");
+                }
+
                 return;
             }
 
             CoroutineRunner coroutineRunner = CoroutineRunner.CreateInstance();
 
-            Configuration configuration = Configuration.Load();
+            Configuration configuration = Configuration.Load(options);
             ILogger logger = new Core.Logger.Logger();
+
+            LogOptionsInUse(options, configuration, logger);
             IJsonService jsonService = new JsonService();
 
             RestApiClientOptions restApiClientOptions = new RestApiClientOptions()
@@ -167,6 +180,45 @@ namespace MirraCloud.Core
             }
 
             IsInitialized = true;
+        }
+
+        /// <summary>
+        /// Names what the game set from code, since the Manager window shows only the asset. The token's value never
+        /// reaches the log.
+        /// </summary>
+        private static void LogOptionsInUse(MirraCloudOptions options, Configuration configuration, ILogger logger)
+        {
+            if (options == null)
+            {
+                return;
+            }
+
+            List<string> set = new List<string>(4);
+
+            if (string.IsNullOrWhiteSpace(options.ProjectId) == false)
+            {
+                set.Add($"project {configuration.ProjectId}");
+            }
+
+            if (string.IsNullOrWhiteSpace(options.Branch) == false)
+            {
+                set.Add($"branch {configuration.Branch}");
+            }
+
+            if (string.IsNullOrWhiteSpace(options.PlatformKey) == false)
+            {
+                set.Add($"platform {configuration.PlatformKey}");
+            }
+
+            if (string.IsNullOrWhiteSpace(options.Token) == false)
+            {
+                set.Add("API token");
+            }
+
+            if (set.Count > 0)
+            {
+                logger.Log($"Mirra Cloud: set from code over Configuration.asset — {string.Join(", ", set)}.");
+            }
         }
 
         public void Dispose()

@@ -30,7 +30,7 @@ namespace MirraCloud.Core.CloudCode
                     RestApiResult<ExecuteCloudCodeResponseDto>.ValidationFail("scriptId is empty."));
             }
 
-            var route = $"{SERVICE_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.BranchId}/scripts/{scriptId}:execute";
+            var route = $"{SERVICE_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.Branch}/scripts/{scriptId}:execute";
             return _restApi.PostAsync<ExecuteCloudCodeResponseDto>(route, input ?? new Dictionary<string, object>());
         }
 

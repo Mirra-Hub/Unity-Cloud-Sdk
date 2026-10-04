@@ -28,7 +28,7 @@ namespace MirraCloud.Core.Entities
 
         public AsyncOperation<RestApiResult<EntitiesConfigsSnapshotDto>> GetConfigsAsync()
         {
-            string route = $"{ControllerApi}/{_configuration.ProjectId}/branches/{_configuration.BranchId}/configs";
+            string route = $"{ControllerApi}/{_configuration.ProjectId}/branches/{_configuration.Branch}/configs";
             var operation = _restApi.GetAsync<EntitiesConfigsSnapshotDto>(route);
 
             operation.UseCompleted(completed =>

@@ -22,6 +22,22 @@ Packages/com.mirrahub.cloud-sdk/
 
 Все сервисы используют паттерн `AsyncOperation<RestApiResult<T>>` для асинхронных вызовов.
 
+## Конфигурация и `Initialize`
+
+`MirraCloudSDK.Initialize()` берёт настройки из `Resources/Configuration.asset` (его пишет окно Manager): `ProjectId`,
+`Branch` (имя ветки), `Token`, `PlatformKey`. Перегрузка `Initialize(MirraCloudOptions)` задаёт любое из четырёх полей
+из кода поверх ассета:
+
+- заданное поле важнее ассета и обрезается по краям; `null`, `""` и пробелы значат «взять из ассета»;
+- SDK работает с **копией** ассета (`Configuration.Load(options)` → `Instantiate`). Сам ассет не меняется: иначе в
+  редакторе значения из кода остались бы в нём до конца сессии, а окно Manager записало бы их на диск;
+- без ассета SDK запускается молча, если код задал `ProjectId` и `Branch`; иначе в лог уходит ошибка «Configuration.asset not found»;
+- какие поля заданы из кода, SDK пишет одной строкой в лог при старте. Значение токена в лог не попадает;
+- повторный `Initialize` ничего не меняет; если ему переданы опции — предупреждение в лог;
+- публичный `Configuration.Load()` по-прежнему отдаёт сам ассет, без опций.
+
+Поле `Branch` до 0.11.0 называлось `BranchId`; `[FormerlySerializedAs("BranchId")]` сохраняет значение в старых ассетах.
+
 ## Сервисы
 
 ### Authentication & Accounts
@@ -115,7 +131,7 @@ SA Key → POST /api/cloud/public/auth/service-account/token → JWT + OrgId
 - **API Token** — выбор токена для SDK (авто-выбор первого доступного)
 - **Create Token** — создание Game-токена прямо из редактора (`POST /organizations/{orgId}/projects/{projectId}/tokens`)
 
-Выбранные значения сохраняются в `Configuration` ScriptableObject (`Resources/Configuration.asset`).
+Выбранные значения сохраняются в `Configuration` ScriptableObject (`Resources/Configuration.asset`). Значения, заданные игрой в `MirraCloudOptions`, окно не видит.
 
 ### EditorApiService API
 

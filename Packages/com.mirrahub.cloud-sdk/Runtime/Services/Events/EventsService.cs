@@ -91,7 +91,7 @@ namespace MirraCloud.Core.Events
         /// </param>
         public AsyncOperation<RestApiResult<ActiveEventsDto>> GetActiveEventsAsync(bool includeUnmatched = false)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}" +
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}" +
                            $"/events/active?includeUnmatched={(includeUnmatched ? "true" : "false")}";
 
             var operation = _restApi.GetAsync<ActiveEventsDto>(route);

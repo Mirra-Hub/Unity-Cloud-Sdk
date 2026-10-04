@@ -43,7 +43,7 @@ namespace MirraCloud.Core.Purchases
             _coroutineRunner = coroutineRunner;
         }
 
-        private string BasePath => $"{ControllerApi}/{_configuration.ProjectId}/branches/{_configuration.BranchId}";
+        private string BasePath => $"{ControllerApi}/{_configuration.ProjectId}/branches/{_configuration.Branch}";
 
         public void CloudSdkInitialize() { }
         public void CloudSdkDispose() { }

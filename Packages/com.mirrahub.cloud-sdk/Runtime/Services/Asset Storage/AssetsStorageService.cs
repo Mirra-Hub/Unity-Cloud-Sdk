@@ -55,7 +55,7 @@ namespace MirraCloud.Core.AssetsStorage
 
         public AsyncOperation<RestApiResult<AssetStorageStructureDto>> LoadConfigAsync()
         {
-            string route = AssetRoutes.Config(_configuration.ProjectId, _configuration.BranchId);
+            string route = AssetRoutes.Config(_configuration.ProjectId, _configuration.Branch);
 
             // The game gets its own operation: UseCompleted replaces the callback, so hooking the one returned
             // to the game would let the game's own UseCompleted drop the catalog — and with it the cache and
@@ -262,7 +262,7 @@ namespace MirraCloud.Core.AssetsStorage
                 address = ResolveKnownPath(address);
             }
 
-            string route = AssetRoutes.Download(_configuration.ProjectId, _configuration.BranchId, anonymous, address);
+            string route = AssetRoutes.Download(_configuration.ProjectId, _configuration.Branch, anonymous, address);
 
             // What the request answered, when one was made — a cache hit makes none. Its status and timing stay
             // on the result whatever came of the bytes.
@@ -376,7 +376,7 @@ namespace MirraCloud.Core.AssetsStorage
         // the key, switching branches would serve the other branch's file.
         private string CacheKeyFor(string stableId)
         {
-            return $"{_configuration.ProjectId}/{_configuration.BranchId}/{stableId}";
+            return $"{_configuration.ProjectId}/{_configuration.Branch}/{stableId}";
         }
 
         // Texture / Sprite: typed handler decodes on a worker thread and also exposes the raw

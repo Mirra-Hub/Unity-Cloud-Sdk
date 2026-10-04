@@ -171,6 +171,24 @@ The singleton above is just an example. If your project already has a DI contain
 Zenject), registering the instance as `IMirraCloudSdk` is nicer — see
 [Initialization ↗](https://mirrahub.com/documentation/mirra-cloud/sdk-initialize).
 
+#### Settings from code
+
+`Initialize` also takes `MirraCloudOptions` — the project, branch, API token and platform set from code over
+`Configuration.asset`. A field you set wins; one left `null` or empty comes from the asset. Useful when one build
+runs against several branches, or a game picks its platform at startup:
+
+```csharp
+sdk.Initialize(new MirraCloudOptions
+{
+    Branch = "qa",                 // the branch NAME, as the console shows it
+    PlatformKey = "yandex_games",
+});
+```
+
+The asset itself does not change, so `MirraCloud → Manager` keeps showing its own values. With `ProjectId` and
+`Branch` both set from code, the SDK runs without the asset at all. The options are read once: a second
+`Initialize` call is ignored.
+
 ---
 
 ## How calls work

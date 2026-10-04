@@ -37,7 +37,7 @@ namespace MirraCloud.Core.Leaderboard
             _jsonService = jsonService;
         }
 
-        private string BoardsPath => $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/leaderboards";
+        private string BoardsPath => $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/leaderboards";
 
         private string EntriesPath(string leaderboardKey) => $"{BoardsPath}/{Uri.EscapeDataString(leaderboardKey ?? string.Empty)}/entries";
 
@@ -175,7 +175,7 @@ namespace MirraCloud.Core.Leaderboard
                   "This route does not exist on the server.")]
         public AsyncOperation<RestApiResult<PlayerRewardsDto>> GetRewardsAsync(bool reset = true)
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/rewards?reset={reset.ToString().ToLowerInvariant()}";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/rewards?reset={reset.ToString().ToLowerInvariant()}";
             return _restApi.GetAsync<PlayerRewardsDto>(route);
         }
 
@@ -183,7 +183,7 @@ namespace MirraCloud.Core.Leaderboard
                   "This route does not exist on the server.")]
         public AsyncOperation<RestApiResult> SubmitRewardsAsync()
         {
-            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.BranchId}/rewards";
+            string route = $"{ControllerApi}/projects/{_configuration.ProjectId}/branches/{_configuration.Branch}/rewards";
             return _restApi.PostAsync(route, new { });
         }
 

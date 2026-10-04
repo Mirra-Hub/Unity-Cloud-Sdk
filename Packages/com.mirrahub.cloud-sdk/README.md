@@ -43,6 +43,9 @@ you and belongs to your project, not to the package. **It holds your project API
 commit it to a public repository.** The service account key lives only in `EditorPrefs` and never
 reaches a build.
 
+Any of the four can also be set from code, over the asset: `sdk.Initialize(new MirraCloudOptions { Branch = "qa" })`.
+A field left `null` or empty comes from the asset, and the asset itself does not change.
+
 ## Example
 
 `Package Manager → Mirra Cloud SDK → Samples → Showcase → Import`. The sample puts every service on
