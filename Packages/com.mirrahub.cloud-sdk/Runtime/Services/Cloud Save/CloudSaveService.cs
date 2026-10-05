@@ -32,16 +32,24 @@ namespace MirraCloud.Core.CloudSave
 
         #region Player Data (Own)
 
+        /// <summary>
+        /// Reads your data and refreshes <see cref="PlayerData"/>. A full read replaces it; a read narrowed by
+        /// <paramref name="keys"/>, <paramref name="offset"/> or <paramref name="limit"/> only updates the keys it
+        /// covers, so the rest of the cache stays as it was.
+        /// </summary>
         public AsyncOperation<RestApiResult<DataItemResponse[]>> GetPlayerDataAsync(string[] keys = null, int? offset = null, int? limit = null)
         {
             string route = BuildDataRoute("player/data", keys, offset, limit);
             var request = _restApi.GetAsync<DataItemResponse[]>(route);
+            bool fullRead = (keys == null || keys.Length == 0) && !offset.HasValue && !limit.HasValue;
 
             request.UseCompleted(completed =>
             {
                 if (completed.Result.IsSuccess && completed.Result.Data != null)
                 {
-                    PlayerData = new PlayerData(completed.Result.Data);
+                    PlayerData = fullRead || PlayerData == null
+                        ? new PlayerData(completed.Result.Data)
+                        : PlayerData.Merge(completed.Result.Data, offset.HasValue || limit.HasValue ? null : keys);
                 }
             });
 
@@ -94,6 +102,11 @@ namespace MirraCloud.Core.CloudSave
             return _restApi.GetAsync<DataItemResponse[]>(route);
         }
 
+        /// <summary>
+        /// Changes global data. Global data is published from the console or Cloud Code: a player cannot create a
+        /// global key, and can change or delete only keys whose write mask includes <see cref="AccessMask.Other"/>.
+        /// Anything else fails with <c>cloud_saves.access_denied</c>.
+        /// </summary>
         public AsyncOperation<RestApiResult> SaveGlobalDataAsync(CloudSaveDataRequest data)
         {
             string route = BuildDataRoute("global/data");
@@ -146,10 +159,20 @@ namespace MirraCloud.Core.CloudSave
             return _restApi.PostAsync<QueryIndexResponse>(route, request);
         }
 
+        /// <summary>
+        /// Finds custom entities (e.g. rooms) by an index — across all of them, never global data. Only entities
+        /// whose indexed keys are readable by other players are found.
+        /// </summary>
+        public AsyncOperation<RestApiResult<QueryIndexResponse>> QueryCustomDataAsync(QueryIndexRequest request)
+        {
+            string route = BuildDataRoute("custom/data/query");
+            return _restApi.PostAsync<QueryIndexResponse>(route, request);
+        }
+
+        [Obsolete("A search covers every custom entity; customId was never applied. Use QueryCustomDataAsync(request).")]
         public AsyncOperation<RestApiResult<QueryIndexResponse>> QueryCustomDataAsync(string customId, QueryIndexRequest request)
         {
-            string route = BuildDataRoute($"custom/{customId}/data/query");
-            return _restApi.PostAsync<QueryIndexResponse>(route, request);
+            return QueryCustomDataAsync(request);
         }
 
         #endregion
@@ -178,7 +201,7 @@ namespace MirraCloud.Core.CloudSave
             if (keys != null && keys.Length > 0)
             {
                 foreach (var k in keys)
-                    parts.Add("keys=" + UnityWebRequest.EscapeURL(k));
+                    parts.Add("keys=" + Uri.EscapeDataString(k));
             }
             if (offset.HasValue) parts.Add("offset=" + offset.Value);
             if (limit.HasValue) parts.Add("limit=" + limit.Value);
@@ -197,7 +220,7 @@ namespace MirraCloud.Core.CloudSave
             Dictionary<string, string> meta = null,
             AccessMask? readMask = null, AccessMask? writeMask = null)
         {
-            string route = BuildFileRoute($"player/files/{UnityWebRequest.EscapeURL(key)}");
+            string route = BuildFileRoute($"player/files/{EscapeKey(key)}");
             var formSections = BuildUploadForm(fileData, fileName, mimeType, meta, readMask, writeMask);
             var config = new RestRequestConfig { MultipartFormSections = formSections };
             return _restApi.PutAsync<FileItemResponse>(route, null, config);
@@ -205,26 +228,26 @@ namespace MirraCloud.Core.CloudSave
 
         public AsyncOperation<RestApiResult<FileItemResponse>> GetPlayerFileAsync(string key)
         {
-            string route = BuildFileRoute($"player/files/{UnityWebRequest.EscapeURL(key)}");
+            string route = BuildFileRoute($"player/files/{EscapeKey(key)}");
             return _restApi.GetAsync<FileItemResponse>(route);
         }
 
         public AsyncOperation<RestApiResult<FileUrlResponse>> GetPlayerFileUrlAsync(string key)
         {
-            string route = BuildFileRoute($"player/files/{UnityWebRequest.EscapeURL(key)}/url");
+            string route = BuildFileRoute($"player/files/{EscapeKey(key)}/url");
             return _restApi.GetAsync<FileUrlResponse>(route);
         }
 
         public AsyncOperation<RestApiResult> DeletePlayerFileAsync(string key)
         {
-            string route = BuildFileRoute($"player/files/{UnityWebRequest.EscapeURL(key)}");
+            string route = BuildFileRoute($"player/files/{EscapeKey(key)}");
             return _restApi.DeleteAsync(route);
         }
 
         public AsyncOperation<RestApiResult<FileItemResponse>> UpdatePlayerFileMetaAsync(
             string key, Dictionary<string, string> meta)
         {
-            string route = BuildFileRoute($"player/files/{UnityWebRequest.EscapeURL(key)}/meta");
+            string route = BuildFileRoute($"player/files/{EscapeKey(key)}/meta");
             var body = new UpdateFileMetaRequest { meta = meta };
             return _restApi.PatchAsync<FileItemResponse>(route, body);
         }
@@ -232,7 +255,7 @@ namespace MirraCloud.Core.CloudSave
         public AsyncOperation<RestApiResult<FileItemResponse>> UpdatePlayerFileContentAsync(
             string key, byte[] fileData, string fileName, string mimeType)
         {
-            string route = BuildFileRoute($"player/files/{UnityWebRequest.EscapeURL(key)}/content");
+            string route = BuildFileRoute($"player/files/{EscapeKey(key)}/content");
             var formSections = new List<IMultipartFormSection>
             {
                 new MultipartFormFileSection("file", fileData, fileName, mimeType)
@@ -247,20 +270,20 @@ namespace MirraCloud.Core.CloudSave
 
         public AsyncOperation<RestApiResult<FileItemResponse>> GetOtherPlayerFileAsync(string playerProfileId, string key)
         {
-            string route = BuildFileRoute($"players/{playerProfileId}/files/{UnityWebRequest.EscapeURL(key)}");
+            string route = BuildFileRoute($"players/{playerProfileId}/files/{EscapeKey(key)}");
             return _restApi.GetAsync<FileItemResponse>(route);
         }
 
         public AsyncOperation<RestApiResult<FileUrlResponse>> GetOtherPlayerFileUrlAsync(string playerProfileId, string key)
         {
-            string route = BuildFileRoute($"players/{playerProfileId}/files/{UnityWebRequest.EscapeURL(key)}/url");
+            string route = BuildFileRoute($"players/{playerProfileId}/files/{EscapeKey(key)}/url");
             return _restApi.GetAsync<FileUrlResponse>(route);
         }
 
         public AsyncOperation<RestApiResult<FileItemResponse>> UpdateOtherPlayerFileMetaAsync(
             string playerProfileId, string key, Dictionary<string, string> meta)
         {
-            string route = BuildFileRoute($"players/{playerProfileId}/files/{UnityWebRequest.EscapeURL(key)}/meta");
+            string route = BuildFileRoute($"players/{playerProfileId}/files/{EscapeKey(key)}/meta");
             var body = new UpdateFileMetaRequest { meta = meta };
             return _restApi.PatchAsync<FileItemResponse>(route, body);
         }
@@ -268,7 +291,7 @@ namespace MirraCloud.Core.CloudSave
         public AsyncOperation<RestApiResult<FileItemResponse>> UpdateOtherPlayerFileContentAsync(
             string playerProfileId, string key, byte[] fileData, string fileName, string mimeType)
         {
-            string route = BuildFileRoute($"players/{playerProfileId}/files/{UnityWebRequest.EscapeURL(key)}/content");
+            string route = BuildFileRoute($"players/{playerProfileId}/files/{EscapeKey(key)}/content");
             var formSections = new List<IMultipartFormSection>
             {
                 new MultipartFormFileSection("file", fileData, fileName, mimeType)
@@ -281,12 +304,16 @@ namespace MirraCloud.Core.CloudSave
 
         #region Global Files
 
+        /// <summary>
+        /// Global files are published from the console: a player cannot create one and can replace or delete only
+        /// files whose write mask includes <see cref="AccessMask.Other"/>.
+        /// </summary>
         public AsyncOperation<RestApiResult<FileItemResponse>> UploadGlobalFileAsync(
             string key, byte[] fileData, string fileName, string mimeType,
             Dictionary<string, string> meta = null,
             AccessMask? readMask = null, AccessMask? writeMask = null)
         {
-            string route = BuildFileRoute($"global/files/{UnityWebRequest.EscapeURL(key)}");
+            string route = BuildFileRoute($"global/files/{EscapeKey(key)}");
             var formSections = BuildUploadForm(fileData, fileName, mimeType, meta, readMask, writeMask);
             var config = new RestRequestConfig { MultipartFormSections = formSections };
             return _restApi.PutAsync<FileItemResponse>(route, null, config);
@@ -294,26 +321,26 @@ namespace MirraCloud.Core.CloudSave
 
         public AsyncOperation<RestApiResult<FileItemResponse>> GetGlobalFileAsync(string key)
         {
-            string route = BuildFileRoute($"global/files/{UnityWebRequest.EscapeURL(key)}");
+            string route = BuildFileRoute($"global/files/{EscapeKey(key)}");
             return _restApi.GetAsync<FileItemResponse>(route);
         }
 
         public AsyncOperation<RestApiResult<FileUrlResponse>> GetGlobalFileUrlAsync(string key)
         {
-            string route = BuildFileRoute($"global/files/{UnityWebRequest.EscapeURL(key)}/url");
+            string route = BuildFileRoute($"global/files/{EscapeKey(key)}/url");
             return _restApi.GetAsync<FileUrlResponse>(route);
         }
 
         public AsyncOperation<RestApiResult> DeleteGlobalFileAsync(string key)
         {
-            string route = BuildFileRoute($"global/files/{UnityWebRequest.EscapeURL(key)}");
+            string route = BuildFileRoute($"global/files/{EscapeKey(key)}");
             return _restApi.DeleteAsync(route);
         }
 
         public AsyncOperation<RestApiResult<FileItemResponse>> UpdateGlobalFileMetaAsync(
             string key, Dictionary<string, string> meta)
         {
-            string route = BuildFileRoute($"global/files/{UnityWebRequest.EscapeURL(key)}/meta");
+            string route = BuildFileRoute($"global/files/{EscapeKey(key)}/meta");
             var body = new UpdateFileMetaRequest { meta = meta };
             return _restApi.PatchAsync<FileItemResponse>(route, body);
         }
@@ -321,7 +348,7 @@ namespace MirraCloud.Core.CloudSave
         public AsyncOperation<RestApiResult<FileItemResponse>> UpdateGlobalFileContentAsync(
             string key, byte[] fileData, string fileName, string mimeType)
         {
-            string route = BuildFileRoute($"global/files/{UnityWebRequest.EscapeURL(key)}/content");
+            string route = BuildFileRoute($"global/files/{EscapeKey(key)}/content");
             var formSections = new List<IMultipartFormSection>
             {
                 new MultipartFormFileSection("file", fileData, fileName, mimeType)
@@ -333,6 +360,15 @@ namespace MirraCloud.Core.CloudSave
         #endregion
 
         #region Private Helpers
+
+        /// <summary>
+        /// A key is a path segment: UnityWebRequest.EscapeURL encodes a space as '+', which the server keeps as a
+        /// literal plus, so "my save" was stored as "my+save".
+        /// </summary>
+        private static string EscapeKey(string key)
+        {
+            return Uri.EscapeDataString(key);
+        }
 
         private string BuildFileRoute(string path)
         {
