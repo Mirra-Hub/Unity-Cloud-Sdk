@@ -25,12 +25,11 @@ namespace MirraCloud.Example.Showcase
     }
 
     /// <summary>
-    /// Renders the code drawer: every SDK call a screen makes (with a copy button), followed by the
-    /// live <see cref="RequestLog"/> so the snippet and the HTTP traffic it produced sit side by side.
+    /// Renders the code drawer: every SDK call a screen makes, each with a copy button.
     /// </summary>
     public static class SdkCallDrawer
     {
-        public static VisualElement Build(IEnumerable<SdkCall> calls, RequestLog log)
+        public static VisualElement Build(IEnumerable<SdkCall> calls)
         {
             var root = new VisualElement();
             root.AddToClassList("sc-callbook");
@@ -52,13 +51,6 @@ namespace MirraCloud.Example.Showcase
             if (shown == 0)
             {
                 root.Add(EmptyState.Build(LucideIcon.Code, "No SDK calls described for this screen"));
-            }
-
-            if (log != null)
-            {
-                var panel = log.BuildPanel();
-                panel.style.marginTop = 6f;
-                root.Add(panel);
             }
 
             return root;

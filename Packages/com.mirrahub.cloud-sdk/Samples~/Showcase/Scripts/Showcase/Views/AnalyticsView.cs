@@ -450,8 +450,7 @@ await op.Task();";
             var tags = Tags(values.Text("tags"));
             Sdk.Analytics.EnqueueEvent(name, parameters, tags);
 
-            // Nothing to await and nothing to log in the request journal: no request was made. The
-            // row is marked buffered so it is not mistaken for a delivered event.
+            // Nothing to await: no request was made. The row is marked buffered so it is not mistaken for a delivered event.
             _queued++;
             Bump(name);
             Push(new Shot
@@ -816,10 +815,6 @@ await op.Task();";
 
         private Outcome Fold(RestApiResult result, string label)
         {
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result);
-            }
             if (result != null && result.IsSuccess)
             {
                 return new Outcome { Ok = true, Ms = result.DurationMs };

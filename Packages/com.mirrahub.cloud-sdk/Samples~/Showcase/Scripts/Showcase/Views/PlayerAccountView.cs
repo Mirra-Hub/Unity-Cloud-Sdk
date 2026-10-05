@@ -159,9 +159,7 @@ if (result != null && result.IsSuccess)
                 BuildAccount,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Account",
-                    Snippet = AccountSnippet,
                     ServiceName = "Player Account",
                     AllowRetry = true,
                 });
@@ -333,9 +331,7 @@ if (result != null && result.IsSuccess)
                 p => p == null || p.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Profiles",
-                    Snippet = ProfilesSnippet,
                     ServiceName = "Player Account",
                     AllowRetry = true,
                     // Same columns as the populated table: an account without sub-profiles still
@@ -500,10 +496,6 @@ if (result != null && result.IsSuccess)
             var result = op.Result;
 
             _presenceInFlight.Remove(profileId);
-            if (Log != null && result != null)
-            {
-                Log.Record("Profile presence", result, PresenceSnippet);
-            }
 
             // A failure is cached as "unknown" deliberately: leaving the id out would make the next
             // re-render (one sort click) fire the same failing request again, once per row.
@@ -694,11 +686,6 @@ if (result != null && result.IsSuccess)
             var op = Sdk.PlayerAccount.SelectProfileAsync(p.Id);
             await op.Task();
             var result = op.Result;
-
-            if (Log != null && result != null)
-            {
-                Log.Record("Select profile", result, SelectSnippet);
-            }
 
             if (result == null || !result.IsSuccess)
             {

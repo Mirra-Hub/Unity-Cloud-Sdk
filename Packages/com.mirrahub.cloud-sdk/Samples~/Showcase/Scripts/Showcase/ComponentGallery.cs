@@ -315,7 +315,7 @@ namespace MirraCloud.Example.Showcase
             wrap.Add(SdkCallDrawer.Build(new[]
             {
                 new SdkCall("Load the leaderboard", "var op = sdk.Leaderboard.GetLeaderboardTopEntries(\"weekly\");\nawait op.Task();", "Top entries of the board with the key \"weekly\"."),
-            }, null));
+            }));
             return wrap;
         }
 

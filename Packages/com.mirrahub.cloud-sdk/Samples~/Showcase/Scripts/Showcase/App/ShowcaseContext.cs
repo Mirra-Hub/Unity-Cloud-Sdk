@@ -12,14 +12,13 @@ namespace MirraCloud.Example.Showcase
     public sealed class ShowcaseContext
     {
         public ShowcaseContext(IMirraCloudSdk sdk, RemoteImageLoader images, Toasts toasts,
-                               Popup popup, Nav nav, RequestLog log)
+                               Popup popup, Nav nav)
         {
             Sdk = sdk;
             Images = images;
             Toasts = toasts;
             Popup = popup;
             Nav = nav;
-            Log = log;
         }
 
         /// <summary>The SDK facade every view calls into.</summary>
@@ -36,8 +35,5 @@ namespace MirraCloud.Example.Showcase
 
         /// <summary>Screen stack, so a view can push a nested screen instead of a dialog.</summary>
         public Nav Nav { get; }
-
-        /// <summary>Journal of SDK traffic; views record every await into it.</summary>
-        public RequestLog Log { get; }
     }
 }

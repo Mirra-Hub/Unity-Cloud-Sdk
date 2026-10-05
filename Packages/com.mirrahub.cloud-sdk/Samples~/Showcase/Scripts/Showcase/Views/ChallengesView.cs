@@ -175,9 +175,7 @@ if (op.Result.IsSuccess)
                 isEmpty: c => c == null || c.Length == 0,
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Challenge configs",
-                    Snippet = ConfigsSnippet,
                     ServiceName = "Challenge",
                     // the challenge *configuration* call, so a 404 really does mean
                     // "no challenges exist in this project"
@@ -396,11 +394,6 @@ if (op.Result.IsSuccess)
                 Debug.LogWarning("[Showcase] Challenges: reading the player's entry failed: " + e.Message);
             }
 
-            if (result != null && Ctx.Log != null)
-            {
-                Ctx.Log.Record("Challenges: my entry", result, MeSnippet);
-            }
-
             pane.Me = result != null && result.IsSuccess ? result.Data : null;
             pane.MeLoaded = true;
             RenderKpis(pane);
@@ -555,9 +548,7 @@ if (op.Result.IsSuccess)
                 isEmpty: data => data == null || data.entries == null || data.entries.Length == 0,
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = label,
-                    Snippet = snippet,
                     ServiceName = "Challenge",
                     AllowRetry = true,
                     EmptyView = () => EmptySlice(pane, emptyMessage, offerJoin),
@@ -1412,10 +1403,6 @@ if (op.Result.IsSuccess)
 
         private Outcome Fold(RestApiResult result, string label)
         {
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result);
-            }
             if (result != null && result.IsSuccess)
             {
                 return new Outcome { Ok = true };

@@ -13,9 +13,10 @@ using UnityEngine.UIElements;
 namespace MirraCloud.Example.Showcase
 {
     /// <summary>
-    /// Friends screen: the list with presence, both directions of pending requests, and every
-    /// operation the service exposes — accept, reject, revoke, unfriend, block, delete, and their
-    /// bulk variants.
+    /// Friends screen laid out like a game's: the friend list with presence and Unfriend / Block on
+    /// each row, an "Add friend" button in the toolbar, and the requests in both directions with
+    /// their answers on the rows and "all at once" buttons above — every operation the service has,
+    /// bulk variants included, sits where a player would look for it.
     /// <para>
     /// This service has no player search, so ids are typed in. That is not a gap in the screen: a
     /// game gets the id from its own social flow (a nearby-players list, an invite link, a match
@@ -92,21 +93,24 @@ await sdk.Friends.BanManyAsync(ids).Task();";
 
             DeclareCall(new SdkCall("Read the friend list", FriendsSnippet));
             DeclareCall(new SdkCall("Read pending requests", RequestsSnippet));
-            DeclareCall(new SdkCall("Send a request", SendSnippet));
+            DeclareCall(new SdkCall("Send a request", SendSnippet,
+                "Add friend takes one id or several, comma-separated — several go out in one call."));
             DeclareCall(new SdkCall("Accept, reject, revoke", AnswerSnippet,
-                "Incoming requests are answered by the sender's id, outgoing ones by the target's."));
+                "Incoming requests are answered by the sender's id, outgoing ones by the target's. "
+                + "The \"all\" buttons above each list are the bulk variants."));
             DeclareCall(new SdkCall("Unfriend, block, delete", RemoveSnippet,
-                "Three separate endings — the screen keeps them separate too."));
+                "Unfriend and Block sit on a friend's row, Block also on an incoming request; "
+                + "Remove on an answered request deletes the relation."));
 
             UseToolbar()
                 .WithSearch("Filter friends by nickname or id", OnSearch)
                 .WithSpacer()
+                .WithAction("Add friend", LucideIcon.UserPlus, OpenAddFriend, true)
                 .WithRefresh(Refresh);
 
             _tabs = UseTabs();
             _tabs.Add("Friends", LucideIcon.Users, BuildFriends)
-                .Add("Requests", LucideIcon.UserPlus, BuildRequests)
-                .Add("Actions", LucideIcon.Sparkles, BuildActions);
+                .Add("Requests", LucideIcon.Inbox, BuildRequests);
         }
 
         private void OnSearch(string text)
@@ -128,15 +132,13 @@ await sdk.Friends.BanManyAsync(ids).Task();";
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Friends",
-                    Snippet = FriendsSnippet,
                     ServiceName = "Friends",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Table(FriendColumns(),
-                        "No friends yet. Send a request from the Actions tab — you need the other "
-                        + "player's id, which a game normally already has from its own social flow.",
-                        3, "Send a request", () => _tabs.Select(2)),
+                        "No friends yet. Add one by id — a game normally already has it from its own "
+                        + "social flow, since this service has no player search.",
+                        3, "Add friend", OpenAddFriend),
                 });
             return slot;
         }
@@ -157,11 +159,10 @@ await sdk.Friends.BanManyAsync(ids).Task();";
                 }
             }
 
+            // Request counts are not shown here: they are only known once the Requests tab has loaded.
             col.Add(new KpiRow()
                 .Add("Friends", LucideIcon.Users, _friends.Count.ToString())
-                .Add("Online now", LucideIcon.Wifi, online.ToString(), null, online > 0)
-                .Add("Incoming", LucideIcon.UserPlus, _incoming.Count.ToString())
-                .Add("Outgoing", LucideIcon.Send, _outgoing.Count.ToString()));
+                .Add("Online now", LucideIcon.Wifi, online.ToString(), null, online > 0));
 
             var shown = Filter(_friends);
             col.Add(new SectionHeader("Friend list", shown.Count + " of " + _friends.Count));
@@ -291,7 +292,7 @@ await sdk.Friends.BanManyAsync(ids).Task();";
                         unfriend.AddToClassList("sc-btn");
                         row.Add(unfriend);
 
-                        var block = new Button(() => ConfirmBlock(player)) { text = "Block" };
+                        var block = new Button(() => ConfirmBlock(player.PlayerId, NameOf(player))) { text = "Block" };
                         block.AddToClassList("sc-btn");
                         block.AddToClassList("sc-btn--danger");
                         row.Add(block);
@@ -342,16 +343,14 @@ await sdk.Friends.BanManyAsync(ids).Task();";
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Incoming requests",
-                    Snippet = RequestsSnippet,
                     ServiceName = "Friends",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.Inbox, "Nobody is waiting",
-                        "Requests other players send you land here, with Accept and Reject on each row."),
+                        "Requests other players send you land here, with Accept, Reject and Block on each row."),
                 });
 
-            col.Add(new SectionHeader("Outgoing"));
+            col.Add(new SectionHeader("Sent"));
             var outgoing = new VisualElement();
             col.Add(outgoing);
             ViewBind.Load(
@@ -365,63 +364,140 @@ await sdk.Friends.BanManyAsync(ids).Task();";
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Outgoing requests",
-                    Snippet = RequestsSnippet,
                     ServiceName = "Friends",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.Send, "No requests sent",
                         "Requests you send sit here until the other player answers, and can be revoked "
                         + "from the row.",
-                        "Send a request", () => _tabs.Select(2)),
+                        "Add friend", OpenAddFriend),
                 });
 
             return col;
         }
 
+        /// <summary>
+        /// One direction of requests: the "all at once" buttons (the bulk calls) above the rows, then a
+        /// row per request with the answers that make sense for its direction and status.
+        /// </summary>
         private VisualElement BuildRequestList(GetFriendRequestDto[] requests, bool inbound)
         {
-            var list = new VisualElement();
+            // An inbound request is keyed by who sent it; an outbound one by who it went to.
+            var pending = new List<string>();
+            var answered = new List<string>();
             foreach (var request in requests)
             {
-                // An inbound request is keyed by who sent it; an outbound one by who it went to.
-                string otherId = inbound ? request.SourcePlayerId : request.TargetPlayerId;
-
-                var row = new ListRow();
-                row.SetLead(new Avatar(34f).SetInitialsFor(otherId));
-                row.SetTitle(Fmt.Id(otherId, 14));
-                row.SetSubtitle((inbound ? "sent " : "waiting since ") + Fmt.Date(request.CreatedAt));
-
-                var trailing = new VisualElement();
-                trailing.AddToClassList("sc-chip-row");
-                trailing.Add(new Chip(request.Status.ToString(), StatusTone(request.Status)));
-                trailing.Add(new CopyButton(otherId, Toasts, "id"));
-
+                string otherId = OtherId(request, inbound);
                 if (request.Status == FriendRequestStatus.Pending)
                 {
-                    if (inbound)
-                    {
-                        var accept = new Button(() => Answer(otherId, RequestAction.Accept)) { text = "Accept" };
-                        accept.AddToClassList("sc-btn");
-                        accept.AddToClassList("sc-btn--primary");
-                        trailing.Add(accept);
-
-                        var reject = new Button(() => Answer(otherId, RequestAction.Reject)) { text = "Reject" };
-                        reject.AddToClassList("sc-btn");
-                        trailing.Add(reject);
-                    }
-                    else
-                    {
-                        var revoke = new Button(() => Answer(otherId, RequestAction.Revoke)) { text = "Revoke" };
-                        revoke.AddToClassList("sc-btn");
-                        trailing.Add(revoke);
-                    }
+                    pending.Add(otherId);
                 }
-
-                row.SetTrailing(trailing);
-                list.Add(row);
+                else if (IsClosed(request.Status))
+                {
+                    answered.Add(otherId);
+                }
             }
-            return list;
+
+            var col = new VisualElement();
+            var bulk = new VisualElement();
+            bulk.AddToClassList("sc-row-actions");
+            bulk.AddToClassList("sc-fr-bulk");
+            if (pending.Count > 1)
+            {
+                if (inbound)
+                {
+                    bulk.Add(Btn("Accept all", "sc-btn--primary",
+                        () => Bulk(Sdk.Friends.AcceptManyAsync(pending.ToArray()), "Accepted " + pending.Count + " requests", "Accept all")));
+                    bulk.Add(Btn("Reject all", null,
+                        () => Bulk(Sdk.Friends.RejectManyAsync(pending.ToArray()), "Rejected " + pending.Count + " requests", "Reject all")));
+                    bulk.Add(Btn("Block all", "sc-btn--danger", () => ConfirmBlockAll(pending.ToArray())));
+                }
+                else
+                {
+                    bulk.Add(Btn("Revoke all", null,
+                        () => Bulk(Sdk.Friends.RevokeManyAsync(pending.ToArray()), "Revoked " + pending.Count + " requests", "Revoke all")));
+                }
+            }
+            if (answered.Count > 1)
+            {
+                bulk.Add(Btn("Remove answered", null,
+                    () => Bulk(Sdk.Friends.DeleteManyAsync(answered.ToArray()), "Removed " + answered.Count + " requests", "Remove answered")));
+            }
+            if (bulk.childCount > 0)
+            {
+                col.Add(bulk);
+            }
+
+            foreach (var request in requests)
+            {
+                col.Add(RequestRow(request, inbound));
+            }
+            return col;
+        }
+
+        private VisualElement RequestRow(GetFriendRequestDto request, bool inbound)
+        {
+            string otherId = OtherId(request, inbound);
+
+            var row = new ListRow();
+            row.SetLead(new Avatar(34f).SetInitialsFor(otherId));
+            row.SetTitle(Fmt.Id(otherId, 14));
+            row.SetSubtitle((!inbound && request.Status == FriendRequestStatus.Pending ? "waiting since " : "sent ")
+                           + Fmt.Date(request.CreatedAt));
+
+            var trailing = new VisualElement();
+            trailing.AddToClassList("sc-row-actions");
+            trailing.AddToClassList("sc-fr-request__actions");
+            if (request.Status != FriendRequestStatus.Pending)
+            {
+                trailing.Add(new Chip(request.Status.ToString(), StatusTone(request.Status)));
+            }
+            trailing.Add(new CopyButton(otherId, Toasts, "id"));
+
+            if (request.Status == FriendRequestStatus.Pending)
+            {
+                if (inbound)
+                {
+                    trailing.Add(Btn("Accept", "sc-btn--primary", () => Answer(otherId, RequestAction.Accept)));
+                    trailing.Add(Btn("Reject", null, () => Answer(otherId, RequestAction.Reject)));
+                    trailing.Add(Btn("Block", "sc-btn--danger", () => ConfirmBlock(otherId, Fmt.Id(otherId, 14))));
+                }
+                else
+                {
+                    trailing.Add(Btn("Revoke", null, () => Answer(otherId, RequestAction.Revoke)));
+                }
+            }
+            else if (IsClosed(request.Status))
+            {
+                var remove = Btn("Remove", null, () => Answer(otherId, RequestAction.Delete));
+                remove.tooltip = "Deletes the request from both players' lists";
+                trailing.Add(remove);
+            }
+
+            row.SetTrailing(trailing);
+            return row;
+        }
+
+        private static string OtherId(GetFriendRequestDto request, bool inbound)
+        {
+            return inbound ? request.SourcePlayerId : request.TargetPlayerId;
+        }
+
+        /// <summary>A request nobody can answer any more — the only kind worth clearing away.</summary>
+        private static bool IsClosed(FriendRequestStatus status)
+        {
+            return status == FriendRequestStatus.Rejected || status == FriendRequestStatus.Cancelled;
+        }
+
+        private static Button Btn(string text, string tone, Action onClick)
+        {
+            var btn = new Button(onClick) { text = text };
+            btn.AddToClassList("sc-btn");
+            if (!string.IsNullOrEmpty(tone))
+            {
+                btn.AddToClassList(tone);
+            }
+            return btn;
         }
 
         private enum RequestAction
@@ -429,6 +505,7 @@ await sdk.Friends.BanManyAsync(ids).Task();";
             Accept,
             Reject,
             Revoke,
+            Delete,
         }
 
         private async void Answer(string playerId, RequestAction action)
@@ -445,27 +522,37 @@ await sdk.Friends.BanManyAsync(ids).Task();";
                     op = Sdk.Friends.RejectAsync(playerId);
                     done = "Request rejected";
                     break;
+                case RequestAction.Delete:
+                    op = Sdk.Friends.DeleteAsync(playerId);
+                    done = "Request removed";
+                    break;
                 default:
                     op = Sdk.Friends.RevokeAsync(playerId);
                     done = "Request revoked";
                     break;
             }
+            await Write(op, done, action.ToString());
+        }
 
-            var outcome = await Await(op, "Friends · " + action);
+        private async void Bulk(AsyncOperation<RestApiResult> op, string done, string label)
+        {
+            await Write(op, done, label);
+        }
+
+        /// <summary>
+        /// Runs one write, toasts the outcome and drops both panes: accepting changes the friend
+        /// list, unfriending or blocking can change the requests.
+        /// </summary>
+        private async Task Write(AsyncOperation<RestApiResult> op, string done, string label)
+        {
+            var outcome = await Await(op, "Friends · " + label);
             if (!outcome.Ok)
             {
-                if (Toasts != null)
-                {
-                    Toasts.Fail(action + " failed · " + outcome.Message);
-                }
+                Toasts?.Fail(label + " failed · " + outcome.Message);
                 return;
             }
 
-            if (Toasts != null)
-            {
-                Toasts.Ok(done);
-            }
-            // Accepting changes the friend list too, so both panes are dropped.
+            Toasts?.Ok(done);
             _tabs.Invalidate(1);
             _tabs.Invalidate(0);
         }
@@ -481,7 +568,40 @@ await sdk.Friends.BanManyAsync(ids).Task();";
             }
         }
 
-        // ----- row actions ----------------------------------------------------------------------
+        // ----- adding, unfriending, blocking ----------------------------------------------------
+
+        /// <summary>
+        /// "Add friend" the way a game has it, by id: the service has no player search, so the id
+        /// comes from the game's own social flow (a nearby-players list, an invite link, a match
+        /// result). Several comma-separated ids go out as one <c>SendManyAsync</c>.
+        /// </summary>
+        private void OpenAddFriend()
+        {
+            if (Popup == null)
+            {
+                return;
+            }
+            FormDialog.Open(Popup, "Add friend",
+                new[]
+                {
+                    FormField.Text("ids", "Player id", null, true)
+                        .WithPlaceholder("One id, or several separated by commas"),
+                },
+                "Send request",
+                v => SendRequests(v.Text("ids")));
+        }
+
+        private async void SendRequests(string raw)
+        {
+            var ids = SplitIds(raw);
+            if (ids.Length == 0)
+            {
+                Toasts?.Fail("Give at least one player id");
+                return;
+            }
+            var op = ids.Length == 1 ? Sdk.Friends.SendAsync(ids[0]) : Sdk.Friends.SendManyAsync(ids);
+            await Write(op, ids.Length == 1 ? "Request sent" : ids.Length + " requests sent", "Send");
+        }
 
         private void ConfirmUnfriend(GetPlayerDto player)
         {
@@ -493,164 +613,31 @@ await sdk.Friends.BanManyAsync(ids).Task();";
                 "This removes the friendship for both players. " + NameOf(player)
                 + " can send a new request afterwards.",
                 "Unfriend",
-                () => RowAction(Sdk.Friends.RemoveFriendAsync(player.PlayerId),
-                    "Removed " + NameOf(player), "Remove"));
+                () => Bulk(Sdk.Friends.RemoveFriendAsync(player.PlayerId), "Removed " + NameOf(player), "Unfriend"));
         }
 
-        private void ConfirmBlock(GetPlayerDto player)
+        private void ConfirmBlock(string playerId, string name)
         {
             if (Popup == null)
             {
                 return;
             }
             ConfirmDialog.Open(Popup, "Block player",
-                "Blocking removes the friendship and stops " + NameOf(player)
-                + " from sending new requests.",
+                "Blocking removes any friendship or request and stops " + name + " from sending new ones.",
                 "Block",
-                () => RowAction(Sdk.Friends.BanAsync(player.PlayerId),
-                    "Blocked " + NameOf(player), "Block"));
+                () => Bulk(Sdk.Friends.BanAsync(playerId), "Blocked " + name, "Block"));
         }
 
-        private async void RowAction(AsyncOperation<RestApiResult> op, string done, string label)
+        private void ConfirmBlockAll(string[] ids)
         {
-            var outcome = await Await(op, "Friends · " + label);
-            if (!outcome.Ok)
+            if (Popup == null)
             {
-                if (Toasts != null)
-                {
-                    Toasts.Fail(label + " failed · " + outcome.Message);
-                }
                 return;
             }
-            if (Toasts != null)
-            {
-                Toasts.Ok(done);
-            }
-            _tabs.Invalidate(0);
-        }
-
-        // ----- actions tab ----------------------------------------------------------------------
-
-        private VisualElement BuildActions()
-        {
-            var col = new VisualElement();
-
-            var hint = new Label("This service has no player search: every call takes an id the game "
-                + "already holds — from a nearby-players list, an invite link, a match result. Paste "
-                + "one below to try the calls.");
-            hint.AddToClassList("sc-fs-hint");
-            col.Add(hint);
-
-            col.Add(new ActionCard("Send a friend request",
-                    "Asks one player to be friends. They see it under Requests · Incoming.",
-                    LucideIcon.UserPlus)
-                .WithFields(FormField.Text("playerId", "Player id", null, true))
-                .WithSnippet(SendSnippet)
-                .OnRun("Send", v => Run(Sdk.Friends.SendAsync(v.Text("playerId")), "Request sent", 1)));
-
-            col.Add(new ActionCard("Send many at once",
-                    "One round trip for a whole list of comma-separated ids.", LucideIcon.Users)
-                .WithFields(FormField.Text("ids", "Player ids (comma-separated)", null, true))
-                .WithSnippet(SendSnippet)
-                .OnRun("Send batch", v => RunMany(v.Text("ids"),
-                    ids => Sdk.Friends.SendManyAsync(ids), "Requests sent", 1)));
-
-            col.Add(new ActionCard("Accept a request",
-                    "Answered by the id of the player who sent it, not by a request id.",
-                    LucideIcon.UserCheck)
-                .WithFields(FormField.Text("sourceId", "Sender's player id", null, true))
-                .WithSnippet(AnswerSnippet)
-                .OnRun("Accept", v => Run(Sdk.Friends.AcceptAsync(v.Text("sourceId")),
-                    "Request accepted", 1)));
-
-            col.Add(new ActionCard("Reject a request", "Declines it; the sender can try again later.",
-                    LucideIcon.UserX)
-                .WithFields(FormField.Text("sourceId", "Sender's player id", null, true))
-                .WithSnippet(AnswerSnippet)
-                .OnRun("Reject", v => Run(Sdk.Friends.RejectAsync(v.Text("sourceId")),
-                    "Request rejected", 1)));
-
-            col.Add(new ActionCard("Revoke your request",
-                    "Takes back a request you sent, by the id you sent it to.", LucideIcon.UserMinus)
-                .WithFields(FormField.Text("targetId", "Target player id", null, true))
-                .WithSnippet(AnswerSnippet)
-                .OnRun("Revoke", v => Run(Sdk.Friends.RevokeAsync(v.Text("targetId")),
-                    "Request revoked", 1)));
-
-            col.Add(new ActionCard("Unfriend", "Removes the friendship for both sides.",
-                    LucideIcon.UserMinus)
-                .WithFields(FormField.Text("targetId", "Player id", null, true))
-                .WithSnippet(RemoveSnippet)
-                .OnRun("Unfriend", v => Run(Sdk.Friends.RemoveFriendAsync(v.Text("targetId")),
-                    "Friend removed", 0), true));
-
-            col.Add(new ActionCard("Block",
-                    "Removes the friendship and stops further requests from that player.",
-                    LucideIcon.Ban)
-                .WithFields(FormField.Text("targetId", "Player id", null, true))
-                .WithSnippet(RemoveSnippet)
-                .OnRun("Block", v => Run(Sdk.Friends.BanAsync(v.Text("targetId")),
-                    "Player blocked", 0), true));
-
-            col.Add(new ActionCard("Block many", "The bulk variant, for comma-separated ids.",
-                    LucideIcon.Shield)
-                .WithFields(FormField.Text("ids", "Player ids (comma-separated)", null, true))
-                .WithSnippet(RemoveSnippet)
-                .OnRun("Block batch", v => RunMany(v.Text("ids"),
-                    ids => Sdk.Friends.BanManyAsync(ids), "Players blocked", 0), true));
-
-            col.Add(new ActionCard("Delete the relation",
-                    "Wipes the relationship record itself rather than unfriending or blocking — for "
-                    + "when a player is being erased.", LucideIcon.Trash)
-                .WithFields(FormField.Text("targetId", "Player id", null, true))
-                .WithSnippet(RemoveSnippet)
-                .OnRun("Delete", v => Run(Sdk.Friends.DeleteAsync(v.Text("targetId")),
-                    "Relation deleted", 0), true));
-
-            col.Add(new ActionCard("Delete many relations", "The bulk variant.", LucideIcon.Trash)
-                .WithFields(FormField.Text("ids", "Player ids (comma-separated)", null, true))
-                .WithSnippet(RemoveSnippet)
-                .OnRun("Delete batch", v => RunMany(v.Text("ids"),
-                    ids => Sdk.Friends.DeleteManyAsync(ids), "Relations deleted", 0), true));
-
-            return col;
-        }
-
-        private async Task<ActionOutcome> Run(AsyncOperation<RestApiResult> op, string success, int tabToRefresh)
-        {
-            var outcome = await Await(op, "Friends write");
-            if (!outcome.Ok)
-            {
-                return ActionOutcome.Failure(outcome.Message);
-            }
-            if (Toasts != null)
-            {
-                Toasts.Ok(success);
-            }
-            _tabs.Invalidate(tabToRefresh);
-            return ActionOutcome.Success(success);
-        }
-
-        private async Task<ActionOutcome> RunMany(string raw,
-            Func<string[], AsyncOperation<RestApiResult>> call, string success, int tabToRefresh)
-        {
-            var ids = SplitIds(raw);
-            if (ids.Length == 0)
-            {
-                return ActionOutcome.Failure("Give at least one id, separated by commas.");
-            }
-
-            var outcome = await Await(call(ids), "Friends bulk write");
-            if (!outcome.Ok)
-            {
-                return ActionOutcome.Failure(outcome.Message);
-            }
-            if (Toasts != null)
-            {
-                Toasts.Ok(success);
-            }
-            _tabs.Invalidate(tabToRefresh);
-            return ActionOutcome.Success(success + " · " + ids.Length + " ids");
+            ConfirmDialog.Open(Popup, "Block " + ids.Length + " players",
+                "Every player with a pending request to you is blocked and cannot send new ones.",
+                "Block all",
+                () => Bulk(Sdk.Friends.BanManyAsync(ids), "Blocked " + ids.Length + " players", "Block all"));
         }
 
         private static string[] SplitIds(string raw)
@@ -683,10 +670,6 @@ await sdk.Friends.BanManyAsync(ids).Task();";
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result);
-            }
 
             if (result != null && result.IsSuccess)
             {

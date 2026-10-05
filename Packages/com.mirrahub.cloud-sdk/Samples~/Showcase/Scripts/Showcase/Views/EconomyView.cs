@@ -235,9 +235,7 @@ var allOfThem = sdk.Economy.GetEnergiesAsync();";
                 isEmpty,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Inventory",
-                    Snippet = InventorySnippet,
                     ServiceName = "Economy",
                     AllowRetry = true,
                     EmptyView = empty,
@@ -1211,9 +1209,7 @@ var allOfThem = sdk.Economy.GetEnergiesAsync();";
                     || (Count(data.Currencies) + Count(data.Items) + Count(data.Energies) == 0),
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Economy catalog",
-                    Snippet = ConfigsSnippet,
                     ServiceName = "Economy",
                     ConfigurationRequest = true,
                     AllowRetry = true,
@@ -1619,10 +1615,6 @@ var allOfThem = sdk.Economy.GetEnergiesAsync();";
             await op.Task();
 
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result);
-            }
             if (result != null && result.IsSuccess)
             {
                 return new Outcome { Ok = true };

@@ -25,7 +25,6 @@ namespace MirraCloud.Example.Showcase
         private Nav _nav;
         private Popup _popup;
         private Toasts _toasts;
-        private RequestLog _log;
         private ShowcaseContext _ctx;
 
         // True once we've navigated to the services screen. Guards against re-navigating when
@@ -85,11 +84,10 @@ namespace MirraCloud.Example.Showcase
             _nav = new Nav(navHost);
             _popup = new Popup(overlay);
             _toasts = new Toasts(toastHost);
-            _log = new RequestLog();
 
             // Built once, right after the hosts exist: every service view is handed this same
-            // instance, so the request log is app-wide and dialogs/toasts share one overlay.
-            _ctx = new ShowcaseContext(_sdk, _images, _toasts, _popup, _nav, _log);
+            // instance, so dialogs and toasts share one overlay.
+            _ctx = new ShowcaseContext(_sdk, _images, _toasts, _popup, _nav);
 
             _sdk.Authentication.OnLogin += _ => OnLoggedIn();
             _sdk.Authentication.OnSessionExpired += ShowAuth;
@@ -228,7 +226,6 @@ namespace MirraCloud.Example.Showcase
             }
 
             var r = op.Result;
-            _log.Record("Login methods", r, "var op = sdk.Authentication.GetLoginMethodsAsync();\nawait op.Task();");
 
             if (r != null && r.IsSuccess && r.Data != null)
             {
@@ -250,8 +247,6 @@ namespace MirraCloud.Example.Showcase
 
         private void ShowServices()
         {
-            // The home screen takes the whole context, not just the image loader: it shows the
-            // app-wide request log and opens it in the shared popup host.
             var services = new ServicesView(null, _ctx);
             services.ModuleOpened += OpenModule;
             services.LogoutRequested += () => RunAuthVoid("Logout", _sdk.Authentication.LogoutAsync());
@@ -268,7 +263,6 @@ namespace MirraCloud.Example.Showcase
             }
             await op.Task();
             var r = op.Result;
-            _log.Record("Account", r, "var op = sdk.PlayerAccount.GetAccountAsync();\nawait op.Task();");
 
             // The first call of the session doubles as the reachability probe for the home topbar:
             // if this one round-trips, the backend is up and configured for this project.
@@ -380,8 +374,6 @@ namespace MirraCloud.Example.Showcase
                 return;
             }
 
-            _log.Record(label + " sign-in", op.Result);
-
             if (_sdk.Authentication.IsAuth)
             {
                 // Popup lifecycle is owned by OnLoggedIn: it runs synchronously during OnLogin
@@ -403,7 +395,6 @@ namespace MirraCloud.Example.Showcase
                 return;
             }
             await op.Task();
-            _log.Record(label, op.Result);
             if (!_sdk.Authentication.IsAuth)
             {
                 _toasts.Info("Signed out");
@@ -455,7 +446,6 @@ namespace MirraCloud.Example.Showcase
             }
 
             var r = op.Result;
-            _log.Record(label + " link", r);
             if (r != null && r.IsSuccess && r.Data != null && r.Data.Status == AuthResultStatus.Conflict)
             {
                 // The provider is already attached to a different account — linking would need a

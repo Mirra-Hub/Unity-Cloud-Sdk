@@ -671,10 +671,6 @@ ChestReward reward = op.Result.Data;   // default(T) when the script returned nu
 
         private Outcome Fold(RestApiResult result, string label)
         {
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result, ExecuteSnippet);
-            }
             if (result != null && result.IsSuccess)
             {
                 return new Outcome { Ok = true, Ms = result.DurationMs };

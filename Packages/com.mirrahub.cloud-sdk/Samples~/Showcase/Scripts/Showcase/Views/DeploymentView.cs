@@ -145,10 +145,6 @@ if (op.Result.IsSuccess)
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Resolve branch", result, ResolveSnippet);
-            }
 
             var entry = new Resolution { Version = version, At = DateTime.Now };
 

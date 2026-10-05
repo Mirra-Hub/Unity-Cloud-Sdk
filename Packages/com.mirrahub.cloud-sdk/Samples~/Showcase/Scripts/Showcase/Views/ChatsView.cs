@@ -244,9 +244,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 p => p == null || p.Items == null || p.Items.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "My channels",
-                    Snippet = ChannelsSnippet,
                     ServiceName = "Chats",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.MessageCircle, "No channels yet",
@@ -263,9 +261,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 p => p == null || p.Items == null || p.Items.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "My groups",
-                    Snippet = ChannelsSnippet,
                     ServiceName = "Chats",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.Users, "No group chats",
@@ -330,10 +326,6 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Lookup " + Fmt.OrDash(group.Name), result, ChannelsSnippet);
-            }
 
             if (_closed || row.panel == null)
             {
@@ -389,10 +381,6 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Group " + Fmt.OrDash(group.Name), result, ChannelsSnippet);
-            }
 
             if (_closed || row.panel == null)
             {
@@ -428,10 +416,6 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Join channel", result, MembersSnippet);
-            }
 
             if (_closed)
             {
@@ -650,10 +634,6 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Channel", result);
-            }
 
             if (_closed || _channelId != channelId)
             {
@@ -698,10 +678,6 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 }
                 await op.Task();
                 var result = op.Result;
-                if (Ctx.Log != null && result != null)
-                {
-                    Ctx.Log.Record("History", result, HistorySnippet);
-                }
 
                 if (_closed || _channelId != channelId || _messageScroll == null)
                 {
@@ -1531,9 +1507,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 m => m == null || m.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Members",
-                    Snippet = MembersSnippet,
                     ServiceName = "Chats",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.Users, "No members",
@@ -1578,10 +1552,6 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(join ? "Join channel" : "Leave channel", result, MembersSnippet);
-            }
             if (_closed)
             {
                 return;
@@ -1642,10 +1612,6 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Create channel", result, CreateSnippet);
-            }
             if (_closed)
             {
                 return;

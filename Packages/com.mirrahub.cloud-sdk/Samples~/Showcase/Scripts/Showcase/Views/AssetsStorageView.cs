@@ -170,9 +170,7 @@ bool servedAnonymously = op.Result.IsSuccess;
                     || ((d.assets == null || d.assets.Count == 0) && (d.folders == null || d.folders.Count == 0)),
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Asset structure",
-                    Snippet = StructureSnippet,
                     ServiceName = "Asset Storage",
                     ConfigurationRequest = true,
                     AllowRetry = true,
@@ -904,11 +902,6 @@ bool servedAnonymously = op.Result.IsSuccess;
                 await op.Task();
                 var result = op.Result;
 
-                if (Ctx.Log != null && result != null)
-                {
-                    Ctx.Log.Record("Preview " + Fmt.Id(request.Id, 8), result, TextureSnippet);
-                }
-
                 if (result == null || !result.IsSuccess || result.Data == null)
                 {
                     // Leave the type glyph in place: a file whose preview failed must still read
@@ -1079,10 +1072,6 @@ bool servedAnonymously = op.Result.IsSuccess;
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Image " + Fmt.Id(asset.stableId, 8), result, TextureSnippet);
-            }
 
             if (host.panel == null)
             {
@@ -1136,10 +1125,6 @@ bool servedAnonymously = op.Result.IsSuccess;
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Audio " + Fmt.Id(asset.stableId, 8), result, AudioSnippet);
-            }
 
             if (play.panel == null)
             {
@@ -1181,10 +1166,6 @@ bool servedAnonymously = op.Result.IsSuccess;
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Text " + Fmt.Id(asset.stableId, 8), result, TextSnippet);
-            }
 
             if (host.panel == null)
             {
@@ -1317,11 +1298,6 @@ bool servedAnonymously = op.Result.IsSuccess;
                 }
             }
 
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Public " + Fmt.Id(asset.stableId, 8), result, PublicSnippet);
-            }
-
             if (button.panel == null)
             {
                 return;
@@ -1416,11 +1392,6 @@ bool servedAnonymously = op.Result.IsSuccess;
                 {
                     proof = Fmt.Bytes(op.Result.Data.Data.Length) + " downloaded";
                 }
-            }
-
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Path " + Fmt.Truncate(asset.path, 32), result, PathSnippet);
             }
 
             if (button.panel == null)

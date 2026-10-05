@@ -304,9 +304,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 d => d == null || d.Items == null || d.Items.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "My groups",
-                    Snippet = MyGroupsSnippet,
                     ServiceName = "Groups",
                     AllowRetry = true,
                     EmptyView = () =>
@@ -451,9 +449,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 d => d == null || d.Items == null || d.Items.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Group search",
-                    Snippet = SearchSnippet,
                     ServiceName = "Groups",
                     AllowRetry = true,
                     EmptyView = () =>
@@ -547,9 +543,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 d => d == null || d.Items == null || d.Items.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Player groups",
-                    Snippet = MyGroupsSnippet,
                     ServiceName = "Groups",
                     AllowRetry = true,
                     EmptyMessage = "That player is in no group this account may see.",
@@ -864,9 +858,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 null,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Group",
-                    Snippet = GroupSnippet,
                     ServiceName = "Group",
                     // No ConfigurationRequest: a 404 here means "no such group" — usually a mistyped
                     // id pasted into the invite panel — not "the project has nothing set up".
@@ -1415,9 +1407,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 d => d == null || d.Items == null || d.Items.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Members",
-                    Snippet = MembersSnippet,
                     ServiceName = "Group",
                     AllowRetry = true,
                     EmptyView = () =>
@@ -1590,9 +1580,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Roles",
-                    Snippet = RolesSnippet,
                     ServiceName = "Group",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.KeyRound, "No custom roles",
@@ -1790,9 +1778,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 d => d == null || d.Items == null || d.Items.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Join requests",
-                    Snippet = JoinSnippet,
                     ServiceName = "Group",
                     AllowRetry = true,
                     EmptyView = () =>
@@ -2009,9 +1995,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 d => d == null || d.Items == null || d.Items.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Bans",
-                    Snippet = BansSnippet,
                     ServiceName = "Group",
                     AllowRetry = true,
                     EmptyView = () =>
@@ -2217,10 +2201,6 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
 
         private Outcome Fold(RestApiResult result, string label)
         {
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result);
-            }
             if (result != null && result.IsSuccess)
             {
                 return new Outcome { Ok = true };

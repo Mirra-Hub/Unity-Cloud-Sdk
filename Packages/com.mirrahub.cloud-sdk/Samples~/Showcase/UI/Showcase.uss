@@ -9,6 +9,40 @@
     -unity-font-definition: initial;
 }
 
+/* ---- scrollbars: a thin rounded thumb, no arrow buttons, no track ----
+   Every ScrollView in the sample, vertical and horizontal. Scoped to .sc-root so the selectors
+   outrank the default runtime theme's own scroller rules. */
+.sc-root .unity-scroller--vertical { width: 10px; }
+.sc-root .unity-scroller--horizontal { height: 10px; }
+.sc-root .unity-scroller .unity-scroller__low-button,
+.sc-root .unity-scroller .unity-scroller__high-button { display: none; }
+/* the slider is inset by the arrow buttons' size; with the buttons gone it takes the full length.
+   The theme also gives every slider a 24px minimum, which would poke out of the 10px bar. */
+.sc-root .unity-scroller > .unity-scroller__slider { min-width: 0; min-height: 0; }
+.sc-root .unity-scroller--vertical > .unity-scroller__slider {
+    width: 10px;
+    margin-top: 2px; margin-bottom: 2px; margin-left: 0; margin-right: 0;
+}
+.sc-root .unity-scroller--horizontal > .unity-scroller__slider {
+    height: 10px;
+    margin-top: 0; margin-bottom: 0; margin-left: 2px; margin-right: 2px;
+}
+.sc-root .unity-scroller .unity-base-slider__tracker {
+    background-color: rgba(0, 0, 0, 0);
+    border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;
+}
+.sc-root .unity-scroller .unity-base-slider__dragger {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;
+    border-top-left-radius: 3px; border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px; border-bottom-right-radius: 3px;
+    margin-top: 0; margin-bottom: 0; margin-left: 0; margin-right: 0;
+}
+.sc-root .unity-scroller--vertical .unity-base-slider__dragger { width: 6px; left: 2px; }
+.sc-root .unity-scroller--horizontal .unity-base-slider__dragger { height: 6px; top: 2px; }
+.sc-root .unity-scroller .unity-base-slider__dragger:hover { background-color: rgba(255, 255, 255, 0.26); }
+.sc-root .unity-scroller .unity-base-slider__dragger:active { background-color: rgba(255, 255, 255, 0.34); }
+
 /* ---- gallery scaffold ---- */
 .sc-gallery {
     padding-top: 22px;
@@ -1745,204 +1779,6 @@
     margin-top: 7px;
 }
 
-/* ===== request log panel (Infra/RequestLog.cs) ===== */
-.sc-reqlog {
-    background-color: #161A22;
-    border-radius: 14px;
-    border-top-width: 1px;
-    border-right-width: 1px;
-    border-bottom-width: 1px;
-    border-left-width: 1px;
-    border-top-color: #232A36;
-    border-right-color: #232A36;
-    border-bottom-color: #232A36;
-    border-left-color: #232A36;
-    overflow: hidden;
-}
-.sc-reqlog__head {
-    flex-direction: row;
-    align-items: center;
-    background-color: #1B2029;
-    padding-top: 9px;
-    padding-right: 10px;
-    padding-bottom: 9px;
-    padding-left: 14px;
-    border-bottom-width: 1px;
-    border-bottom-color: #232A36;
-}
-.sc-reqlog__glyph {
-    color: #9AA4B8;
-    font-size: 13px;
-    margin-right: 9px;
-}
-.sc-reqlog__title {
-    color: #E6EAF2;
-    font-size: 13px;
-    -unity-font-style: bold;
-}
-.sc-reqlog__count {
-    color: #9AA4B8;
-    font-size: 11px;
-    -unity-font-style: bold;
-    background-color: #232A36;
-    border-radius: 8px;
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-left: 8px;
-    padding-right: 8px;
-    margin-left: 9px;
-}
-.sc-reqlog__spacer {
-    flex-grow: 1;
-}
-.sc-reqlog__clear {
-    color: #9AA4B8;
-    font-size: 11px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
-    background-color: #232A36;
-    border-radius: 8px;
-    border-top-width: 0;
-    border-right-width: 0;
-    border-bottom-width: 0;
-    border-left-width: 0;
-    padding-top: 5px;
-    padding-bottom: 5px;
-    padding-left: 12px;
-    padding-right: 12px;
-    margin-top: 0;
-    margin-bottom: 0;
-    margin-left: 8px;
-    margin-right: 0;
-}
-.sc-reqlog__clear:hover {
-    background-color: #2E3746;
-    color: #E6EAF2;
-}
-.sc-reqlog__list {
-    max-height: 320px;
-}
-.sc-reqlog__row {
-    border-bottom-width: 1px;
-    border-bottom-color: #1B2029;
-}
-.sc-reqlog__row--bad {
-    background-color: rgba(239, 68, 68, 0.06);
-}
-.sc-reqlog__bar {
-    flex-direction: row;
-    align-items: center;
-    padding-top: 8px;
-    padding-right: 12px;
-    padding-bottom: 8px;
-    padding-left: 12px;
-}
-.sc-reqlog__bar:hover {
-    background-color: #1B2029;
-}
-.sc-reqlog__method {
-    width: 54px;
-    flex-shrink: 0;
-    color: #9AA4B8;
-    font-size: 10px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
-    background-color: #232A36;
-    border-radius: 6px;
-    padding-top: 3px;
-    padding-bottom: 3px;
-    margin-right: 10px;
-}
-.sc-reqlog__method--get {
-    color: #38BDF8;
-    background-color: rgba(56, 189, 248, 0.14);
-}
-.sc-reqlog__method--post {
-    color: #22C55E;
-    background-color: rgba(34, 197, 94, 0.14);
-}
-.sc-reqlog__method--put {
-    color: #F59E0B;
-    background-color: rgba(245, 158, 11, 0.14);
-}
-.sc-reqlog__method--patch {
-    color: #F59E0B;
-    background-color: rgba(245, 158, 11, 0.14);
-}
-.sc-reqlog__method--delete {
-    color: #EF4444;
-    background-color: rgba(239, 68, 68, 0.14);
-}
-.sc-reqlog__method--other {
-    color: #6B7488;
-}
-.sc-reqlog__texts {
-    flex-grow: 1;
-    flex-shrink: 1;
-}
-.sc-reqlog__label {
-    color: #E6EAF2;
-    font-size: 12px;
-    -unity-font-style: bold;
-}
-.sc-reqlog__route {
-    color: #6B7488;
-    font-size: 11px;
-    margin-top: 1px;
-}
-.sc-reqlog__status {
-    width: 40px;
-    flex-shrink: 0;
-    font-size: 12px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-right;
-    margin-left: 10px;
-    color: #9AA4B8;
-}
-.sc-reqlog__status--ok { color: #22C55E; }
-.sc-reqlog__status--warn { color: #F59E0B; }
-.sc-reqlog__status--bad { color: #EF4444; }
-.sc-reqlog__status--dim { color: #6B7488; }
-.sc-reqlog__ms {
-    width: 66px;
-    flex-shrink: 0;
-    color: #9AA4B8;
-    font-size: 11px;
-    -unity-text-align: middle-right;
-    margin-left: 10px;
-}
-.sc-reqlog__chev {
-    color: #6B7488;
-    font-size: 12px;
-    margin-left: 10px;
-}
-.sc-reqlog__detail {
-    background-color: #0E1116;
-    padding-top: 2px;
-    padding-right: 12px;
-    padding-bottom: 12px;
-    padding-left: 12px;
-}
-.sc-reqlog__caption {
-    color: #6B7488;
-    font-size: 10px;
-    -unity-font-style: bold;
-    letter-spacing: 1px;
-    margin-top: 10px;
-    margin-bottom: 5px;
-}
-.sc-reqlog__actions {
-    flex-direction: row;
-    flex-wrap: wrap;
-    margin-top: 9px;
-}
-/* spacing between the copy buttons lives here, so the shared .sc-copy-btn skin can stay
-   margin-free for the inline uses elsewhere */
-.sc-reqlog__actions > * {
-    margin-right: 8px;
-    margin-bottom: 6px;
-}
-
 /* A chip is a pill, not a bar: inside a table cell the default stretch alignment blows it out to
    the full column width. Alignment follows the cell's own text alignment. */
 .sc-table__cell > .sc-chip {
@@ -1973,6 +1809,11 @@
     padding-right: 10px;
     font-size: 12px;
 }
+
+/* friends: the "all at once" answers above a request list */
+.sc-fr-bulk { margin-bottom: 10px; }
+/* the status chip and the copy button are not .sc-btn, so they need the row's spacing too */
+.sc-fr-request__actions > * { margin-left: 6px; }
 
 /* ===== economy ===== */
 /* actions attached to the thing they change: a meter's card, an item's dialog */
@@ -2451,17 +2292,8 @@
     padding-left: 14px;
     padding-right: 14px;
 }
-.sc-svc-topbar__icon-btn {
-    width: 36px;
-    height: 36px;
-    font-size: 15px;
-    border-radius: 10px;
-    margin-left: 8px;
-    padding-top: 0;
-    padding-bottom: 0;
-    padding-left: 0;
-    padding-right: 0;
-}
+/* neutral at rest, red under the pointer: the destructive tone shows only when it is about to fire */
+.sc-btn.sc-svc-topbar__logout:hover { background-color: #EF4444; }
 
 /* ---- connection status ----
    Which project/branch this build talks to; also the first thing to check when a screen comes
@@ -2626,39 +2458,262 @@
     flex-shrink: 0;
 }
 
-/* ===== S1 pilot: leaderboard board pane ===== */
+/* ===== ranking screens: boards sidebar + selected board (Components/BoardLayout.cs) =====
+   Shared by Views/LeaderboardView.cs and Views/TournamentsView.cs. */
 
-/* the config chip row, the KPI strip and the chart stack above the ranking table */
-.sc-lb-meta {
-    margin-bottom: 12px;
-}
-.sc-lb-kpis {
-    margin-bottom: 14px;
-}
-.sc-lb-chart {
-    margin-bottom: 14px;
+/* boards on the left, the selected board's cards on the right */
+.sc-board-split {
+    flex-direction: row;
+    align-items: flex-start;
+    margin-bottom: 16px;
 }
 
-/* rank cell: medal glyph for the top three, plain "#N" below that */
-.sc-lb-rank {
+.sc-board-side {
+    width: 280px;
+    flex-shrink: 0;
+    background-color: #161A22;
+    border-radius: 14px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #232A36; border-right-color: #232A36; border-bottom-color: #232A36; border-left-color: #232A36;
+    padding-top: 12px; padding-right: 8px; padding-bottom: 10px; padding-left: 8px;
+    margin-right: 14px;
+}
+.sc-board-side__title {
+    color: #E6EAF2;
+    font-size: 15px;
+    -unity-font-style: bold;
+    margin-left: 6px;
+    margin-bottom: 8px;
+}
+.sc-board-side__sub {
+    color: #6B7488;
+    font-size: 11px;
+    -unity-font-style: bold;
+    margin-top: 12px;
+    margin-left: 6px;
+    margin-bottom: 4px;
+}
+
+/* one board: glyph, name over key, join/leave on the right */
+.sc-board-row {
+    flex-direction: row;
+    align-items: center;
+    border-radius: 10px;
+    padding-top: 6px; padding-right: 6px; padding-bottom: 6px; padding-left: 8px;
+    margin-bottom: 2px;
+}
+/* the default label box (margin + padding on every side) doubles a two-line row's height */
+.sc-board-row .unity-label {
+    margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0;
+    padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0;
+}
+.sc-board-row:hover { background-color: #1B2029; }
+.sc-board-row--active { background-color: #1E2A44; }
+.sc-board-row--active:hover { background-color: #22304D; }
+.sc-board-row__glyph {
+    color: #6B7488;
+    font-size: 15px;
+    width: 24px;
+    flex-shrink: 0;
+    -unity-text-align: middle-left;
+}
+.sc-board-row--active .sc-board-row__glyph { color: #4D8DFF; }
+.sc-board-row--joined .sc-board-row__glyph { color: #34D399; }
+.sc-board-row__texts {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin-right: 6px;
+}
+.sc-board-row__name {
+    color: #E6EAF2;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sc-board-row__sub {
+    color: #6B7488;
+    font-size: 11px;
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sc-board-row__btn {
+    flex-shrink: 0;
+    width: 58px;
+    font-size: 11px;
+    padding-top: 4px; padding-bottom: 4px; padding-left: 0; padding-right: 0;
+    margin-top: 0; margin-bottom: 0; margin-left: 0; margin-right: 0;
+    border-radius: 8px;
+}
+.sc-board-row__btn--join { background-color: #2563EB; }
+.sc-board-row__btn--join:hover { background-color: #1D4ED8; }
+.sc-board-row__btn--leave {
+    background-color: rgba(0, 0, 0, 0);
+    color: #F0808A;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #4A2A30; border-right-color: #4A2A30; border-bottom-color: #4A2A30; border-left-color: #4A2A30;
+}
+.sc-board-row__btn--leave:hover { background-color: rgba(239, 68, 68, 0.14); }
+
+/* right column: header, submit and standings stacked */
+.sc-board-main {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+}
+.sc-board-card {
+    background-color: #18181B;
+    border-radius: 14px;
+    border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px;
+    border-top-color: #2A2A2F; border-right-color: #2A2A2F; border-bottom-color: #2A2A2F; border-left-color: #2A2A2F;
+    padding-top: 14px; padding-right: 16px; padding-bottom: 14px; padding-left: 16px;
+    margin-bottom: 14px;
+}
+.sc-board-card__head {
     flex-direction: row;
     align-items: center;
 }
-.sc-lb-medal {
+.sc-board-card__glyph {
+    color: #4D8DFF;
+    font-size: 15px;
+    margin-right: 8px;
+}
+.sc-board-card__title {
+    color: #FFFFFF;
+    font-size: 15px;
+    -unity-font-style: bold;
+}
+.sc-board-card__count {
+    color: #9AA4B8;
+    font-size: 12px;
+    background-color: #24242A;
+    border-radius: 8px;
+    padding-top: 1px; padding-bottom: 1px; padding-left: 7px; padding-right: 7px;
+    margin-left: 8px;
+}
+.sc-board-card__hint {
+    color: #8A8A92;
+    font-size: 12px;
+    white-space: normal;
+    margin-top: 4px;
+    margin-bottom: 10px;
+}
+
+/* header card: badge, name over the one-line config, the player's place on the right */
+.sc-board-head {
+    flex-direction: row;
+    align-items: center;
+}
+.sc-board-head__badge {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    font-size: 20px;
+    border-radius: 12px;
+    -unity-text-align: middle-center;
+    margin-right: 14px;
+}
+.sc-board-head__texts {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+}
+.sc-board-head__name {
+    color: #FFFFFF;
+    font-size: 18px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+.sc-board-head__meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 3px;
+}
+.sc-board-head__line {
+    color: #9AA4B8;
+    font-size: 12px;
+    white-space: normal;
+    flex-shrink: 1;
+}
+.sc-board-head__countdown { margin-left: 8px; }
+.sc-board-head__standing {
+    flex-shrink: 0;
+    align-items: flex-end;
+    margin-left: 16px;
+}
+.sc-board-head__rank {
+    color: #FFFFFF;
+    font-size: 22px;
+    -unity-font-style: bold;
+}
+.sc-board-head__caption {
+    color: #8A8A92;
+    font-size: 11px;
+}
+
+/* inline form: fields + button + result on one line */
+.sc-board-form {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.sc-board-form__field {
+    flex-shrink: 1;
+    margin-bottom: 0;
+    margin-right: 10px;
+}
+.sc-board-form__btn {
+    padding-top: 8px; padding-bottom: 8px;
+    margin-top: 0; margin-bottom: 0; margin-left: 0; margin-right: 12px;
+}
+.sc-board-form__result {
+    flex-shrink: 1;
+    font-size: 12px;
+    white-space: normal;
+}
+.sc-board-form__result--ok { color: #34D399; }
+.sc-board-form__result--bad { color: #F0808A; }
+
+/* a card title line that also carries a count and a switch wraps on a narrow panel */
+.sc-board-card__head--wrap {
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.sc-board-switch {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+.sc-board-switch__btn {
+    font-size: 12px;
+    padding-top: 5px; padding-bottom: 5px; padding-left: 10px; padding-right: 10px;
+    margin-top: 0; margin-bottom: 0; margin-left: 4px; margin-right: 0;
+    border-radius: 8px;
+}
+
+/* rank cell: medal glyph for the top three, plain "#N" below that */
+.sc-board-rank {
+    flex-direction: row;
+    align-items: center;
+}
+.sc-board-rank__medal {
     font-size: 14px;
     margin-right: 5px;
 }
 
 /* player cell: avatar + name (+ the "You" badge on the signed-in player's row) */
-.sc-lb-player {
+.sc-board-player {
     flex-direction: row;
     align-items: center;
 }
-.sc-lb-player__avatar {
+.sc-board-player__avatar {
     flex-shrink: 0;
     margin-right: 10px;
 }
-.sc-lb-player__you {
+.sc-board-player__you {
     margin-left: 8px;
 }
 
@@ -2817,32 +2872,44 @@
 .sc-pc-status__code { color: #6B7488; font-size: 11px; margin-right: 8px; }
 .sc-pc-status__text { color: #9AA4B8; font-size: 12px; white-space: normal; flex-grow: 1; flex-shrink: 1; }
 
-/* ---- tournaments ---- */
-.sc-trn-kpis { margin-bottom: 14px; }
-.sc-trn-chart { margin-bottom: 16px; }
-.sc-trn-meta { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-.sc-trn-leagues { flex-direction: row; flex-wrap: wrap; margin-bottom: 14px; }
+/* ---- tournaments (the shared board layout is under "ranking screens") ---- */
+/* league picker under the standings title */
+.sc-trn-picker { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.sc-trn-picker__label { color: #8A8A92; font-size: 12px; margin-right: 8px; }
 .sc-trn-league {
     flex-direction: row; align-items: center;
-    background-color: #1B2029; border-radius: 10px;
-    padding-top: 6px; padding-right: 12px; padding-bottom: 6px; padding-left: 10px;
-    margin-right: 8px; margin-bottom: 8px;
+    font-size: 12px;
+    padding-top: 5px; padding-bottom: 5px; padding-left: 10px; padding-right: 10px;
+    margin-top: 0; margin-bottom: 4px; margin-left: 0; margin-right: 6px;
+    border-radius: 8px;
 }
-.sc-trn-league--active { background-color: rgba(37, 99, 235, 0.22); }
-.sc-trn-league__glyph { font-size: 14px; color: #F59E0B; margin-right: 8px; }
+/* the glyph and name are child labels, and their default box would double the pill's height */
+.sc-trn-league .unity-label {
+    margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0;
+    padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0;
+}
+.sc-trn-league .sc-trn-league__glyph { font-size: 12px; color: #F59E0B; margin-right: 6px; }
 .sc-trn-league__name { color: #E6EAF2; font-size: 12px; }
-.sc-trn-league-card { margin-bottom: 12px; }
-.sc-trn-league-card--mine {
-    border-top-color: #2563EB; border-right-color: #2563EB;
-    border-bottom-color: #2563EB; border-left-color: #2563EB;
+/* league ladder: one clickable row per league, rewards on the right */
+.sc-trn-lrow {
+    flex-direction: row; align-items: center;
+    border-radius: 10px;
+    padding-top: 8px; padding-right: 10px; padding-bottom: 8px; padding-left: 10px;
+    margin-bottom: 4px;
+    border-left-width: 3px; border-left-color: rgba(0, 0, 0, 0);
 }
-.sc-trn-around { margin-top: 16px; }
-.sc-trn-player { flex-direction: row; align-items: center; }
-.sc-trn-player__avatar { margin-right: 8px; flex-shrink: 0; }
-.sc-trn-player__you { color: #4D8DFF; -unity-font-style: bold; }
-.sc-trn-rank { color: #9AA4B8; font-size: 13px; -unity-font-style: bold; -unity-text-align: middle-center; }
-.sc-trn-medal { font-size: 15px; -unity-text-align: middle-center; }
-.sc-trn-submit { margin-top: 12px; }
+.sc-trn-lrow:hover { background-color: #1F1F24; }
+.sc-trn-lrow--shown { background-color: #1B2029; border-left-color: #2563EB; }
+.sc-trn-lrow__texts { width: 220px; flex-shrink: 0; margin-right: 12px; }
+.sc-trn-lrow__title { flex-direction: row; align-items: center; }
+.sc-trn-lrow__name { color: #E6EAF2; font-size: 13px; -unity-font-style: bold; }
+.sc-trn-lrow__badge { margin-left: 8px; }
+.sc-trn-lrow__rules { color: #8A8A92; font-size: 11px; margin-top: 2px; }
+.sc-trn-lrow__rewards { flex-grow: 1; flex-shrink: 1; justify-content: flex-end; }
+/* the two halves of the top-and-around slice */
+.sc-trn-sub { flex-direction: row; align-items: center; margin-bottom: 8px; }
+.sc-trn-sub--gap { margin-top: 16px; }
+.sc-trn-sub__text { color: #C9C9CF; font-size: 13px; -unity-font-style: bold; }
 
 /* ---- challenges ---- */
 .sc-chal-kpis { margin-bottom: 14px; }

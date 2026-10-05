@@ -80,9 +80,7 @@ if (op.Result.IsSuccess)
                 isEmpty: containers => Rows(containers).Count == 0,
                 options: new BindOptions
                 {
-                    Log = _ctx.Log,
                     Label = "Economy: pending rewards",
-                    Snippet = ReadSnippet,
                     ServiceName = "Economy reward",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Table(Columns(), _emptyText, 3),
@@ -120,10 +118,6 @@ if (op.Result.IsSuccess)
             await op.Task();
 
             var result = op.Result;
-            if (_ctx.Log != null && result != null)
-            {
-                _ctx.Log.Record("Economy: claim rewards", result, ClaimSnippet);
-            }
 
             if (result == null || !result.IsSuccess)
             {

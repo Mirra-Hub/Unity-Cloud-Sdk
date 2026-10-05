@@ -237,9 +237,7 @@ PurchaseResult result = op.Result;
                 d => d == null || d.Count == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Store catalog",
-                    Snippet = CatalogSnippet,
                     ServiceName = "Purchases",
                     ConfigurationRequest = true,
                     AllowRetry = true,
@@ -745,9 +743,7 @@ PurchaseResult result = op.Result;
                 d => d == null || d.Count == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Orders",
-                    Snippet = OrdersSnippet,
                     ServiceName = "Purchases",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Table(OrderColumns(),
@@ -941,9 +937,7 @@ PurchaseResult result = op.Result;
                 null,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Order",
-                    Snippet = OrderSnippet,
                     ServiceName = "Purchases",
                     AllowRetry = true,
                 });
@@ -1022,9 +1016,7 @@ PurchaseResult result = op.Result;
                 d => d == null || d.Count == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Subscriptions",
-                    Snippet = SubscriptionsSnippet,
                     ServiceName = "Purchases",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Cards(LucideIcon.CalendarClock,
@@ -1446,10 +1438,6 @@ PurchaseResult result = op.Result;
 
         private Outcome Fold(RestApiResult result, string label)
         {
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result);
-            }
             if (result != null && result.IsSuccess)
             {
                 return new Outcome { Ok = true };
