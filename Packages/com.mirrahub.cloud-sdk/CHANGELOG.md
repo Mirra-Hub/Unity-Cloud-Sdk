@@ -6,6 +6,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.12.1] — 2026-10-05
+
+### Changed
+
+- **Showcase — Leaderboard.** The boards live in a sidebar, each row with its own Join / Leave button. The selected
+  board shows its configuration on one line next to the player's place, then a submit card, then the standings with
+  the slice switch (your table, global, around you, friends, country) in the card header. A leave asks first; time
+  boards show scores as durations.
+- **Showcase — Tournaments.** The same layout: tournaments in a sidebar with Join / Leave, the configuration on one
+  line next to the player's place and league, a submit card, the standings of one league with a league picker and the
+  slice switch, and the league ladder — thresholds and reward ranges — as rows that open a league's standings.
+- **Showcase — Friends.** No Actions tab: everything sits where a game puts it. Add friend in the toolbar takes one id
+  or several; requests are accepted, rejected, blocked or revoked on their rows, with "all" buttons (the bulk calls)
+  above each list; answered requests can be removed.
+- **Showcase.** Logout turns red under the pointer. The home screen drops its request-log button — the editor has a
+  tool for that — and the request log is gone from the SDK call drawers too.
+- **Showcase.** Scrollbars are a thin rounded thumb that brightens under the pointer, without arrow buttons or a
+  track, on every screen and dialog.
+
 ## [0.12.0] — 2026-10-05
 
 Cloud saves follow the backend's new access model: the game server can always reach what a player writes, global

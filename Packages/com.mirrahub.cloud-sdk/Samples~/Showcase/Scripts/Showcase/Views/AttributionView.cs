@@ -119,9 +119,7 @@ foreach (ExternalIdDto id in op.Result.Data)
                 d => d == null || d.Count == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "External ids",
-                    Snippet = ReadSnippet,
                     ServiceName = "Attribution",
                     AllowRetry = true,
                     EmptyView = () =>
@@ -308,7 +306,6 @@ foreach (ExternalIdDto id in op.Result.Data)
 
             if (reported.Task.IsCompleted)
             {
-                Ctx.Log?.Record("Attribution · queued report", reported.Task.Result, QueueSnippet);
                 if (reported.Task.Result.IsSuccess)
                 {
                     LoadRecorded();
@@ -353,7 +350,6 @@ foreach (ExternalIdDto id in op.Result.Data)
             var op = Sdk.Attribution.LinkAdjustAsync(ReadAttribution(values));
             await op.Task();
             var result = op.Result;
-            Ctx.Log?.Record("Attribution · link Adjust", result, LinkSnippet);
 
             if (result == null || !result.IsSuccess)
             {

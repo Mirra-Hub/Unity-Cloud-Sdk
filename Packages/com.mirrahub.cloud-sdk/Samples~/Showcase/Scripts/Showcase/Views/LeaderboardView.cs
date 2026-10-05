@@ -15,16 +15,21 @@ using UnityEngine.UIElements;
 namespace MirraCloud.Example.Showcase
 {
     /// <summary>
-    /// Leaderboard detail: one tab per configured board, and a toolbar filter that swaps which
-    /// <c>slice</c> of the ranking the tab requests — the player's table, the global top, the rows
-    /// around the player, the friend list, or the player's country. Each of those is a different SDK
-    /// endpoint returning the same rows, which is exactly what this screen is meant to demonstrate.
-    /// Every call takes the board's key. A pane also plays on its board — join, submit, leave — and a
-    /// last tab lists the rewards boards have paid out, which arrive in Economy.
+    /// Leaderboard detail, laid out the way a game would use the service: the project's boards in a
+    /// sidebar, each with its own join / leave button, and the selected board on the right — one line
+    /// of configuration, a card that submits a score, and the standings below it.
     /// <para>
-    /// Every pane fans out into two independent calls (the slice and the player's own entry), so the
-    /// KPI strip is re-rendered from <see cref="BoardPane"/> state as each one lands instead of
-    /// waiting for both.
+    /// The standings card switches the <c>slice</c> of the ranking it requests — the player's table,
+    /// the global top, the rows around the player, the friend list or the player's country. Each of
+    /// those is a different SDK endpoint returning the same rows, which is exactly what this screen is
+    /// meant to demonstrate. Every call takes the board's key. The last sidebar entry lists the rewards
+    /// boards have paid out, which arrive in Economy.
+    /// </para>
+    /// <para>
+    /// The SDK has no "is the player a participant" read: an entry proves it, but a participant
+    /// without a score looks exactly like a stranger (404 on <c>GetLeaderboardPlayer</c>). So the
+    /// sidebar remembers what it learned from join / leave / the player's own entry, and offers
+    /// <c>Join</c> — which is idempotent — whenever it does not know.
     /// </para>
     /// </summary>
     public sealed class LeaderboardView : ServiceView
@@ -32,17 +37,8 @@ namespace MirraCloud.Example.Showcase
         private const int TopCount = 100;
         private const int AroundRange = 10;
 
-        /// <summary>Bars past this point are too thin to read; the table below carries the rest.</summary>
-        private const int ChartBars = 8;
-
-        // Medal tints are deliberately outside the semantic palette: on a ranking table gold/silver/
-        // bronze *are* the meaning, and no status color reads as "third place".
-        private static readonly Color Gold = new Color(0.91f, 0.78f, 0.32f);
-        private static readonly Color Silver = new Color(0.76f, 0.78f, 0.84f);
-        private static readonly Color Bronze = new Color(0.82f, 0.54f, 0.32f);
-
-        // Index-aligned with the Slice enum — the dropdown hands back the label, not the value.
-        private static readonly string[] SliceNames = { "My table", "Global top", "Around me", "Friends", "Country" };
+        // Index-aligned with the Slice enum.
+        private static readonly string[] SliceNames = { "My table", "Global", "Around me", "Friends", "Country" };
 
         private const string BoardsSnippet = @"// every board configured for this project + branch
 var op = sdk.Leaderboard.InitializeAsync();
@@ -138,15 +134,24 @@ await sdk.Leaderboard.SubmitScoreAsync(TimeSpan.FromSeconds(95.4), leaderboardKe
 await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
 
         private Slice _slice = Slice.Top;
-        private Tabs _boards;
-        private int _rewardsTab = -1;
+
+        // Survive Refresh(): the rebuild re-reads the boards but keeps the reader where they were.
+        private string _selectedKey;
+        private bool _rewardsSelected;
+
+        /// <summary>Participation learned this session, by board key. Absent means "not known".</summary>
+        private readonly Dictionary<string, bool> _joined = new Dictionary<string, bool>();
+
+        private BoardSidebar _side;
+        private VisualElement _main;
+        private BoardPane _pane;
 
         public LeaderboardView(ServiceMeta meta, Action onBack, ShowcaseContext ctx)
             : base(meta, onBack, ctx)
         {
         }
 
-        /// <summary>Which endpoint a board pane asks for. Order matches <see cref="SliceNames"/>.</summary>
+        /// <summary>Which endpoint the standings card asks for. Order matches <see cref="SliceNames"/>.</summary>
         private enum Slice
         {
             Top,
@@ -158,14 +163,14 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
 
         protected override void Populate()
         {
-            _boards = null;
-            _rewardsTab = -1;
+            _side = null;
+            _main = null;
+            _pane = null;
             SetStatus(null);
-            SetSubtitle("One tab per configured board. The slice picker swaps the endpoint the tab "
-                        + "calls — your table, the whole ranking, your neighbours, your friends, or your country.");
+            SetSubtitle("Pick a board on the left and join it, then submit a score. The standings switch "
+                        + "between endpoints: your table, the whole board, your neighbours, friends or country.");
 
             UseToolbar()
-                .WithFilter("Slice", SliceNames, OnSliceChanged, SliceNames[(int)_slice])
                 .WithSpacer()
                 .WithRefresh(Refresh);
 
@@ -186,19 +191,15 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 "Boards pay out into Economy when a session ends."));
             DeclareCall(new SdkCall("Claim the rewards", PendingRewardsPanel.ClaimSnippet));
 
-            // Zero margin: this slot only carries the loading/failure state — on success the boards
-            // land in the tab strip (chrome) and the panes at the bottom of Content.
             var slot = AddSlot(0f);
             ViewBind.Load(
                 () => Sdk.Leaderboard.InitializeAsync(),
                 slot,
-                BuildBoards,
+                BuildScreen,
                 isEmpty: c => c == null || c.Length == 0,
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Leaderboard boards",
-                    Snippet = BoardsSnippet,
                     ServiceName = "Leaderboard",
                     // this is the board *configuration* call, so a 404 really does mean
                     // "no leaderboards exist in this project"
@@ -208,181 +209,262 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 });
         }
 
-        private VisualElement BuildBoards(LeaderboardConfigDto[] configs)
-        {
-            SetStatus(configs.Length == 1 ? "1 board" : configs.Length + " boards", ChipTone.Ok);
-
-            _boards = UseTabs();
-            foreach (var cfg in configs)
-            {
-                var captured = cfg;
-                _boards.Add(BoardTitle(captured), LucideIcon.Trophy, () => BuildBoardPane(captured));
-            }
-
-            // Rewards are paid into Economy for every board at once, so they get one tab of their own.
-            _rewardsTab = _boards.Count;
-            _boards.Add("Rewards", LucideIcon.Gift, BuildRewards);
-
-            // The strip and its panes live outside this slot, so the slot itself renders nothing.
-            return new VisualElement();
-        }
-
-        private VisualElement BuildRewards()
-        {
-            return new PendingRewardsPanel(Ctx, RewardSourceType.Leaderboard,
-                "When a board resets, the server works out what each place (or score) earned and pays it "
-                + "into Economy, where the game reads and claims it. Nothing is claimed by reading.",
-                "Nothing is waiting for this player. A reward lands here when a board resets and the "
-                + "player's place (or score) falls in one of the board's reward ranges.");
-        }
-
         private VisualElement NoBoards()
         {
             SetStatus("Not configured", ChipTone.Warn);
             return ZeroState.NotConfigured("Leaderboards");
         }
 
-        private void OnSliceChanged(string name)
+        // ----- layout: sidebar + selected board -------------------------------------------------------
+
+        private const string RewardsId = "\u0001rewards";
+
+        private VisualElement BuildScreen(LeaderboardConfigDto[] configs)
         {
-            int index = Array.IndexOf(SliceNames, name);
-            if (index < 0 || (Slice)index == _slice)
+            SetStatus(configs.Length == 1 ? "1 board" : configs.Length + " boards", ChipTone.Ok);
+
+            _side = new BoardSidebar("Boards", _joined);
+
+            // The board picked before a refresh, else the first one.
+            LeaderboardConfigDto selected = null;
+            foreach (var cfg in configs)
             {
-                return;
-            }
-            _slice = (Slice)index;
-
-            if (_boards == null || _rewardsTab < 0)
-            {
-                return;
-            }
-            // Panes cache their data, so the visible one has to be thrown away for the new endpoint
-            // to be called; the hidden ones rebuild when they are selected again. The rewards tab is
-            // left alone — it does not depend on the slice.
-            for (int i = 0; i < _rewardsTab; i++)
-            {
-                _boards.Invalidate(i);
-            }
-        }
-
-        private VisualElement BuildBoardPane(LeaderboardConfigDto cfg)
-        {
-            var pane = new BoardPane(cfg);
-
-            var root = new VisualElement();
-            root.Add(BuildBoardMeta(cfg));
-
-            pane.Kpis.AddToClassList("sc-lb-kpis");
-            root.Add(pane.Kpis);
-            RenderKpis(pane);
-
-            root.Add(pane.EntriesSlot);
-
-            root.Add(new SectionHeader("Play on this board"));
-            root.Add(PlayHint(cfg));
-            root.Add(JoinCard(pane));
-            root.Add(SubmitCard(pane));
-            root.Add(LeaveCard(pane));
-
-            LoadMyEntry(pane);
-            LoadSlice(pane, pane.EntriesSlot);
-            return root;
-        }
-
-        private static VisualElement BuildBoardMeta(LeaderboardConfigDto cfg)
-        {
-            var row = new VisualElement();
-            row.AddToClassList("sc-chip-row");
-            row.AddToClassList("sc-lb-meta");
-
-            row.Add(new Chip(cfg.orderType.ToString(), ChipTone.Info));
-            row.Add(new Chip(cfg.type.ToString(), ChipTone.Neutral));
-            row.Add(new Chip(cfg.updateStrategy.ToString(), ChipTone.Neutral));
-            if (!string.IsNullOrEmpty(cfg.key))
-            {
-                row.Add(new Chip("key: " + cfg.key, ChipTone.Neutral));
-            }
-            if (cfg.cohortsEnabled)
-            {
-                row.Add(new Chip("cohorts of " + cfg.cohortSize, ChipTone.Neutral));
-            }
-
-            if (cfg.isReset)
-            {
-                var resets = new Chip("resets " + cfg.resetIntervalType, ChipTone.Warn);
-                resets.tooltip = string.Format(CultureInfo.InvariantCulture, "at {0:00}:{1:00} UTC",
-                    cfg.resetTimeHour, cfg.resetTimeMinute);
-                row.Add(resets);
-                // Filled once the board's first score started a session.
-                if (cfg.nextResetDate.HasValue)
+                if (cfg == null)
                 {
-                    var chip = new CountdownChip(cfg.nextResetDate.Value.ToUniversalTime());
-                    chip.tooltip = "Next reset: " + Fmt.DateTime2(cfg.nextResetDate);
-                    row.Add(chip);
+                    continue;
+                }
+                var captured = cfg;
+                _side.AddBoard(cfg.key, BoardTitle(cfg), cfg.key, LucideIcon.Trophy,
+                    () => SelectBoard(captured), () => Join(captured), () => ConfirmLeave(captured));
+
+                if (selected == null || (cfg.key == _selectedKey && selected.key != _selectedKey))
+                {
+                    selected = cfg;
                 }
             }
+
+            _side.AddSection("Payouts");
+            _side.AddLink(RewardsId, "Rewards", "paid into Economy on reset", LucideIcon.Gift, SelectRewards);
+
+            var split = BoardLayout.Split(_side, out _main);
+            if (_rewardsSelected || selected == null)
+            {
+                SelectRewards();
+            }
             else
             {
-                row.Add(new Chip("never resets", ChipTone.Neutral));
+                SelectBoard(selected);
             }
-
-            return row;
+            return split;
         }
 
-        /// <summary>
-        /// Redraws the KPI strip from whatever the pane knows so far. Called once per arriving
-        /// response, because the player's own entry and the slice are two separate requests.
-        /// </summary>
-        private void RenderKpis(BoardPane pane)
+        private void SelectBoard(LeaderboardConfigDto cfg)
         {
-            var kpis = pane.Kpis.Clear2();
+            _rewardsSelected = false;
+            _selectedKey = cfg.key;
+            _side.Select(cfg.key);
 
+            _pane = new BoardPane(cfg);
+            _main.Clear();
+            _main.Add(BuildHeadCard(_pane));
+            _main.Add(BuildSubmitCard(_pane));
+            _main.Add(BuildStandingsCard(_pane));
+
+            LoadMyEntry(_pane);
+            LoadSlice(_pane);
+        }
+
+        private void SelectRewards()
+        {
+            _rewardsSelected = true;
+            _pane = null;
+            _side.Select(RewardsId);
+
+            _main.Clear();
+            _main.Add(new PendingRewardsPanel(Ctx, RewardSourceType.Leaderboard,
+                "When a board resets, the server works out what each place (or score) earned and pays it "
+                + "into Economy, where the game reads and claims it. Nothing is claimed by reading.",
+                "Nothing is waiting for this player. A reward lands here when a board resets and the "
+                + "player's place (or score) falls in one of the board's reward ranges."));
+        }
+
+        // ----- board header: one line of configuration + the player's standing -----------------------
+
+        private VisualElement BuildHeadCard(BoardPane pane)
+        {
+            var cfg = pane.Config;
+            string tooltip = cfg.isReset
+                ? string.Format(CultureInfo.InvariantCulture, "Resets at {0:00}:{1:00} UTC. Next: {2}",
+                    cfg.resetTimeHour, cfg.resetTimeMinute, Fmt.DateTime2(cfg.nextResetDate))
+                : "Updated " + RelativeTime.Format(cfg.updatedDate);
+            // Filled once the board's first score started a session.
+            DateTime? countdown = cfg.isReset && cfg.nextResetDate.HasValue
+                ? cfg.nextResetDate.Value.ToUniversalTime()
+                : (DateTime?)null;
+
+            var card = BoardLayout.Head(LucideIcon.Trophy, Meta.Accent, BoardTitle(cfg), MetaLine(cfg), tooltip,
+                countdown, pane.Standing);
+            RenderStanding(pane);
+            return card;
+        }
+
+        /// <summary>The board's configuration as one sentence-like line: order · type · strategy · key · reset.</summary>
+        private static string MetaLine(LeaderboardConfigDto cfg)
+        {
+            var parts = new List<string>
+            {
+                cfg.orderType == OrderType.Lowest ? "Lowest first" : "Highest first",
+                cfg.type == LeaderboardType.Time ? "Time" : cfg.type.ToString(),
+                StrategyShort(cfg.updateStrategy),
+            };
+            if (cfg.cohortsEnabled)
+            {
+                parts.Add("cohorts of " + cfg.cohortSize);
+            }
+            if (cfg.rewardsForPlaces != null && cfg.rewardsForPlaces.Length > 0)
+            {
+                parts.Add(cfg.rewardsForPlaces.Length == 1 ? "1 reward range" : cfg.rewardsForPlaces.Length + " reward ranges");
+            }
+            parts.Add(cfg.isReset
+                ? string.Format(CultureInfo.InvariantCulture, "resets {0} at {1:00}:{2:00} UTC",
+                    cfg.resetIntervalType.ToString().ToLowerInvariant(), cfg.resetTimeHour, cfg.resetTimeMinute)
+                : "never resets");
+            if (!string.IsNullOrEmpty(cfg.key))
+            {
+                parts.Add("key " + cfg.key);
+            }
+            return string.Join("  ·  ", parts);
+        }
+
+        private static string StrategyShort(UpdateStrategy strategy)
+        {
+            switch (strategy)
+            {
+                case UpdateStrategy.Best: return "keeps best";
+                case UpdateStrategy.Total: return "sums scores";
+                default: return "keeps latest";
+            }
+        }
+
+        /// <summary>Right edge of the header: "#3 / 1 250", "no score yet" or a dash while it loads.</summary>
+        private void RenderStanding(BoardPane pane)
+        {
             if (pane.Me != null && pane.Me.position > 0)
             {
-                kpis.Add("My rank", LucideIcon.Medal, "#" + pane.Me.position, null, pane.Me.position <= 3);
-                kpis.Add("My score", LucideIcon.Target, Fmt.Number(pane.Me.value));
+                BoardLayout.RenderStanding(pane.Standing, "#" + pane.Me.position, BoardLayout.MedalTint(pane.Me.position),
+                    "your place · " + FormatScore(pane.Config, pane.Me.value));
+                return;
             }
-            else if (pane.MeLoaded)
-            {
-                kpis.AddZero("My rank", LucideIcon.Medal, "unranked");
-                kpis.AddZero("My score", LucideIcon.Target, "0");
-            }
-            else
-            {
-                kpis.Add("My rank", LucideIcon.Medal, Fmt.Dash);
-                kpis.Add("My score", LucideIcon.Target, Fmt.Dash);
-            }
-
-            string caption = EntriesCaption();
-            if (!pane.EntriesLoaded)
-            {
-                kpis.Add(caption, LucideIcon.Users, Fmt.Dash);
-            }
-            else if (pane.Entries == 0)
-            {
-                kpis.AddZero(caption, LucideIcon.Users);
-            }
-            else
-            {
-                kpis.Add(caption, LucideIcon.Users, Fmt.Number(pane.Entries));
-            }
-
-            kpis.Add("Board updated", LucideIcon.Clock, RelativeTime.Format(pane.Config.updatedDate));
+            BoardLayout.RenderStanding(pane.Standing, Fmt.Dash, null, pane.MeLoaded ? "no score yet" : "loading…");
         }
 
-        private string EntriesCaption()
+        // ----- submit card -----------------------------------------------------------------------------
+
+        private VisualElement BuildSubmitCard(BoardPane pane)
         {
-            switch (_slice)
+            var card = BoardLayout.Card(LucideIcon.Send, "Submit a score", out _);
+            card.Add(BoardLayout.Hint(SubmitHint(pane.Config)));
+
+            var field = BoardLayout.Field(pane.Config.type == LeaderboardType.Time ? "Seconds" : "Score", "1000");
+            card.Add(BoardLayout.FormRow("Submit", result => Submit(pane, field.value, result), field));
+            return card;
+        }
+
+        private static string SubmitHint(LeaderboardConfigDto cfg)
+        {
+            string strategy;
+            switch (cfg.updateStrategy)
             {
-                case Slice.GlobalTop: return "Players on the board";
-                case Slice.AroundMe: return "Rows around you";
-                case Slice.Friends: return "Friends ranked";
-                case Slice.Country: return "In your country";
-                default: return "Players";
+                case UpdateStrategy.Best:
+                    strategy = "A worse score than the stored one leaves the entry alone.";
+                    break;
+                case UpdateStrategy.Total:
+                    strategy = "Every submission adds to the entry.";
+                    break;
+                default:
+                    strategy = "Every submission replaces the entry.";
+                    break;
+            }
+            string unit = cfg.type == LeaderboardType.Time ? " A time board takes a TimeSpan, sent as seconds." : string.Empty;
+            return "Join the board first — scores are accepted from participants only. " + strategy + unit;
+        }
+
+        private async Task Submit(BoardPane pane, string text, InlineResult result)
+        {
+            double score;
+            // Parsed here rather than as a float: the SDK takes a double, and a score can easily be
+            // larger than a float represents exactly.
+            if (!double.TryParse((text ?? string.Empty).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out score))
+            {
+                result.Fail("Score must be a number (use a dot for decimals).");
+                return;
+            }
+
+            string key = pane.Config.key;
+            var op = pane.Config.type == LeaderboardType.Time
+                ? Sdk.Leaderboard.SubmitScoreAsync(TimeSpan.FromSeconds(score), key)
+                : Sdk.Leaderboard.SubmitScoreAsync(score, key);
+            await op.Task();
+            var response = op.Result;
+
+            if (!response.IsSuccess)
+            {
+                bool notJoined = response.Error.HasCode(CloudErrorCodes.LeaderboardsParticipationRequired);
+                if (notJoined)
+                {
+                    _side?.SetJoined(key, false);
+                }
+                result.Fail(notJoined
+                    ? "Join the board first — scores are accepted from participants only."
+                    : ErrorText(response));
+                return;
+            }
+
+            _side?.SetJoined(key, true);
+            var entry = response.Data;
+            result.Ok(entry != null && entry.position > 0
+                ? "You are #" + entry.position + " with " + FormatScore(pane.Config, entry.value)
+                : "Submitted " + FormatScore(pane.Config, score));
+            if (pane == _pane)
+            {
+                ReloadStandings(pane);
             }
         }
 
-        private void LoadSlice(BoardPane pane, VisualElement slot)
+        // ----- standings card --------------------------------------------------------------------------
+
+        private VisualElement BuildStandingsCard(BoardPane pane)
         {
+            var card = BoardLayout.Card(LucideIcon.Users, "Standings", out var head);
+            head.AddToClassList("sc-board-card__head--wrap");
+            head.Add(pane.Count);
+
+            var spacer = new VisualElement();
+            spacer.style.flexGrow = 1f;
+            head.Add(spacer);
+
+            head.Add(BoardLayout.Switch(SliceNames, (int)_slice, index =>
+            {
+                _slice = (Slice)index;
+                LoadSlice(pane);
+            }));
+
+            card.Add(pane.EntriesSlot);
+            return card;
+        }
+
+        private void RenderCount(BoardPane pane)
+        {
+            BoardLayout.SetCount(pane.Count, pane.EntriesLoaded && pane.Entries > 0 ? Fmt.Number(pane.Entries) : null);
+        }
+
+        private void LoadSlice(BoardPane pane)
+        {
+            pane.Table = null;
+            pane.EntriesLoaded = false;
+            RenderCount(pane);
+
+            var slot = pane.EntriesSlot;
             string key = pane.Config.key;
             switch (_slice)
             {
@@ -419,7 +501,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                         d => d?.entries, "Leaderboard top", TopSnippet,
                         pane.Config.cohortsEnabled
                             ? "You have no table on this board yet: a board with cohorts places you in one "
-                              + "with your first score. The Global top slice shows every cohort."
+                              + "with your first score. The Global slice shows every cohort."
                             : "This board has no entries yet. The first SubmitScoreAsync call against it "
                               + "creates the ranking, and every later score updates it.");
                     return;
@@ -428,7 +510,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
 
         /// <summary>
         /// The friends slice is the only two-step one: the endpoint ranks exactly the ids it is
-        /// given, so the friend list has to be fetched first and both calls end up in the journal.
+        /// given, so the friend list has to be fetched first.
         /// </summary>
         private void LoadFriendsSlice(BoardPane pane, VisualElement slot)
         {
@@ -448,9 +530,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 isEmpty: f => f == null || f.Length == 0,
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Friends list",
-                    Snippet = FriendsSnippet,
                     ServiceName = "Friends",
                     AllowRetry = true,
                     EmptyView = () => EmptySlice(pane,
@@ -471,9 +551,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 isEmpty: data => IsEmpty(rows(data)),
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = label,
-                    Snippet = snippet,
                     ServiceName = "Leaderboard",
                     AllowRetry = true,
                     EmptyView = () => EmptySlice(pane, emptyMessage),
@@ -486,23 +564,14 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             pane.Rows = rows;
             pane.Entries = rows.Length;
             pane.EntriesLoaded = true;
-            RenderKpis(pane);
-
-            var root = new VisualElement();
-
-            var chart = BuildChart(rows);
-            if (chart != null)
-            {
-                root.Add(chart);
-            }
+            RenderCount(pane);
 
             pane.Table = new DataTable(Columns(pane))
                 .WithZebra()
-                .WithMaxHeight(420f)
+                .WithMaxHeight(480f)
                 .WithSort(0, true)
                 .Bind(rows, pane.IsMine);
-            root.Add(pane.Table);
-            return root;
+            return pane.Table;
         }
 
         private VisualElement EmptySlice(BoardPane pane, string message)
@@ -511,39 +580,11 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             pane.Entries = 0;
             pane.EntriesLoaded = true;
             pane.Table = null;
-            RenderKpis(pane);
+            RenderCount(pane);
 
             // The board keeps the shape it will have once scores arrive — the reader sees the
             // columns they are going to get, not a shrug.
             return ZeroState.Table(Columns(pane), message);
-        }
-
-        /// <summary>Top of the ranking as bars — the shape of the gap between the leaders, which a
-        /// column of numbers hides. Returns null when there is nothing to compare.</summary>
-        private VisualElement BuildChart(LeaderboardEntryDto[] rows)
-        {
-            if (rows.Length < 2)
-            {
-                return null;
-            }
-
-            var ordered = new List<LeaderboardEntryDto>(rows);
-            ordered.Sort((a, b) => a.position.CompareTo(b.position));
-
-            int count = Math.Min(ChartBars, ordered.Count);
-            var points = new List<ChartPoint>(count);
-            for (int i = 0; i < count; i++)
-            {
-                var e = ordered[i];
-                points.Add(new ChartPoint("#" + e.position, (float)e.value, MedalTint(e.position)));
-            }
-
-            var chart = new BarChart(150f);
-            chart.AddToClassList("sc-lb-chart");
-            chart.SetAccent(Meta.Accent);
-            chart.SetValueFormatter(v => Fmt.Number(v));
-            chart.SetData(points);
-            return chart;
         }
 
         private DataColumn[] Columns(BoardPane pane)
@@ -565,7 +606,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 new DataColumn
                 {
                     Header = "SCORE", FixedWidth = true, Px = 120, Align = "right",
-                    Cell = ScoreCell,
+                    Cell = row => ScoreCell(pane, row),
                     SortKey = row => ((LeaderboardEntryDto)row).value,
                 },
             };
@@ -573,65 +614,35 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
 
         private static VisualElement RankCell(object row)
         {
-            var e = (LeaderboardEntryDto)row;
-
-            var text = new Label(e.position > 0 ? "#" + e.position : Fmt.Dash);
-            text.AddToClassList("sc-rank");
-            if (e.position < 1 || e.position > 3)
-            {
-                return text;
-            }
-
-            var tint = MedalTint(e.position).Value;
-            text.style.color = tint;
-
-            var wrap = new VisualElement();
-            wrap.AddToClassList("sc-lb-rank");
-
-            var medal = new Label(LucideIcon.Medal);
-            medal.AddToClassList("sc-lb-medal");
-            medal.AddToClassList("sc-icon");
-            medal.style.color = tint;
-            wrap.Add(medal);
-            wrap.Add(text);
-            return wrap;
+            return BoardLayout.RankCell(((LeaderboardEntryDto)row).position);
         }
 
         private static VisualElement PlayerCell(BoardPane pane, object row)
         {
             var e = (LeaderboardEntryDto)row;
-            string label = PlayerLabel(e);
-
-            var wrap = new VisualElement();
-            wrap.AddToClassList("sc-lb-player");
-
-            var avatar = new Avatar(26f).SetInitialsFor(label);
-            avatar.AddToClassList("sc-lb-player__avatar");
-            wrap.Add(avatar);
-
-            var name = new Label(Fmt.OrDash(label));
-            name.enableRichText = false;
-            name.tooltip = e.playerId + " · " + e.countryCode;
-            wrap.Add(name);
-
-            if (pane.IsMine(row))
-            {
-                var you = new Badge("You", ChipTone.Accent);
-                you.AddToClassList("sc-lb-player__you");
-                wrap.Add(you);
-            }
-            return wrap;
+            return BoardLayout.PlayerCell(PlayerLabel(e), e.playerId + " · " + e.countryCode, pane.IsMine(row));
         }
 
-        private static VisualElement ScoreCell(object row)
+        private static VisualElement ScoreCell(BoardPane pane, object row)
         {
             var e = (LeaderboardEntryDto)row;
-            var label = new Label(Fmt.Number(e.value));
+            var label = new Label(FormatScore(pane.Config, e.value));
             label.AddToClassList("sc-score");
             // Fmt.Number compacts past 10k ("12.4k"), and on a ranking the exact figure is what
             // decides the order — keep it one hover away.
             label.tooltip = e.value.ToString("R", CultureInfo.InvariantCulture);
             return label;
+        }
+
+        /// <summary>A time board stores seconds; "1m 35s" reads better than "95.4" in a ranking.</summary>
+        private static string FormatScore(LeaderboardConfigDto cfg, double value)
+        {
+            if (cfg.type == LeaderboardType.Time && !double.IsNaN(value) && !double.IsInfinity(value)
+                && Math.Abs(value) < TimeSpan.MaxValue.TotalSeconds)
+            {
+                return Fmt.Duration(TimeSpan.FromSeconds(value));
+            }
+            return Fmt.Number(value);
         }
 
         /// <summary>
@@ -654,13 +665,12 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             catch (Exception e)
             {
                 // async void: an exception escaping here would surface as an unhandled one rather
-                // than as a failed tile, so it is logged and the strip falls back to "unranked".
+                // than as a failed tile, so it is logged and the header falls back to "no score".
                 Debug.LogWarning("[Showcase] Leaderboard: reading the player's own entry failed: " + e.Message);
             }
 
             if (result != null)
             {
-                Ctx.Log?.Record("Leaderboard: my entry", result, MeSnippet);
                 if (result.IsSuccess)
                 {
                     pane.Me = result.Data;
@@ -668,7 +678,14 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             }
 
             pane.MeLoaded = true;
-            RenderKpis(pane);
+            RenderStanding(pane);
+
+            // An entry proves participation; a 404 proves nothing (a participant without a score
+            // gets it too), so only the positive answer updates the sidebar.
+            if (pane.Me != null)
+            {
+                _side?.SetJoined(pane.Config.key, true);
+            }
 
             // The table may have rendered before this landed, and it is the "You" row highlight that
             // depends on it — re-bind rather than leave the player unable to find themselves.
@@ -678,139 +695,107 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             }
         }
 
-        // ----- playing on a board ---------------------------------------------------------------------
-
-        private static VisualElement PlayHint(LeaderboardConfigDto cfg)
-        {
-            string strategy;
-            switch (cfg.updateStrategy)
-            {
-                case UpdateStrategy.Best:
-                    strategy = "This board keeps the best value, so a worse score leaves the entry alone.";
-                    break;
-                case UpdateStrategy.Total:
-                    strategy = "This board totals the values, so every submission adds to the entry.";
-                    break;
-                default:
-                    strategy = "This board keeps the latest value, so every submission replaces the entry.";
-                    break;
-            }
-
-            string unit = cfg.type == LeaderboardType.Time
-                ? " It is a time board: pass a TimeSpan, which the SDK sends as seconds."
-                : string.Empty;
-
-            var hint = new Label("Scores are accepted from participants only, so join once first. " + strategy
-                                 + unit + " The name, icon and country shown are your profile's.");
-            hint.enableRichText = false;
-            hint.AddToClassList("sc-fs-hint");
-            return hint;
-        }
-
-        private VisualElement JoinCard(BoardPane pane)
-        {
-            return new ActionCard("Join the board",
-                    "Makes the player a participant. Joining twice is harmless.", LucideIcon.UserPlus)
-                .WithSnippet(JoinSnippet)
-                .OnRun("Join", _ => Join(pane));
-        }
-
-        private VisualElement SubmitCard(BoardPane pane)
-        {
-            return new ActionCard("Submit a score",
-                    "Writes one value and reloads the standings above.", LucideIcon.Send)
-                .WithFields(FormField.Float("score", pane.Config.type == LeaderboardType.Time ? "Seconds" : "Score", 1000f)
-                    .WithPlaceholder("Any number; the update strategy above decides what the server does with it.")
-                    .AsRequired())
-                .WithSnippet(SubmitSnippet)
-                .OnRun("Submit", values => Submit(pane, values));
-        }
-
-        private VisualElement LeaveCard(BoardPane pane)
-        {
-            return new ActionCard("Leave the board",
-                    "Removes the player and their score of the current session.", LucideIcon.UserMinus)
-                .WithSnippet(LeaveSnippet)
-                .OnRun("Leave", _ => Leave(pane), destructive: true);
-        }
-
-        private async Task<ActionOutcome> Join(BoardPane pane)
-        {
-            var op = Sdk.Leaderboard.JoinAsync(pane.Config.key);
-            await op.Task();
-            Ctx.Log?.Record("Leaderboard: join", op.Result, JoinSnippet);
-            if (!op.Result.IsSuccess)
-            {
-                return ActionOutcome.Failure(ErrorText(op.Result));
-            }
-
-            ReloadStandings(pane);
-            var entry = op.Result.Data;
-            return ActionOutcome.Success(entry != null && entry.position > 0
-                ? "Joined — you are #" + entry.position
-                : "Joined — submit a score to get a place");
-        }
-
-        private async Task<ActionOutcome> Submit(BoardPane pane, FormValues values)
-        {
-            double score;
-            // Parsed here rather than through FormValues.Float: the SDK takes a double, and a score can
-            // easily be larger than a float represents exactly.
-            if (!double.TryParse(values.Text("score").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out score))
-            {
-                return ActionOutcome.Failure("Score must be a number (use a dot for decimals).");
-            }
-
-            var op = pane.Config.type == LeaderboardType.Time
-                ? Sdk.Leaderboard.SubmitScoreAsync(TimeSpan.FromSeconds(score), pane.Config.key)
-                : Sdk.Leaderboard.SubmitScoreAsync(score, pane.Config.key);
-            await op.Task();
-            Ctx.Log?.Record("Leaderboard: submit score", op.Result, SubmitSnippet);
-            if (!op.Result.IsSuccess)
-            {
-                return ActionOutcome.Failure(op.Result.Error.HasCode(CloudErrorCodes.LeaderboardsParticipationRequired)
-                    ? "Join the board first — scores are accepted from participants only."
-                    : ErrorText(op.Result));
-            }
-
-            Toasts?.Ok("Score " + Fmt.Number(score) + " submitted");
-            ReloadStandings(pane);
-            var entry = op.Result.Data;
-            return ActionOutcome.Success(entry != null
-                ? "Submitted — you are #" + entry.position + " with " + Fmt.Number(entry.value)
-                : "Submitted " + Fmt.Number(score));
-        }
-
-        private async Task<ActionOutcome> Leave(BoardPane pane)
-        {
-            var op = Sdk.Leaderboard.LeaveAsync(pane.Config.key);
-            await op.Task();
-            Ctx.Log?.Record("Leaderboard: leave", op.Result, LeaveSnippet);
-            if (!op.Result.IsSuccess)
-            {
-                return ActionOutcome.Failure(ErrorText(op.Result));
-            }
-
-            ReloadStandings(pane);
-            return ActionOutcome.Success("Left the board — your score of this session is gone");
-        }
-
-        /// <summary>
-        /// Re-reads the player's entry and the current slice in place, so the result the reader just
-        /// clicked for stays on the card instead of the whole tab being rebuilt.
-        /// </summary>
+        /// <summary>Re-reads the player's entry and the current slice in place.</summary>
         private void ReloadStandings(BoardPane pane)
         {
             pane.Me = null;
             pane.MeLoaded = false;
-            pane.Entries = 0;
-            pane.EntriesLoaded = false;
-            pane.Table = null;
-            RenderKpis(pane);
+            RenderStanding(pane);
 
             LoadMyEntry(pane);
-            LoadSlice(pane, pane.EntriesSlot);
+            LoadSlice(pane);
         }
+
+        // ----- join / leave from the sidebar ------------------------------------------------------------
+
+        private async void Join(LeaderboardConfigDto cfg)
+        {
+            _side.SetBusy(cfg.key, true);
+
+            RestApiResult<LeaderboardEntryDto> result = null;
+            try
+            {
+                var op = Sdk.Leaderboard.JoinAsync(cfg.key);
+                await op.Task();
+                result = op.Result;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Showcase] Leaderboard: join threw: " + e.Message);
+            }
+
+            _side.SetBusy(cfg.key, false);
+            if (result == null)
+            {
+                Toasts?.Fail("Join failed: no response");
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                Toasts?.Fail("Join failed: " + ErrorText(result));
+                return;
+            }
+
+            _side.SetJoined(cfg.key, true);
+            var entry = result.Data;
+            Toasts?.Ok(entry != null && entry.position > 0
+                ? "Joined " + BoardTitle(cfg) + " — you are #" + entry.position
+                : "Joined " + BoardTitle(cfg) + " — submit a score to get a place");
+            ReloadIfSelected(cfg.key);
+        }
+
+        private void ConfirmLeave(LeaderboardConfigDto cfg)
+        {
+            ConfirmDialog.Open(Popup, "Leave " + BoardTitle(cfg),
+                "The player stops being a participant, and their score of the current session is removed "
+                + "from the board.",
+                "Leave", () => Leave(cfg));
+        }
+
+        private async void Leave(LeaderboardConfigDto cfg)
+        {
+            _side.SetBusy(cfg.key, true);
+
+            RestApiResult result = null;
+            try
+            {
+                var op = Sdk.Leaderboard.LeaveAsync(cfg.key);
+                await op.Task();
+                result = op.Result;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Showcase] Leaderboard: leave threw: " + e.Message);
+            }
+
+            _side.SetBusy(cfg.key, false);
+            if (result == null)
+            {
+                Toasts?.Fail("Leave failed: no response");
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                Toasts?.Fail("Leave failed: " + ErrorText(result));
+                return;
+            }
+
+            _side.SetJoined(cfg.key, false);
+            Toasts?.Ok("Left " + BoardTitle(cfg) + " — your score of this session is gone");
+            ReloadIfSelected(cfg.key);
+        }
+
+        private void ReloadIfSelected(string key)
+        {
+            if (_pane != null && _pane.Config.key == key)
+            {
+                ReloadStandings(_pane);
+            }
+        }
+
+        // ----- helpers ----------------------------------------------------------------------------------
 
         private static string ErrorText(RestApiResult result)
         {
@@ -891,26 +876,19 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             return string.IsNullOrWhiteSpace(cfg.key) ? Fmt.Id(cfg.id) : cfg.key;
         }
 
-        /// <summary>Null for anything below third place, so the chart falls back to the module accent.</summary>
-        private static Color? MedalTint(int position)
-        {
-            switch (position)
-            {
-                case 1: return Gold;
-                case 2: return Silver;
-                case 3: return Bronze;
-                default: return null;
-            }
-        }
-
         /// <summary>
-        /// One board tab's mutable state. It exists because the pane is filled by two calls that can
-        /// land in either order: whichever arrives re-renders the KPI strip from here.
+        /// The selected board's mutable state. It exists because the right side is filled by two
+        /// calls that can land in either order: whichever arrives re-renders its part from here.
         /// </summary>
         private sealed class BoardPane
         {
             public readonly LeaderboardConfigDto Config;
-            public readonly KpiRow Kpis = new KpiRow();
+
+            /// <summary>Right edge of the header card: the player's place and score.</summary>
+            public readonly VisualElement Standing = new VisualElement();
+
+            /// <summary>Row count badge next to the standings title.</summary>
+            public readonly Label Count = BoardLayout.Count();
 
             /// <summary>The player's own entry, or null when they have never scored on this board.</summary>
             public LeaderboardEntryDto Me;
@@ -918,7 +896,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             /// <summary>True once the entry call finished — tells "no score" apart from "still loading".</summary>
             public bool MeLoaded;
 
-            /// <summary>Host of the standings, re-filled in place after a join, submit or leave.</summary>
+            /// <summary>Host of the standings, re-filled in place after a submit, join or leave.</summary>
             public readonly VisualElement EntriesSlot = new VisualElement();
 
             public LeaderboardEntryDto[] Rows = Array.Empty<LeaderboardEntryDto>();

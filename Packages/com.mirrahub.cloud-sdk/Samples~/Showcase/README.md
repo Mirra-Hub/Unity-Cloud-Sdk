@@ -50,7 +50,8 @@ Showcase/
     App/      ShowcaseApp, ShowcaseInstaller, ShowcaseModules, Nav, Popup, Toasts
     Views/    AuthView, ServicesView, ServiceView (base) + one view per service
     Components/  Avatar, Card, Chip/RewardChip/CountdownChip, StatTile, ListRow,
-                 DataTable, ProgressBar, SectionHeader, Skeleton/EmptyState/ErrorState
+                 DataTable, ProgressBar, SectionHeader, Skeleton/EmptyState/ErrorState,
+                 BoardSidebar/BoardLayout (the ranking screens' sidebar and cards)
     Infra/    ViewBind, RemoteImageLoader, Fmt
 ```
 
@@ -92,12 +93,12 @@ values), so each view only writes the happy-path render.
 | Service | View |
 | --- | --- |
 | Player Account | Hero card (avatar, nickname/@handle, trait chips, lifetime stat tiles, segments) + sub-profiles |
-| Leaderboard | Tab per board, config chips + ranked table (medal ranks, avatars, scores) |
+| Leaderboard | Boards in a sidebar with Join / Leave, one-line board config, submit card, standings with a slice switch (your table, global, around you, friends, country) |
 | Economy | Wallet listing every defined currency (add/subtract/set per row) + item slots with grant/take/consume/properties + energy meters + catalog |
-| Friends | Counts strip + friends (presence) / incoming / outgoing requests |
+| Friends | Friend list with presence and Unfriend / Block, Add friend by id, incoming and sent requests answered on the row with "all" buttons above |
 | Assets Storage | File-manager browser (folders, previews) → asset details: load by path, anonymous fetch of a public asset |
 | Chats | Lookup by channel/group id → channel header, members, recent messages |
-| Tournaments | Tab per tournament, leagues with rewards-for-places, standings, your rewards |
+| Tournaments | Tournaments in a sidebar with Join / Leave, one-line config with your place and league, submit card, one league's standings with a slice switch, the league ladder with thresholds and rewards |
 | Challenges | Card per challenge with live progress bar, status, reward tiers, countdown |
 | Daily Rewards | Streak/progress header + day-by-day reward track + streak bonuses + milestones |
 | Groups | My groups / Discover → open a group: its card, the actions it allows, members, requests, roles, invites, bans |

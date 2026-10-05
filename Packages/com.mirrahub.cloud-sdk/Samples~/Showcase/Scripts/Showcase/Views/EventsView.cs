@@ -235,9 +235,7 @@ await runtime.Task();
                 d => d == null || d.events == null || d.events.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Active events",
-                    Snippet = ActiveSnippet,
                     ServiceName = "Events",
                     AllowRetry = true,
                     EmptyView = NothingRunning,
@@ -403,9 +401,7 @@ await runtime.Task();
                 c => c == null || c.Energies == null || c.Energies.Count == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Economy catalog",
-                    Snippet = EffectSnippet,
                     ServiceName = "Economy",
                     ConfigurationRequest = true,
                     AllowRetry = true,
@@ -430,9 +426,7 @@ await runtime.Task();
                 r => r == null || r.Count == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Energy runtime",
-                    Snippet = EffectSnippet,
                     ServiceName = "Economy",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.Coins, "No energies for this player",
@@ -623,9 +617,7 @@ await runtime.Task();
                 d => d == null || d.events == null || d.events.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Active events",
-                    Snippet = ActiveSnippet,
                     ServiceName = "Events",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Table(ScheduleColumns(),

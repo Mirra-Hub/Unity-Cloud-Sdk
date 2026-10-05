@@ -110,9 +110,7 @@ sdk.Entities.ClearCache();";
                 snapshot => snapshot == null || snapshot.Configs == null || snapshot.Configs.Count == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Entity configs",
-                    Snippet = ConfigsSnippet,
                     ServiceName = "Entities",
                     ConfigurationRequest = true,
                     AllowRetry = true,

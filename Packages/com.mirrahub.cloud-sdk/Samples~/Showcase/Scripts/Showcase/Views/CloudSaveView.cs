@@ -254,9 +254,7 @@ var theirs = sdk.CloudSave.GetOtherPlayerFileAsync(profileId, ""save1"");";
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = NameOf(scope) + " data",
-                    Snippet = ReadSnippet,
                     ServiceName = "Cloud Save",
                     AllowRetry = true,
                     EmptyView = () => scope == Scope.Global
@@ -1044,10 +1042,6 @@ var theirs = sdk.CloudSave.GetOtherPlayerFileAsync(profileId, ""save1"");";
 
         private Outcome Fold(RestApiResult result, string label)
         {
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result);
-            }
             if (result != null && result.IsSuccess)
             {
                 return new Outcome { Ok = true };
