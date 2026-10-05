@@ -117,9 +117,7 @@ await sdk.PlayerAccount.UpdateProfileSegmentsAsync(profileId, new[] { ""vip"" })
                 a => a == null,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Account segments",
-                    Snippet = AccountSnippet,
                     ServiceName = "Segments",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.User, "No account to read",
@@ -136,9 +134,7 @@ await sdk.PlayerAccount.UpdateProfileSegmentsAsync(profileId, new[] { ""vip"" })
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Segments",
-                    Snippet = SegmentsSnippet,
                     ServiceName = "Segments",
                     ConfigurationRequest = true,
                     AllowRetry = true,

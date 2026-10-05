@@ -13,14 +13,8 @@ namespace MirraCloud.Example.Showcase
     /// </summary>
     public sealed class BindOptions
     {
-        /// <summary>Journal to record the finished call in. Null keeps the call out of the log.</summary>
-        public RequestLog Log;
-
-        /// <summary>Human label for the journal row ("Leaderboard page"); falls back to the route.</summary>
+        /// <summary>Human label for the call ("Leaderboard page"), used in warnings when it fails.</summary>
         public string Label;
-
-        /// <summary>The C# behind the call — shown in the journal row and in the <c>&lt;/&gt;</c> drawer.</summary>
-        public string Snippet;
 
         /// <summary>Service name used by the "not set up yet" state, e.g. "Tournament".
         /// Keep it singular — the state composes sentences around it.</summary>
@@ -57,7 +51,7 @@ namespace MirraCloud.Example.Showcase
             "Your session has expired. Sign in again to continue.";
 
         /// <summary>
-        /// Original binding: loading → data / empty / error, with no journal, no retry and no
+        /// Original binding: loading → data / empty / error, with no retry and no
         /// status-code taxonomy. Kept verbatim because the service views lean on it.
         /// </summary>
         public static void Load<T>(
@@ -139,12 +133,6 @@ namespace MirraCloud.Example.Showcase
             }
 
             slot.UnregisterCallback(watch);
-
-            // The call happened whether or not anyone is still watching, so it belongs in the journal.
-            if (result != null && options.Log != null)
-            {
-                options.Log.Record(options.Label, result, options.Snippet);
-            }
 
             void Apply()
             {

@@ -117,9 +117,7 @@ ClaimDailyRewardResponseDto got = op.Result.Data;
                 c => c == null || c.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Daily reward calendars",
-                    Snippet = CalendarsSnippet,
                     ServiceName = "Daily Rewards",
                     // This is the configuration call, so a 404 here really does mean "this project
                     // has no login calendar" rather than "this player has no progress".
@@ -226,7 +224,6 @@ ClaimDailyRewardResponseDto got = op.Result.Data;
 
             if (result != null)
             {
-                Ctx.Log?.Record("Daily rewards: every status", result, AllStatusSnippet);
                 if (result.IsSuccess)
                 {
                     _readyCount = CountReady(result.Data);
@@ -388,9 +385,7 @@ ClaimDailyRewardResponseDto got = op.Result.Data;
                 status => status == null,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Daily reward status",
-                    Snippet = StatusSnippet,
                     ServiceName = "Daily Rewards",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.CalendarCheck, "No progress on this calendar",
@@ -1101,14 +1096,8 @@ ClaimDailyRewardResponseDto got = op.Result.Data;
             return Fold(op.Result, label);
         }
 
-        // Every write this screen has is a claim, so the journal row can carry the claim snippet
-        // unconditionally; the reads go through ViewBind and pass their own.
         private Outcome Fold(RestApiResult result, string label)
         {
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result, ClaimSnippet);
-            }
             if (result != null && result.IsSuccess)
             {
                 return new Outcome { Ok = true };

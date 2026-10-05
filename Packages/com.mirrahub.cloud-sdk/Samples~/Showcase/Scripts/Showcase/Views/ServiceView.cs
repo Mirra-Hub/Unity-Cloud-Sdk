@@ -32,7 +32,7 @@ namespace MirraCloud.Example.Showcase
 
         protected readonly ServiceMeta Meta;
 
-        /// <summary>Ambient services (SDK, toasts, dialogs, navigation, request log).</summary>
+        /// <summary>Ambient services (SDK, toasts, dialogs, navigation).</summary>
         protected readonly ShowcaseContext Ctx;
 
         /// <summary>
@@ -135,7 +135,6 @@ namespace MirraCloud.Example.Showcase
         protected RemoteImageLoader Images => Ctx.Images;
         protected Toasts Toasts => Ctx.Toasts;
         protected Popup Popup => Ctx.Popup;
-        protected RequestLog Log => Ctx.Log;
 
         protected abstract void Populate();
 
@@ -417,11 +416,11 @@ namespace MirraCloud.Example.Showcase
                 return;
             }
             // The dialog itself does not scroll (.sc-dialog caps width only), and the drawer grows
-            // with every declared call plus the whole request journal — without this it runs off
-            // the bottom of the screen with no way to reach the rest.
+            // with every declared call — without this it runs off the bottom of the screen with no
+            // way to reach the rest.
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.maxHeight = 520f;
-            scroll.Add(SdkCallDrawer.Build(_calls, Ctx.Log));
+            scroll.Add(SdkCallDrawer.Build(_calls));
             popup.Open(scroll, Meta.Title + " · SDK calls");
         }
 

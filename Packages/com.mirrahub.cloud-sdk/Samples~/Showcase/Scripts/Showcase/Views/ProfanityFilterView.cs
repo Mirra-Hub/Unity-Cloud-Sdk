@@ -152,10 +152,6 @@ if (op.Result.IsSuccess)
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record("Text check", result, CheckSnippet);
-            }
 
             if (_resultSlot.panel == null)
             {

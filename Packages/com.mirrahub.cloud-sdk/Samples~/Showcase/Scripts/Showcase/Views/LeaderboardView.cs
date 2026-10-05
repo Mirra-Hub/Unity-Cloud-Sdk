@@ -199,9 +199,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 isEmpty: c => c == null || c.Length == 0,
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Leaderboard boards",
-                    Snippet = BoardsSnippet,
                     ServiceName = "Leaderboard",
                     // this is the board *configuration* call, so a 404 really does mean
                     // "no leaderboards exist in this project"
@@ -409,7 +407,6 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             await op.Task();
             var response = op.Result;
 
-            Ctx.Log?.Record("Leaderboard: submit score", response, SubmitSnippet);
             if (!response.IsSuccess)
             {
                 bool notJoined = response.Error.HasCode(CloudErrorCodes.LeaderboardsParticipationRequired);
@@ -513,7 +510,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
 
         /// <summary>
         /// The friends slice is the only two-step one: the endpoint ranks exactly the ids it is
-        /// given, so the friend list has to be fetched first and both calls end up in the journal.
+        /// given, so the friend list has to be fetched first.
         /// </summary>
         private void LoadFriendsSlice(BoardPane pane, VisualElement slot)
         {
@@ -533,9 +530,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 isEmpty: f => f == null || f.Length == 0,
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Friends list",
-                    Snippet = FriendsSnippet,
                     ServiceName = "Friends",
                     AllowRetry = true,
                     EmptyView = () => EmptySlice(pane,
@@ -556,9 +551,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 isEmpty: data => IsEmpty(rows(data)),
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = label,
-                    Snippet = snippet,
                     ServiceName = "Leaderboard",
                     AllowRetry = true,
                     EmptyView = () => EmptySlice(pane, emptyMessage),
@@ -678,7 +671,6 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
 
             if (result != null)
             {
-                Ctx.Log?.Record("Leaderboard: my entry", result, MeSnippet);
                 if (result.IsSuccess)
                 {
                     pane.Me = result.Data;
@@ -739,7 +731,6 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 return;
             }
 
-            Ctx.Log?.Record("Leaderboard: join", result, JoinSnippet);
             if (!result.IsSuccess)
             {
                 Toasts?.Fail("Join failed: " + ErrorText(result));
@@ -785,7 +776,6 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 return;
             }
 
-            Ctx.Log?.Record("Leaderboard: leave", result, LeaveSnippet);
             if (!result.IsSuccess)
             {
                 Toasts?.Fail("Leave failed: " + ErrorText(result));

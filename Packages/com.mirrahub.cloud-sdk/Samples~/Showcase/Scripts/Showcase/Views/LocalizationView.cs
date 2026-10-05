@@ -114,9 +114,7 @@ string text = one.Result.IsSuccess ? one.Result.Data.Value : key;";
                 data => data == null || data.Count == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Localization collection",
-                    Snippet = AllSnippet,
                     ServiceName = "Localization",
                     // The collection is this service's configuration: a 404 means no such collection
                     // exists on this branch, which is a console matter rather than a broken call.

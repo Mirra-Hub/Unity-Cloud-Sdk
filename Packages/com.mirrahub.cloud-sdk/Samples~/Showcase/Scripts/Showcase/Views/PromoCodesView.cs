@@ -169,9 +169,7 @@ await sdk.PromoCodes.GetActiveEffectsAsync().Task();   // the new effect is live
                 },
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Promo history",
-                    Snippet = HistorySnippet,
                     ServiceName = "Promo Codes",
                     AllowRetry = true,
                 });
@@ -194,9 +192,7 @@ await sdk.PromoCodes.GetActiveEffectsAsync().Task();   // the new effect is live
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Active promo effects",
-                    Snippet = EffectsSnippet,
                     ServiceName = "Promo Codes",
                     AllowRetry = true,
                     EmptyView = () =>
@@ -308,9 +304,7 @@ await sdk.PromoCodes.GetActiveEffectsAsync().Task();   // the new effect is live
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Promo history",
-                    Snippet = HistorySnippet,
                     ServiceName = "Promo Codes",
                     AllowRetry = true,
                     EmptyView = () =>
@@ -879,10 +873,6 @@ await sdk.PromoCodes.GetActiveEffectsAsync().Task();   // the new effect is live
 
         private Outcome Fold(RestApiResult result, string label)
         {
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result);
-            }
             if (result != null && result.IsSuccess)
             {
                 return new Outcome { Ok = true };

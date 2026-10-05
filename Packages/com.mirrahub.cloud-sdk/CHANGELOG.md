@@ -21,7 +21,7 @@ The SDK is `0.x`: the public API can change between minor versions. Breaking cha
   or several; requests are accepted, rejected, blocked or revoked on their rows, with "all" buttons (the bulk calls)
   above each list; answered requests can be removed.
 - **Showcase.** Logout turns red under the pointer. The home screen drops its request-log button — the editor has a
-  tool for that; each screen keeps the log inside its SDK call drawer.
+  tool for that — and the request log is gone from the SDK call drawers too.
 - **Showcase.** Scrollbars are a thin rounded thumb that brightens under the pointer, without arrow buttons or a
   track, on every screen and dialog.
 

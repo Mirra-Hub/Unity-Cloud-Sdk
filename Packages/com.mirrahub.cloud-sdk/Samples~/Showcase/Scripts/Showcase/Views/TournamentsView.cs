@@ -219,9 +219,7 @@ await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
                 isEmpty: c => c == null || c.Length == 0,
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Tournament configs",
-                    Snippet = ConfigsSnippet,
                     ServiceName = "Tournament",
                     // this is the tournament *configuration* call, so a 404 really does mean
                     // "no tournaments exist in this project"
@@ -482,7 +480,6 @@ await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
             await op.Task();
             var response = op.Result;
 
-            Ctx.Log?.Record("Tournaments: submit score", response, SubmitSnippet);
             if (!response.IsSuccess)
             {
                 bool notJoined = response.Error != null
@@ -565,7 +562,6 @@ await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
 
             if (result != null)
             {
-                Ctx.Log?.Record("Tournaments: player league", result, LeagueSnippet);
                 if (result.IsSuccess)
                 {
                     pane.Meta = result.Data;
@@ -864,9 +860,7 @@ await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
                 isEmpty: data => IsEmpty(rows(data)),
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = label,
-                    Snippet = snippet,
                     ServiceName = "Tournament",
                     AllowRetry = true,
                     EmptyView = () => EmptySlice(pane, emptyMessage),
@@ -886,9 +880,7 @@ await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
                 isEmpty: data => IsEmpty(data?.top) && IsEmpty(Around(data?.playersAround)),
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Tournament top and around",
-                    Snippet = TopAndAroundSnippet,
                     ServiceName = "Tournament",
                     AllowRetry = true,
                     EmptyView = () => EmptySlice(pane,
@@ -899,7 +891,7 @@ await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
 
         /// <summary>
         /// The friends slice is the only two-step one: the endpoint ranks exactly the ids it is
-        /// given, so the friend list has to be fetched first and both calls end up in the journal.
+        /// given, so the friend list has to be fetched first.
         /// </summary>
         private void LoadFriendsSlice(TournamentPane pane, VisualElement slot, string key, string table)
         {
@@ -918,9 +910,7 @@ await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
                 isEmpty: f => f == null || f.Length == 0,
                 options: new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Friends list",
-                    Snippet = FriendsSnippet,
                     ServiceName = "Friends",
                     AllowRetry = true,
                     EmptyView = () => EmptySlice(pane,
@@ -1076,7 +1066,6 @@ await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
 
             if (result != null)
             {
-                Ctx.Log?.Record("Tournaments: my entry", result, MeSnippet);
                 if (result.IsSuccess)
                 {
                     pane.Me = result.Data;
@@ -1166,7 +1155,6 @@ await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
                 return;
             }
 
-            Ctx.Log?.Record("Tournaments: join", result, JoinSnippet);
             if (!result.IsSuccess)
             {
                 Toasts?.Fail("Join failed: " + ErrorText(result));
@@ -1212,7 +1200,6 @@ await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
                 return;
             }
 
-            Ctx.Log?.Record("Tournaments: leave", result, LeaveSnippet);
             if (!result.IsSuccess)
             {
                 Toasts?.Fail("Leave failed: " + ErrorText(result));

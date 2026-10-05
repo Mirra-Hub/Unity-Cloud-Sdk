@@ -132,9 +132,7 @@ await sdk.Friends.BanManyAsync(ids).Task();";
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Friends",
-                    Snippet = FriendsSnippet,
                     ServiceName = "Friends",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Table(FriendColumns(),
@@ -345,9 +343,7 @@ await sdk.Friends.BanManyAsync(ids).Task();";
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Incoming requests",
-                    Snippet = RequestsSnippet,
                     ServiceName = "Friends",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.Inbox, "Nobody is waiting",
@@ -368,9 +364,7 @@ await sdk.Friends.BanManyAsync(ids).Task();";
                 d => d == null || d.Length == 0,
                 new BindOptions
                 {
-                    Log = Ctx.Log,
                     Label = "Outgoing requests",
-                    Snippet = RequestsSnippet,
                     ServiceName = "Friends",
                     AllowRetry = true,
                     EmptyView = () => ZeroState.Panel(LucideIcon.Send, "No requests sent",
@@ -676,10 +670,6 @@ await sdk.Friends.BanManyAsync(ids).Task();";
             }
             await op.Task();
             var result = op.Result;
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result);
-            }
 
             if (result != null && result.IsSuccess)
             {
