@@ -6,6 +6,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.12.0] — 2026-10-05
+
+Cloud saves follow the backend's new access model: the game server can always reach what a player writes, global
+data is published from the console, and masks become optional. Needs the backend release with the same model;
+against an older backend the SDK behaves as 0.11.0. Upgrade steps: replace `QueryCustomDataAsync(customId, request)`
+with `QueryCustomDataAsync(request)`, and stop creating global keys or files from the client.
+
+### Added
+
+- **`CloudSaveDataRequest.AddLong` / `AddDouble`** and **`PlayerData.GetLong` / `GetDouble` / `HasKey`**. A value
+  beyond `int` — Unix time in milliseconds — used to read back as the default.
+- **`QueryCustomDataAsync(request)`** — searches every custom entity (rooms, guilds), never global data.
+
+### Changed
+
+- **Breaking:** the masks of `CloudSaveDataRequest.Add*` are `AccessMask?` and default to `null`: an existing key keeps
+  its masks and a new one gets the server default. Before, every write sent `Owner/Owner` and reset the masks of the
+  key it touched. Code passing masks explicitly compiles as before.
+- **Breaking:** a player can no longer create global keys or global files — the backend answers
+  `cloud_saves.access_denied`. Global data is published from the console or Cloud Code; a player changes only keys
+  and files whose write mask includes `AccessMask.Other`.
+- `AddFloat` stores the float's shortest form: `0.1f` is `0.1`, not `0.100000001490116`.
+- `GetPlayerDataAsync` with `keys` (or `offset`/`limit`) merges into `PlayerData` instead of replacing it; requested
+  keys that did not come back are dropped. A read without filters still replaces it.
+- `PlayerData.GetString` returns objects and arrays as JSON (was `""`) and numbers and booleans as text.
+- `PlayerData.GetInt` / `GetFloat` read any number, not only one stored with the matching field type.
+
+### Deprecated
+
+- `QueryCustomDataAsync(customId, request)` — the id was never applied; the search always covered every entity.
+
+### Fixed
+
+- A file key with a space was stored as `my+save`: keys are now escaped as path segments.
+- The Showcase no longer writes global data or uploads global files.
+
 ## [0.11.0] — 2026-10-04
 
 Settings can come from code: `Initialize(MirraCloudOptions)` sets the project, branch, API token and platform over
