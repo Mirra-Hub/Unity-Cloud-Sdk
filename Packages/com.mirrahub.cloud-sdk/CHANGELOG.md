@@ -14,6 +14,9 @@ The SDK is `0.x`: the public API can change between minor versions. Breaking cha
   board shows its configuration on one line next to the player's place, then a submit card, then the standings with
   the slice switch (your table, global, around you, friends, country) in the card header. A leave asks first; time
   boards show scores as durations.
+- **Showcase — Tournaments.** The same layout: tournaments in a sidebar with Join / Leave, the configuration on one
+  line next to the player's place and league, a submit card, the standings of one league with a league picker and the
+  slice switch, and the league ladder — thresholds and reward ranges — as rows that open a league's standings.
 
 ## [0.12.0] — 2026-10-05
 

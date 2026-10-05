@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading.Tasks;
 using MirraCloud.Core;
 using MirraCloud.Core.Economy.Dto;
 using MirraCloud.Core.Errors;
@@ -35,12 +36,6 @@ namespace MirraCloud.Example.Showcase
     {
         private const int TopCount = 100;
         private const int AroundRange = 10;
-
-        // Medal tints are deliberately outside the semantic palette: on a ranking table gold/silver/
-        // bronze *are* the meaning, and no status color reads as "third place".
-        private static readonly Color Gold = new Color(0.91f, 0.78f, 0.32f);
-        private static readonly Color Silver = new Color(0.76f, 0.78f, 0.84f);
-        private static readonly Color Bronze = new Color(0.82f, 0.54f, 0.32f);
 
         // Index-aligned with the Slice enum.
         private static readonly string[] SliceNames = { "My table", "Global", "Around me", "Friends", "Country" };
@@ -147,8 +142,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
         /// <summary>Participation learned this session, by board key. Absent means "not known".</summary>
         private readonly Dictionary<string, bool> _joined = new Dictionary<string, bool>();
 
-        private readonly Dictionary<string, BoardRow> _rows = new Dictionary<string, BoardRow>();
-        private VisualElement _rewardsRow;
+        private BoardSidebar _side;
         private VisualElement _main;
         private BoardPane _pane;
 
@@ -169,8 +163,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
 
         protected override void Populate()
         {
-            _rows.Clear();
-            _rewardsRow = null;
+            _side = null;
             _main = null;
             _pane = null;
             SetStatus(null);
@@ -226,19 +219,13 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
 
         // ----- layout: sidebar + selected board -------------------------------------------------------
 
+        private const string RewardsId = "\u0001rewards";
+
         private VisualElement BuildScreen(LeaderboardConfigDto[] configs)
         {
             SetStatus(configs.Length == 1 ? "1 board" : configs.Length + " boards", ChipTone.Ok);
 
-            var split = new VisualElement();
-            split.AddToClassList("sc-lb-split");
-
-            var side = new VisualElement();
-            side.AddToClassList("sc-lb-side");
-
-            var title = new Label("Boards");
-            title.AddToClassList("sc-lb-side__title");
-            side.Add(title);
+            _side = new BoardSidebar("Boards", _joined);
 
             // The board picked before a refresh, else the first one.
             LeaderboardConfigDto selected = null;
@@ -248,9 +235,9 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 {
                     continue;
                 }
-                var row = new BoardRow(this, cfg);
-                _rows[cfg.key ?? string.Empty] = row;
-                side.Add(row.Root);
+                var captured = cfg;
+                _side.AddBoard(cfg.key, BoardTitle(cfg), cfg.key, LucideIcon.Trophy,
+                    () => SelectBoard(captured), () => Join(captured), () => ConfirmLeave(captured));
 
                 if (selected == null || (cfg.key == _selectedKey && selected.key != _selectedKey))
                 {
@@ -258,18 +245,10 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 }
             }
 
-            var payouts = new Label("Payouts");
-            payouts.AddToClassList("sc-lb-side__sub");
-            side.Add(payouts);
-            _rewardsRow = RewardsRow();
-            side.Add(_rewardsRow);
+            _side.AddSection("Payouts");
+            _side.AddLink(RewardsId, "Rewards", "paid into Economy on reset", LucideIcon.Gift, SelectRewards);
 
-            _main = new VisualElement();
-            _main.AddToClassList("sc-lb-main");
-
-            split.Add(side);
-            split.Add(_main);
-
+            var split = BoardLayout.Split(_side, out _main);
             if (_rewardsSelected || selected == null)
             {
                 SelectRewards();
@@ -281,35 +260,11 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             return split;
         }
 
-        private VisualElement RewardsRow()
-        {
-            var row = new VisualElement();
-            row.AddToClassList("sc-lb-board");
-
-            var glyph = new Label(LucideIcon.Gift);
-            glyph.AddToClassList("sc-icon");
-            glyph.AddToClassList("sc-lb-board__glyph");
-            row.Add(glyph);
-
-            var texts = new VisualElement();
-            texts.AddToClassList("sc-lb-board__texts");
-            var name = new Label("Rewards");
-            name.AddToClassList("sc-lb-board__name");
-            texts.Add(name);
-            var sub = new Label("paid into Economy on reset");
-            sub.AddToClassList("sc-lb-board__sub");
-            texts.Add(sub);
-            row.Add(texts);
-
-            row.RegisterCallback<ClickEvent>(_ => SelectRewards());
-            return row;
-        }
-
         private void SelectBoard(LeaderboardConfigDto cfg)
         {
             _rewardsSelected = false;
             _selectedKey = cfg.key;
-            MarkActive();
+            _side.Select(cfg.key);
 
             _pane = new BoardPane(cfg);
             _main.Clear();
@@ -325,7 +280,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
         {
             _rewardsSelected = true;
             _pane = null;
-            MarkActive();
+            _side.Select(RewardsId);
 
             _main.Clear();
             _main.Add(new PendingRewardsPanel(Ctx, RewardSourceType.Leaderboard,
@@ -335,63 +290,22 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 + "player's place (or score) falls in one of the board's reward ranges."));
         }
 
-        private void MarkActive()
-        {
-            foreach (var pair in _rows)
-            {
-                pair.Value.Root.EnableInClassList("sc-lb-board--active",
-                    !_rewardsSelected && pair.Key == (_selectedKey ?? string.Empty));
-            }
-            _rewardsRow?.EnableInClassList("sc-lb-board--active", _rewardsSelected);
-        }
-
         // ----- board header: one line of configuration + the player's standing -----------------------
 
         private VisualElement BuildHeadCard(BoardPane pane)
         {
             var cfg = pane.Config;
-
-            var card = new VisualElement();
-            card.AddToClassList("sc-lb-card");
-            card.AddToClassList("sc-lb-head");
-
-            var badge = new Label(LucideIcon.Trophy);
-            badge.AddToClassList("sc-icon");
-            badge.AddToClassList("sc-lb-head__badge");
-            badge.style.color = Meta.Accent;
-            badge.style.backgroundColor = new Color(Meta.Accent.r, Meta.Accent.g, Meta.Accent.b, 0.14f);
-            card.Add(badge);
-
-            var texts = new VisualElement();
-            texts.AddToClassList("sc-lb-head__texts");
-
-            var name = new Label(BoardTitle(cfg));
-            name.enableRichText = false;
-            name.AddToClassList("sc-lb-head__name");
-            texts.Add(name);
-
-            var meta = new VisualElement();
-            meta.AddToClassList("sc-lb-head__meta");
-            var line = new Label(MetaLine(cfg));
-            line.enableRichText = false;
-            line.AddToClassList("sc-lb-head__line");
-            line.tooltip = cfg.isReset
+            string tooltip = cfg.isReset
                 ? string.Format(CultureInfo.InvariantCulture, "Resets at {0:00}:{1:00} UTC. Next: {2}",
                     cfg.resetTimeHour, cfg.resetTimeMinute, Fmt.DateTime2(cfg.nextResetDate))
                 : "Updated " + RelativeTime.Format(cfg.updatedDate);
-            meta.Add(line);
             // Filled once the board's first score started a session.
-            if (cfg.isReset && cfg.nextResetDate.HasValue)
-            {
-                var countdown = new CountdownChip(cfg.nextResetDate.Value.ToUniversalTime());
-                countdown.AddToClassList("sc-lb-head__countdown");
-                meta.Add(countdown);
-            }
-            texts.Add(meta);
-            card.Add(texts);
+            DateTime? countdown = cfg.isReset && cfg.nextResetDate.HasValue
+                ? cfg.nextResetDate.Value.ToUniversalTime()
+                : (DateTime?)null;
 
-            pane.Standing.AddToClassList("sc-lb-head__standing");
-            card.Add(pane.Standing);
+            var card = BoardLayout.Head(LucideIcon.Trophy, Meta.Accent, BoardTitle(cfg), MetaLine(cfg), tooltip,
+                countdown, pane.Standing);
             RenderStanding(pane);
             return card;
         }
@@ -434,101 +348,27 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             }
         }
 
-        /// <summary>Right edge of the header: "#3 / 1 250", "not ranked" or a dash while it loads.</summary>
+        /// <summary>Right edge of the header: "#3 / 1 250", "no score yet" or a dash while it loads.</summary>
         private void RenderStanding(BoardPane pane)
         {
-            var host = pane.Standing;
-            host.Clear();
-
-            string rank;
-            string caption;
-            bool ranked = pane.Me != null && pane.Me.position > 0;
-            if (ranked)
+            if (pane.Me != null && pane.Me.position > 0)
             {
-                rank = "#" + pane.Me.position;
-                caption = "your place · " + FormatScore(pane.Config, pane.Me.value);
+                BoardLayout.RenderStanding(pane.Standing, "#" + pane.Me.position, BoardLayout.MedalTint(pane.Me.position),
+                    "your place · " + FormatScore(pane.Config, pane.Me.value));
+                return;
             }
-            else if (pane.MeLoaded)
-            {
-                rank = Fmt.Dash;
-                caption = "no score yet";
-            }
-            else
-            {
-                rank = Fmt.Dash;
-                caption = "loading…";
-            }
-
-            var big = new Label(rank);
-            big.AddToClassList("sc-lb-head__rank");
-            var tint = ranked ? MedalTint(pane.Me.position) : null;
-            if (tint.HasValue)
-            {
-                big.style.color = tint.Value;
-            }
-            host.Add(big);
-
-            var small = new Label(caption);
-            small.AddToClassList("sc-lb-head__caption");
-            host.Add(small);
+            BoardLayout.RenderStanding(pane.Standing, Fmt.Dash, null, pane.MeLoaded ? "no score yet" : "loading…");
         }
 
         // ----- submit card -----------------------------------------------------------------------------
 
         private VisualElement BuildSubmitCard(BoardPane pane)
         {
-            var cfg = pane.Config;
-            bool time = cfg.type == LeaderboardType.Time;
+            var card = BoardLayout.Card(LucideIcon.Send, "Submit a score", out _);
+            card.Add(BoardLayout.Hint(SubmitHint(pane.Config)));
 
-            var card = new VisualElement();
-            card.AddToClassList("sc-lb-card");
-            card.AddToClassList("sc-lb-submit");
-
-            var head = new VisualElement();
-            head.AddToClassList("sc-lb-card__head");
-            var glyph = new Label(LucideIcon.Send);
-            glyph.AddToClassList("sc-icon");
-            glyph.AddToClassList("sc-lb-card__glyph");
-            head.Add(glyph);
-            var title = new Label("Submit a score");
-            title.AddToClassList("sc-lb-card__title");
-            head.Add(title);
-            card.Add(head);
-
-            var hint = new Label(SubmitHint(cfg));
-            hint.enableRichText = false;
-            hint.AddToClassList("sc-lb-card__hint");
-            card.Add(hint);
-
-            var row = new VisualElement();
-            row.AddToClassList("sc-lb-submit__row");
-
-            var field = new TextField { label = time ? "Seconds" : "Score", value = "1000" };
-            field.AddToClassList("sc-field");
-            field.AddToClassList("sc-lb-submit__field");
-            row.Add(field);
-
-            var button = new Button { text = "Submit" };
-            button.AddToClassList("sc-btn");
-            button.AddToClassList("sc-btn--primary");
-            button.AddToClassList("sc-lb-submit__btn");
-            row.Add(button);
-
-            var result = new Label();
-            result.enableRichText = false;
-            result.AddToClassList("sc-lb-submit__result");
-            row.Add(result);
-            card.Add(row);
-
-            Action fire = () => Submit(pane, field, button, result);
-            button.clicked += fire;
-            field.RegisterCallback<KeyDownEvent>(e =>
-            {
-                if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
-                {
-                    fire();
-                }
-            });
+            var field = BoardLayout.Field(pane.Config.type == LeaderboardType.Time ? "Seconds" : "Score", "1000");
+            card.Add(BoardLayout.FormRow("Submit", result => Submit(pane, field.value, result), field));
             return card;
         }
 
@@ -551,50 +391,23 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             return "Join the board first — scores are accepted from participants only. " + strategy + unit;
         }
 
-        private async void Submit(BoardPane pane, TextField field, Button button, Label result)
+        private async Task Submit(BoardPane pane, string text, InlineResult result)
         {
-            if (!button.enabledSelf)
-            {
-                return;
-            }
-
             double score;
             // Parsed here rather than as a float: the SDK takes a double, and a score can easily be
             // larger than a float represents exactly.
-            if (!double.TryParse((field.value ?? string.Empty).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out score))
+            if (!double.TryParse((text ?? string.Empty).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out score))
             {
-                ShowResult(result, false, "Score must be a number (use a dot for decimals).");
+                result.Fail("Score must be a number (use a dot for decimals).");
                 return;
             }
-
-            button.SetEnabled(false);
-            button.text = "Submitting…";
-            ShowResult(result, true, null);
 
             string key = pane.Config.key;
-            RestApiResult<LeaderboardEntryDto> response = null;
-            try
-            {
-                var op = pane.Config.type == LeaderboardType.Time
-                    ? Sdk.Leaderboard.SubmitScoreAsync(TimeSpan.FromSeconds(score), key)
-                    : Sdk.Leaderboard.SubmitScoreAsync(score, key);
-                await op.Task();
-                response = op.Result;
-            }
-            catch (Exception e)
-            {
-                // async void: an exception escaping here would surface as an unhandled one.
-                Debug.LogWarning("[Showcase] Leaderboard: submit threw: " + e.Message);
-            }
-
-            button.SetEnabled(true);
-            button.text = "Submit";
-
-            if (response == null)
-            {
-                ShowResult(result, false, "No response");
-                return;
-            }
+            var op = pane.Config.type == LeaderboardType.Time
+                ? Sdk.Leaderboard.SubmitScoreAsync(TimeSpan.FromSeconds(score), key)
+                : Sdk.Leaderboard.SubmitScoreAsync(score, key);
+            await op.Task();
+            var response = op.Result;
 
             Ctx.Log?.Record("Leaderboard: submit score", response, SubmitSnippet);
             if (!response.IsSuccess)
@@ -602,17 +415,17 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 bool notJoined = response.Error.HasCode(CloudErrorCodes.LeaderboardsParticipationRequired);
                 if (notJoined)
                 {
-                    SetJoined(key, false);
+                    _side?.SetJoined(key, false);
                 }
-                ShowResult(result, false, notJoined
+                result.Fail(notJoined
                     ? "Join the board first — scores are accepted from participants only."
                     : ErrorText(response));
                 return;
             }
 
-            SetJoined(key, true);
+            _side?.SetJoined(key, true);
             var entry = response.Data;
-            ShowResult(result, true, entry != null && entry.position > 0
+            result.Ok(entry != null && entry.position > 0
                 ? "You are #" + entry.position + " with " + FormatScore(pane.Config, entry.value)
                 : "Submitted " + FormatScore(pane.Config, score));
             if (pane == _pane)
@@ -621,82 +434,31 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             }
         }
 
-        private static void ShowResult(Label label, bool ok, string text)
-        {
-            label.text = text ?? string.Empty;
-            label.EnableInClassList("sc-lb-submit__result--ok", ok);
-            label.EnableInClassList("sc-lb-submit__result--bad", !ok);
-        }
-
         // ----- standings card --------------------------------------------------------------------------
 
         private VisualElement BuildStandingsCard(BoardPane pane)
         {
-            var card = new VisualElement();
-            card.AddToClassList("sc-lb-card");
-            card.AddToClassList("sc-lb-standings");
-
-            var head = new VisualElement();
-            head.AddToClassList("sc-lb-card__head");
-            var glyph = new Label(LucideIcon.Users);
-            glyph.AddToClassList("sc-icon");
-            glyph.AddToClassList("sc-lb-card__glyph");
-            head.Add(glyph);
-            var title = new Label("Standings");
-            title.AddToClassList("sc-lb-card__title");
-            head.Add(title);
-            pane.Count.AddToClassList("sc-lb-card__count");
+            var card = BoardLayout.Card(LucideIcon.Users, "Standings", out var head);
+            head.AddToClassList("sc-board-card__head--wrap");
             head.Add(pane.Count);
 
             var spacer = new VisualElement();
             spacer.style.flexGrow = 1f;
             head.Add(spacer);
 
-            head.Add(SliceSwitch(pane));
-            card.Add(head);
+            head.Add(BoardLayout.Switch(SliceNames, (int)_slice, index =>
+            {
+                _slice = (Slice)index;
+                LoadSlice(pane);
+            }));
 
-            pane.EntriesSlot.AddToClassList("sc-lb-standings__body");
             card.Add(pane.EntriesSlot);
             return card;
         }
 
-        /// <summary>Segmented slice picker; the active option wears <c>.sc-btn--primary</c>.</summary>
-        private VisualElement SliceSwitch(BoardPane pane)
-        {
-            var row = new VisualElement();
-            row.AddToClassList("sc-lb-slices");
-
-            var buttons = new List<Button>(SliceNames.Length);
-            for (int i = 0; i < SliceNames.Length; i++)
-            {
-                var slice = (Slice)i;
-                var btn = new Button { text = SliceNames[i] };
-                btn.AddToClassList("sc-btn");
-                btn.AddToClassList("sc-lb-slices__btn");
-                btn.EnableInClassList("sc-btn--primary", slice == _slice);
-                btn.clicked += () =>
-                {
-                    if (slice == _slice)
-                    {
-                        return;
-                    }
-                    _slice = slice;
-                    for (int j = 0; j < buttons.Count; j++)
-                    {
-                        buttons[j].EnableInClassList("sc-btn--primary", j == (int)_slice);
-                    }
-                    LoadSlice(pane);
-                };
-                buttons.Add(btn);
-                row.Add(btn);
-            }
-            return row;
-        }
-
         private void RenderCount(BoardPane pane)
         {
-            pane.Count.text = pane.EntriesLoaded ? Fmt.Number(pane.Entries) : string.Empty;
-            pane.Count.style.display = pane.EntriesLoaded && pane.Entries > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            BoardLayout.SetCount(pane.Count, pane.EntriesLoaded && pane.Entries > 0 ? Fmt.Number(pane.Entries) : null);
         }
 
         private void LoadSlice(BoardPane pane)
@@ -859,54 +621,13 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
 
         private static VisualElement RankCell(object row)
         {
-            var e = (LeaderboardEntryDto)row;
-
-            var text = new Label(e.position > 0 ? "#" + e.position : Fmt.Dash);
-            text.AddToClassList("sc-rank");
-            if (e.position < 1 || e.position > 3)
-            {
-                return text;
-            }
-
-            var tint = MedalTint(e.position).Value;
-            text.style.color = tint;
-
-            var wrap = new VisualElement();
-            wrap.AddToClassList("sc-lb-rank");
-
-            var medal = new Label(LucideIcon.Medal);
-            medal.AddToClassList("sc-lb-medal");
-            medal.AddToClassList("sc-icon");
-            medal.style.color = tint;
-            wrap.Add(medal);
-            wrap.Add(text);
-            return wrap;
+            return BoardLayout.RankCell(((LeaderboardEntryDto)row).position);
         }
 
         private static VisualElement PlayerCell(BoardPane pane, object row)
         {
             var e = (LeaderboardEntryDto)row;
-            string label = PlayerLabel(e);
-
-            var wrap = new VisualElement();
-            wrap.AddToClassList("sc-lb-player");
-
-            var avatar = new Avatar(26f).SetInitialsFor(label);
-            avatar.AddToClassList("sc-lb-player__avatar");
-            wrap.Add(avatar);
-
-            var name = new Label(Fmt.OrDash(label));
-            name.enableRichText = false;
-            name.tooltip = e.playerId + " · " + e.countryCode;
-            wrap.Add(name);
-
-            if (pane.IsMine(row))
-            {
-                var you = new Badge("You", ChipTone.Accent);
-                you.AddToClassList("sc-lb-player__you");
-                wrap.Add(you);
-            }
-            return wrap;
+            return BoardLayout.PlayerCell(PlayerLabel(e), e.playerId + " · " + e.countryCode, pane.IsMine(row));
         }
 
         private static VisualElement ScoreCell(BoardPane pane, object row)
@@ -971,7 +692,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             // gets it too), so only the positive answer updates the sidebar.
             if (pane.Me != null)
             {
-                SetJoined(pane.Config.key, true);
+                _side?.SetJoined(pane.Config.key, true);
             }
 
             // The table may have rendered before this landed, and it is the "You" row highlight that
@@ -995,30 +716,9 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
 
         // ----- join / leave from the sidebar ------------------------------------------------------------
 
-        private void SetJoined(string key, bool joined)
+        private async void Join(LeaderboardConfigDto cfg)
         {
-            if (string.IsNullOrEmpty(key))
-            {
-                return;
-            }
-            _joined[key] = joined;
-            BoardRow row;
-            if (_rows.TryGetValue(key, out row))
-            {
-                row.Render();
-            }
-        }
-
-        private bool IsJoined(string key)
-        {
-            bool joined;
-            return !string.IsNullOrEmpty(key) && _joined.TryGetValue(key, out joined) && joined;
-        }
-
-        private async void Join(BoardRow row)
-        {
-            var cfg = row.Config;
-            row.SetBusy(true);
+            _side.SetBusy(cfg.key, true);
 
             RestApiResult<LeaderboardEntryDto> result = null;
             try
@@ -1032,7 +732,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 Debug.LogWarning("[Showcase] Leaderboard: join threw: " + e.Message);
             }
 
-            row.SetBusy(false);
+            _side.SetBusy(cfg.key, false);
             if (result == null)
             {
                 Toasts?.Fail("Join failed: no response");
@@ -1046,7 +746,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 return;
             }
 
-            SetJoined(cfg.key, true);
+            _side.SetJoined(cfg.key, true);
             var entry = result.Data;
             Toasts?.Ok(entry != null && entry.position > 0
                 ? "Joined " + BoardTitle(cfg) + " — you are #" + entry.position
@@ -1054,18 +754,17 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             ReloadIfSelected(cfg.key);
         }
 
-        private void ConfirmLeave(BoardRow row)
+        private void ConfirmLeave(LeaderboardConfigDto cfg)
         {
-            ConfirmDialog.Open(Popup, "Leave " + BoardTitle(row.Config),
+            ConfirmDialog.Open(Popup, "Leave " + BoardTitle(cfg),
                 "The player stops being a participant, and their score of the current session is removed "
                 + "from the board.",
-                "Leave", () => Leave(row));
+                "Leave", () => Leave(cfg));
         }
 
-        private async void Leave(BoardRow row)
+        private async void Leave(LeaderboardConfigDto cfg)
         {
-            var cfg = row.Config;
-            row.SetBusy(true);
+            _side.SetBusy(cfg.key, true);
 
             RestApiResult result = null;
             try
@@ -1079,7 +778,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 Debug.LogWarning("[Showcase] Leaderboard: leave threw: " + e.Message);
             }
 
-            row.SetBusy(false);
+            _side.SetBusy(cfg.key, false);
             if (result == null)
             {
                 Toasts?.Fail("Leave failed: no response");
@@ -1093,7 +792,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
                 return;
             }
 
-            SetJoined(cfg.key, false);
+            _side.SetJoined(cfg.key, false);
             Toasts?.Ok("Left " + BoardTitle(cfg) + " — your score of this session is gone");
             ReloadIfSelected(cfg.key);
         }
@@ -1187,111 +886,6 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             return string.IsNullOrWhiteSpace(cfg.key) ? Fmt.Id(cfg.id) : cfg.key;
         }
 
-        /// <summary>Null for anything below third place.</summary>
-        private static Color? MedalTint(int position)
-        {
-            switch (position)
-            {
-                case 1: return Gold;
-                case 2: return Silver;
-                case 3: return Bronze;
-                default: return null;
-            }
-        }
-
-        /// <summary>
-        /// One board in the sidebar: a click selects it, the trailing button joins or leaves it. The
-        /// button reads <see cref="_joined"/> on every render, so a join made from anywhere on the
-        /// screen (a submit that succeeded, an entry that loaded) flips it.
-        /// </summary>
-        private sealed class BoardRow
-        {
-            public readonly LeaderboardConfigDto Config;
-            public readonly VisualElement Root;
-
-            private readonly LeaderboardView _owner;
-            private readonly Button _action;
-            private bool _busy;
-
-            public BoardRow(LeaderboardView owner, LeaderboardConfigDto config)
-            {
-                _owner = owner;
-                Config = config;
-
-                Root = new VisualElement();
-                Root.AddToClassList("sc-lb-board");
-
-                var glyph = new Label(LucideIcon.Trophy);
-                glyph.AddToClassList("sc-icon");
-                glyph.AddToClassList("sc-lb-board__glyph");
-                Root.Add(glyph);
-
-                var texts = new VisualElement();
-                texts.AddToClassList("sc-lb-board__texts");
-                var name = new Label(BoardTitle(config));
-                name.enableRichText = false;
-                name.AddToClassList("sc-lb-board__name");
-                texts.Add(name);
-                var sub = new Label(config.key);
-                sub.enableRichText = false;
-                sub.AddToClassList("sc-lb-board__sub");
-                texts.Add(sub);
-                Root.Add(texts);
-
-                _action = new Button(OnAction);
-                _action.AddToClassList("sc-btn");
-                _action.AddToClassList("sc-lb-board__btn");
-                Root.Add(_action);
-
-                Root.RegisterCallback<ClickEvent>(e =>
-                {
-                    // the trailing button handles its own click
-                    if (e.target is Button)
-                    {
-                        return;
-                    }
-                    _owner.SelectBoard(Config);
-                });
-
-                Render();
-            }
-
-            public void Render()
-            {
-                bool joined = _owner.IsJoined(Config.key);
-                Root.EnableInClassList("sc-lb-board--joined", joined);
-                _action.text = _busy ? "…" : joined ? "Leave" : "Join";
-                _action.EnableInClassList("sc-lb-board__btn--join", !joined);
-                _action.EnableInClassList("sc-lb-board__btn--leave", joined);
-                _action.SetEnabled(!_busy);
-                _action.tooltip = joined
-                    ? "Leave the board — removes your score of this session"
-                    : "Join the board — scores are accepted from participants only";
-            }
-
-            public void SetBusy(bool busy)
-            {
-                _busy = busy;
-                Render();
-            }
-
-            private void OnAction()
-            {
-                if (_busy)
-                {
-                    return;
-                }
-                if (_owner.IsJoined(Config.key))
-                {
-                    _owner.ConfirmLeave(this);
-                }
-                else
-                {
-                    _owner.Join(this);
-                }
-            }
-        }
-
         /// <summary>
         /// The selected board's mutable state. It exists because the right side is filled by two
         /// calls that can land in either order: whichever arrives re-renders its part from here.
@@ -1304,7 +898,7 @@ await sdk.Leaderboard.LeaveAsync(leaderboardKey).Task();";
             public readonly VisualElement Standing = new VisualElement();
 
             /// <summary>Row count badge next to the standings title.</summary>
-            public readonly Label Count = new Label();
+            public readonly Label Count = BoardLayout.Count();
 
             /// <summary>The player's own entry, or null when they have never scored on this board.</summary>
             public LeaderboardEntryDto Me;

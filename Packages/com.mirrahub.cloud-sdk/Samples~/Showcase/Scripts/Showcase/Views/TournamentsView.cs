@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using MirraCloud.Core;
 using MirraCloud.Core.Economy.Dto;
+using MirraCloud.Core.Errors;
 using MirraCloud.Core.Friends.Dto;
 using MirraCloud.Core.Leaderboard.Dto;
 using Plugins.MirraCloud.Core.General.AsyncOperations;
@@ -18,16 +19,20 @@ using RewardDistribution = MirraCloud.Core.Leaderboard.Enums.RewardDistributionT
 namespace MirraCloud.Example.Showcase
 {
     /// <summary>
-    /// Tournaments detail: one tab per configured tournament, plus a Rewards tab read from Economy,
-    /// where finished runs pay out.
-    /// A tournament is a leaderboard cut into league tables, so a pane first asks which league the
-    /// player sits in (<c>GetPlayerLeagueMetaAsync</c>), then fills that league's standings from
-    /// whichever entries endpoint the toolbar's slice picker selects.
+    /// Tournaments detail, laid out like the leaderboard screen: the project's tournaments in a
+    /// sidebar, each with its own join / leave button, and the selected one on the right — one line
+    /// of configuration with the player's place, a card that submits a score, the standings of one
+    /// league, and the league ladder with its thresholds and rewards.
     /// <para>
-    /// Every pane fans out into two independent calls (the slice and the player's own entry), so the
-    /// KPI strip is re-rendered from <see cref="TournamentPane"/> state as each one lands. Submitting
-    /// a score reloads those two calls in place instead of rebuilding the tab, which would throw away
-    /// the result the reader just clicked for.
+    /// A tournament is a leaderboard cut into league tables, so opening one first asks which league
+    /// the player sits in (<c>GetPlayerLeagueMetaAsync</c>), then fills that league's standings from
+    /// whichever entries endpoint the standings card's switch selects. The last sidebar entry lists
+    /// the rewards finished runs paid out, which arrive in Economy.
+    /// </para>
+    /// <para>
+    /// Like leaderboards, the service has no "is the player a participant" read, so the sidebar keeps
+    /// what join / leave / the player's own entry taught it and offers <c>Join</c> — idempotent —
+    /// otherwise.
     /// </para>
     /// </summary>
     public sealed class TournamentsView : ServiceView
@@ -35,16 +40,7 @@ namespace MirraCloud.Example.Showcase
         private const int TopCount = 100;
         private const int AroundRange = 10;
 
-        /// <summary>Bars past this point are too thin to read; the table below carries the rest.</summary>
-        private const int ChartBars = 8;
-
-        // Medal tints are deliberately outside the semantic palette: on a ranking table gold/silver/
-        // bronze *are* the meaning, and no status color reads as "third place".
-        private static readonly Color Gold = new Color(0.91f, 0.78f, 0.32f);
-        private static readonly Color Silver = new Color(0.76f, 0.78f, 0.84f);
-        private static readonly Color Bronze = new Color(0.82f, 0.54f, 0.32f);
-
-        // Index-aligned with the Slice enum — the dropdown hands back the label, not the value.
+        // Index-aligned with the Slice enum.
         private static readonly string[] SliceNames = { "Top", "Around me", "Top + around", "Friends", "Country" };
 
         private const string ConfigsSnippet = @"// every tournament configured for this project + branch
@@ -143,21 +139,36 @@ await sdk.Tournaments.SubmitScoreAsync(tournamentKey, 1250d, ""Ada"").Task();";
 var op = sdk.Tournaments.JoinAsync(tournamentKey);
 await op.Task();";
 
+
+        private const string LeaveSnippet = @"// removes the player from the tournament along with their result
+await sdk.Tournaments.LeaveAsync(tournamentKey).Task();";
+
+        private const string RewardsId = "\u0001rewards";
+
         /// <summary>Which league each tournament is being read at, so a refresh or a slice change
         /// does not drop the reader back onto the player's own league.</summary>
         private readonly Dictionary<string, string> _leagueByTournament =
             new Dictionary<string, string>(StringComparer.Ordinal);
 
+        /// <summary>Participation learned this session, by tournament key. Absent means "not known".</summary>
+        private readonly Dictionary<string, bool> _joined = new Dictionary<string, bool>();
+
         private Slice _slice = Slice.Top;
-        private Tabs _tabs;
-        private int _rewardsTab = -1;
+
+        // Survive Refresh(): the rebuild re-reads the configs but keeps the reader where they were.
+        private string _selectedKey;
+        private bool _rewardsSelected;
+
+        private BoardSidebar _side;
+        private VisualElement _main;
+        private TournamentPane _pane;
 
         public TournamentsView(ServiceMeta meta, Action onBack, ShowcaseContext ctx)
             : base(meta, onBack, ctx)
         {
         }
 
-        /// <summary>Which entries endpoint a pane asks for. Order matches <see cref="SliceNames"/>.</summary>
+        /// <summary>Which entries endpoint the standings card asks for. Order matches <see cref="SliceNames"/>.</summary>
         private enum Slice
         {
             Top,
@@ -169,19 +180,23 @@ await op.Task();";
 
         protected override void Populate()
         {
-            _tabs = null;
-            _rewardsTab = -1;
+            _side = null;
+            _main = null;
+            _pane = null;
             SetStatus(null);
-            SetSubtitle("One tab per configured tournament. A pane reads the player's league first, then "
-                        + "the slice picker swaps which entries endpoint fills that league's table.");
+            SetSubtitle("Pick a tournament on the left and join it — the server places you into a league — "
+                        + "then submit a score. The standings show one league at a time.");
 
             UseToolbar()
-                .WithFilter("Slice", SliceNames, OnSliceChanged, SliceNames[(int)_slice])
                 .WithSpacer()
                 .WithRefresh(Refresh);
 
             DeclareCall(new SdkCall("List tournaments", ConfigsSnippet,
                 "Call it once at startup: every other tournament call needs a key from here."));
+            DeclareCall(new SdkCall("Join a tournament", JoinSnippet,
+                "Scores are accepted from participants only."));
+            DeclareCall(new SdkCall("Submit a score", SubmitSnippet));
+            DeclareCall(new SdkCall("Leave a tournament", LeaveSnippet));
             DeclareCall(new SdkCall("The player's league", LeagueSnippet,
                 "The server assigns a default league the first time this is asked, so it answers even "
                 + "for a player who has never played."));
@@ -192,20 +207,15 @@ await op.Task();";
             DeclareCall(new SdkCall("Entries by country", CountrySnippet));
             DeclareCall(new SdkCall("The player's own entry", MeSnippet,
                 "Returns no entry until the player has submitted a score to this tournament."));
-            DeclareCall(new SdkCall("Join a tournament", JoinSnippet,
-                "Scores are accepted from participants only."));
-            DeclareCall(new SdkCall("Submit a score", SubmitSnippet));
             DeclareCall(new SdkCall("Rewards the tournaments paid out", PendingRewardsPanel.ReadSnippet,
                 "Finished runs pay out into Economy."));
             DeclareCall(new SdkCall("Claim the rewards", PendingRewardsPanel.ClaimSnippet));
 
-            // Zero margin: this slot only carries the loading/failure state — on success the
-            // tournaments land in the tab strip (chrome) and the panes inside Content.
             var slot = AddSlot(0f);
             ViewBind.Load(
                 () => Sdk.Tournaments.InitializeAsync(),
                 slot,
-                BuildTournaments,
+                BuildScreen,
                 isEmpty: c => c == null || c.Length == 0,
                 options: new BindOptions
                 {
@@ -221,97 +231,86 @@ await op.Task();";
                 });
         }
 
-        private VisualElement BuildTournaments(TournamentConfigDto[] configs)
-        {
-            SetStatus(configs.Length == 1 ? "1 tournament" : configs.Length + " tournaments", ChipTone.Ok);
-
-            _tabs = UseTabs();
-            foreach (var cfg in configs)
-            {
-                var captured = cfg;
-                _tabs.Add(Title(captured), LucideIcon.Swords, () => BuildTournamentPane(captured));
-            }
-
-            // Rewards are paid into Economy for every tournament at once, so they get their own tab
-            // rather than the same section repeated inside every pane.
-            _rewardsTab = _tabs.Count;
-            _tabs.Add("Rewards", LucideIcon.Gift, BuildRewards);
-
-            // The strip and its panes live outside this slot, so the slot itself renders nothing.
-            return new VisualElement();
-        }
-
         private VisualElement NoTournaments()
         {
             SetStatus("Not configured", ChipTone.Warn);
             return ZeroState.NotConfigured("Tournaments");
         }
 
-        private void OnSliceChanged(string name)
-        {
-            int index = Array.IndexOf(SliceNames, name);
-            if (index < 0 || (Slice)index == _slice)
-            {
-                return;
-            }
-            _slice = (Slice)index;
+        // ----- layout: sidebar + selected tournament -------------------------------------------------
 
-            if (_tabs == null || _rewardsTab < 0)
+        private VisualElement BuildScreen(TournamentConfigDto[] configs)
+        {
+            SetStatus(configs.Length == 1 ? "1 tournament" : configs.Length + " tournaments", ChipTone.Ok);
+
+            _side = new BoardSidebar("Tournaments", _joined);
+
+            // The tournament picked before a refresh, else the first one.
+            TournamentConfigDto selected = null;
+            foreach (var cfg in configs)
             {
-                return;
+                if (cfg == null)
+                {
+                    continue;
+                }
+                var captured = cfg;
+                string key = Key(cfg);
+                _side.AddBoard(key, Title(cfg), SidebarSubtitle(cfg), LucideIcon.Swords,
+                    () => SelectTournament(captured), () => Join(captured), () => ConfirmLeave(captured));
+
+                if (selected == null || (key == _selectedKey && Key(selected) != _selectedKey))
+                {
+                    selected = cfg;
+                }
             }
-            // Panes cache their data, so the visible one has to be thrown away for the new endpoint
-            // to be called; the hidden ones rebuild when they are selected again. The rewards tab is
-            // left alone — it does not depend on the slice.
-            for (int i = 0; i < _rewardsTab; i++)
+
+            _side.AddSection("Payouts");
+            _side.AddLink(RewardsId, "Rewards", "paid into Economy when a run ends", LucideIcon.Gift, SelectRewards);
+
+            var split = BoardLayout.Split(_side, out _main);
+            if (_rewardsSelected || selected == null)
             {
-                _tabs.Invalidate(i);
+                SelectRewards();
             }
+            else
+            {
+                SelectTournament(selected);
+            }
+            return split;
         }
 
-        // ----- one tournament -----------------------------------------------------------------------
-
-        private VisualElement BuildTournamentPane(TournamentConfigDto cfg)
+        private static string SidebarSubtitle(TournamentConfigDto cfg)
         {
+            int leagues = cfg.tables != null ? cfg.tables.Length : 0;
+            string count = leagues == 1 ? "1 league" : leagues + " leagues";
+            return string.IsNullOrEmpty(cfg.key) ? count : cfg.key + " · " + count;
+        }
+
+        private void SelectTournament(TournamentConfigDto cfg)
+        {
+            _rewardsSelected = false;
+            _selectedKey = Key(cfg);
+            _side.Select(_selectedKey);
+
             var pane = new TournamentPane(cfg);
+            _pane = pane;
             bool hasLeagues = cfg.tables != null && cfg.tables.Length > 0;
 
-            var root = new VisualElement();
-            root.Add(BuildMeta(cfg));
-
-            pane.Kpis.AddToClassList("sc-trn-kpis");
-            root.Add(pane.Kpis);
-
-            if (!hasLeagues)
-            {
-                // Nothing will ever be loaded, so the strip settles on zeros instead of sitting on
-                // dashes as if two requests were still in flight.
-                pane.MeLoaded = true;
-                pane.EntriesLoaded = true;
-            }
-            RenderKpis(pane);
-
-            pane.LeaguePicker.AddToClassList("sc-trn-leagues");
-            root.Add(pane.LeaguePicker);
-            root.Add(pane.EntriesSlot);
-
+            _main.Clear();
+            _main.Add(BuildHeadCard(pane));
+            _main.Add(BuildSubmitCard(pane));
+            _main.Add(BuildStandingsCard(pane));
             if (hasLeagues)
             {
-                root.Add(new SectionHeader("Leagues and their rewards", cfg.tables.Length.ToString()));
-                root.Add(pane.LeaguesSlot);
-            }
-
-            root.Add(new SectionHeader("Submit a score"));
-            root.Add(SubmitHint(cfg));
-            root.Add(JoinCard(pane));
-            root.Add(SubmitCard(pane));
-
-            if (hasLeagues)
-            {
+                _main.Add(BuildLeaguesCard(pane));
                 OpenPane(pane);
             }
             else
             {
+                // Nothing will ever be loaded, so the header settles instead of sitting on "loading".
+                pane.MeLoaded = true;
+                pane.MetaLoaded = true;
+                RenderStanding(pane);
                 Replace(pane.EntriesSlot, ZeroState.Panel(LucideIcon.Layers, "No league tables yet",
                     "A tournament ranks players inside a league table, and this one has none — every "
                     + "entries endpoint needs a table id, so there is nothing to read. Add a league to "
@@ -319,133 +318,229 @@ await op.Task();";
                     null, null,
                     "Leagues also carry the promotion thresholds and the rewards for each place."));
             }
-            return root;
         }
 
-        private static VisualElement BuildMeta(TournamentConfigDto cfg)
+        private void SelectRewards()
         {
-            var row = new VisualElement();
-            row.AddToClassList("sc-chip-row");
-            row.AddToClassList("sc-trn-meta");
+            _rewardsSelected = true;
+            _pane = null;
+            _side.Select(RewardsId);
 
-            row.Add(new Chip(cfg.orderType == TournamentEnums.OrderType.Highest
-                ? "highest wins"
-                : "lowest wins", ChipTone.Info));
-            row.Add(new Chip(cfg.type == TournamentEnums.TournamentsType.Time ? "time based" : "score based",
-                ChipTone.Neutral));
-            row.Add(new Chip("keeps " + cfg.updateStrategy.ToString().ToLowerInvariant(), ChipTone.Neutral));
-            row.Add(new Chip("rewards by "
-                + (cfg.rewardDistributionType == RewardDistribution.ByScore ? "score" : "place"), ChipTone.Accent));
+            _main.Clear();
+            _main.Add(new PendingRewardsPanel(Ctx, RewardSourceType.Tournament,
+                "When a run resets, the server settles the final standings of every league, works out what "
+                + "each place (or score) earned and pays it into Economy, where the game reads and claims it. "
+                + "Nothing is claimed by reading.",
+                "Nothing is waiting for this player. A reward lands here when a tournament run resets and the "
+                + "player's place (or score) matches one of the ranges configured on their league."));
+        }
 
-            if (!string.IsNullOrEmpty(cfg.key))
-            {
-                row.Add(new Chip("key: " + cfg.key, ChipTone.Neutral));
-            }
+        // ----- header: one line of configuration + the player's place --------------------------------
 
+        private VisualElement BuildHeadCard(TournamentPane pane)
+        {
+            var cfg = pane.Config;
+            // The run ending is when places are settled and rewards are handed out.
+            DateTime? countdown = cfg.isReset && cfg.nextResetDate.HasValue
+                ? cfg.nextResetDate.Value.ToUniversalTime()
+                : (DateTime?)null;
+            string tooltip = countdown.HasValue
+                ? "The run ends (and rewards are granted) at " + Fmt.DateTime2(cfg.nextResetDate)
+                : "Updated " + RelativeTime.Format(cfg.updatedDate);
+
+            var card = BoardLayout.Head(LucideIcon.Swords, Meta.Accent, Title(cfg), MetaLine(cfg), tooltip,
+                countdown, pane.Standing);
+            RenderStanding(pane);
+            return card;
+        }
+
+        /// <summary>The configuration as one line: order · type · strategy · rewards · leagues · reset · key.</summary>
+        private static string MetaLine(TournamentConfigDto cfg)
+        {
             int leagues = cfg.tables != null ? cfg.tables.Length : 0;
-            row.Add(new Chip(leagues == 1 ? "1 league" : leagues + " leagues", ChipTone.Neutral));
-
+            var parts = new List<string>
+            {
+                cfg.orderType == TournamentEnums.OrderType.Highest ? "Highest first" : "Lowest first",
+                cfg.type == TournamentEnums.TournamentsType.Time ? "Time" : "Score",
+                StrategyShort(cfg.updateStrategy),
+                "rewards by " + (cfg.rewardDistributionType == RewardDistribution.ByScore ? "score" : "place"),
+                leagues == 1 ? "1 league" : leagues + " leagues",
+            };
             if (cfg.isReset)
             {
-                string every = cfg.resetIntervalValue > 1
-                    ? "resets every " + cfg.resetIntervalValue + " " + cfg.resetIntervalType
-                    : "resets " + cfg.resetIntervalType;
-                row.Add(new Chip(every.ToLowerInvariant(), ChipTone.Warn));
-                if (cfg.nextResetDate.HasValue)
-                {
-                    // The run ending is when places are settled and rewards are handed out, so the
-                    // countdown is the most load-bearing number on the pane.
-                    var chip = new CountdownChip(cfg.nextResetDate.Value.ToUniversalTime());
-                    chip.tooltip = "The run ends (and rewards are granted) at "
-                                   + Fmt.DateTime2(cfg.nextResetDate);
-                    row.Add(chip);
-                }
+                string unit = cfg.resetIntervalType.ToString().ToLowerInvariant();
+                parts.Add(cfg.resetIntervalValue > 1
+                    ? "resets every " + cfg.resetIntervalValue + " " + unit
+                    : "resets " + unit);
             }
             else
             {
-                row.Add(new Chip("never resets", ChipTone.Neutral));
+                parts.Add("never resets");
             }
-
-            return row;
+            if (!string.IsNullOrEmpty(cfg.key))
+            {
+                parts.Add("key " + cfg.key);
+            }
+            return string.Join("  ·  ", parts);
         }
 
-        /// <summary>
-        /// Redraws the KPI strip from whatever the pane knows so far. Called once per arriving
-        /// response, because the league, the player's own entry and the slice are separate requests.
-        /// </summary>
-        private void RenderKpis(TournamentPane pane)
+        private static string StrategyShort(TournamentEnums.UpdateStrategy strategy)
         {
-            var kpis = pane.Kpis.Clear2();
+            switch (strategy)
+            {
+                case TournamentEnums.UpdateStrategy.Best: return "keeps best";
+                case TournamentEnums.UpdateStrategy.Total: return "sums scores";
+                default: return "keeps latest";
+            }
+        }
 
+        /// <summary>Right edge of the header: the place in the league on screen, and the player's league.</summary>
+        private void RenderStanding(TournamentPane pane)
+        {
+            string league = MyLeagueText(pane);
             if (pane.Me != null && pane.Me.position > 0)
             {
-                kpis.Add("My rank", LucideIcon.Medal, "#" + pane.Me.position, null, pane.Me.position <= 3);
-                kpis.Add("My score", LucideIcon.Target, Fmt.Number(pane.Me.value));
-            }
-            else if (pane.MeLoaded)
-            {
-                kpis.AddZero("My rank", LucideIcon.Medal, "unranked");
-                kpis.AddZero("My score", LucideIcon.Target, "0");
-            }
-            else
-            {
-                kpis.Add("My rank", LucideIcon.Medal, Fmt.Dash);
-                kpis.Add("My score", LucideIcon.Target, Fmt.Dash);
+                BoardLayout.RenderStanding(pane.Standing, "#" + pane.Me.position,
+                    BoardLayout.MedalTint(pane.Me.position),
+                    Fmt.Number(pane.Me.value) + (league != null ? " · " + league : string.Empty));
+                return;
             }
 
-            string caption = EntriesCaption();
-            if (!pane.EntriesLoaded)
+            string caption = pane.MeLoaded ? "no score yet" : "loading…";
+            if (league != null)
             {
-                kpis.Add(caption, LucideIcon.Users, Fmt.Dash);
+                caption += " · " + league;
             }
-            else if (pane.Entries == 0)
-            {
-                kpis.AddZero(caption, LucideIcon.Users);
-            }
-            else
-            {
-                kpis.Add(caption, LucideIcon.Users, Fmt.Number(pane.Entries));
-            }
-
-            kpis.Add("My league", LucideIcon.Layers, LeagueText(pane));
+            BoardLayout.RenderStanding(pane.Standing, Fmt.Dash, null, caption);
         }
 
-        /// <summary>Where the player stands in the league ladder, in the ladder's own terms.</summary>
-        private static string LeagueText(TournamentPane pane)
+        /// <summary>The player's league by name, or null while it is unknown.</summary>
+        private static string MyLeagueText(TournamentPane pane)
         {
             if (pane.Meta == null)
             {
-                return pane.MetaLoaded ? "unassigned" : Fmt.Dash;
+                return null;
             }
-
             var tables = pane.Config.tables;
-            int total = tables != null ? tables.Length : 0;
             int at = IndexOfTable(tables, pane.Meta.currentLeagueTableId);
-            if (at >= 0 && total > 0)
-            {
-                return (at + 1) + " of " + total;
-            }
-            // The config the client holds does not list the league the meta points at (it was removed,
+            // The config the client holds may not list the league the meta points at (it was removed,
             // or the player's run predates it) — the server's own index is still worth showing.
-            return "index " + pane.Meta.currentLeagueTableIndex;
+            return at >= 0 ? LeagueName(tables[at], at) : "league " + (pane.Meta.currentLeagueTableIndex + 1);
         }
 
-        private string EntriesCaption()
+        // ----- submit card ---------------------------------------------------------------------------
+
+        private VisualElement BuildSubmitCard(TournamentPane pane)
         {
-            switch (_slice)
+            var card = BoardLayout.Card(LucideIcon.Send, "Submit a score", out _);
+            card.Add(BoardLayout.Hint(SubmitHint(pane.Config)));
+
+            var score = BoardLayout.Field("Score", "1000", 220f);
+            var name = BoardLayout.Field("Name", string.Empty, 240f);
+            name.tooltip = "Optional. Left blank, the SDK sends the nickname from PlayerAccount.";
+            card.Add(BoardLayout.FormRow("Submit", result => Submit(pane, score.value, name.value, result), score, name));
+            return card;
+        }
+
+        private static string SubmitHint(TournamentConfigDto cfg)
+        {
+            string strategy;
+            switch (cfg.updateStrategy)
             {
-                case Slice.AroundMe: return "Rows around you";
-                case Slice.TopAndAround: return "Rows fetched";
-                case Slice.Friends: return "Friends ranked";
-                case Slice.Country: return "In your country";
-                default: return "Players";
+                case TournamentEnums.UpdateStrategy.Best:
+                    strategy = "A worse score than the stored one leaves the entry alone.";
+                    break;
+                case TournamentEnums.UpdateStrategy.Total:
+                    strategy = "Every submission adds to the entry.";
+                    break;
+                default:
+                    strategy = "Every submission replaces the entry.";
+                    break;
             }
+            string unit = cfg.type == TournamentEnums.TournamentsType.Time
+                ? " The value is a duration in whatever unit the game measures in."
+                : string.Empty;
+            return "Join first. There is no table id: the score goes to the league the player sits in. "
+                   + strategy + unit + " Name is optional — blank sends the profile's nickname.";
+        }
+
+        private async Task Submit(TournamentPane pane, string scoreText, string name, InlineResult result)
+        {
+            double score;
+            // Parsed here rather than as a float: the SDK takes a double, and a tournament score can
+            // easily be larger than a float represents exactly.
+            if (!double.TryParse((scoreText ?? string.Empty).Trim(), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out score))
+            {
+                result.Fail("Score must be a number (use a dot for decimals).");
+                return;
+            }
+
+            string key = Key(pane.Config);
+            var op = Sdk.Tournaments.SubmitScoreAsync(key, score,
+                string.IsNullOrWhiteSpace(name) ? null : name.Trim());
+            await op.Task();
+            var response = op.Result;
+
+            Ctx.Log?.Record("Tournaments: submit score", response, SubmitSnippet);
+            if (!response.IsSuccess)
+            {
+                bool notJoined = response.Error != null
+                                 && response.Error.HasCode(CloudErrorCodes.TournamentsParticipationRequired);
+                if (notJoined)
+                {
+                    _side?.SetJoined(key, false);
+                }
+                result.Fail(notJoined
+                    ? "Join the tournament first — scores are accepted from participants only."
+                    : ErrorText(response));
+                return;
+            }
+
+            _side?.SetJoined(key, true);
+            result.Ok("Submitted " + Fmt.Number(score));
+            if (pane == _pane)
+            {
+                ReloadStandings(pane);
+            }
+        }
+
+        // ----- standings card: league picker + slice switch + table ----------------------------------
+
+        private VisualElement BuildStandingsCard(TournamentPane pane)
+        {
+            var card = BoardLayout.Card(LucideIcon.Users, "Standings", out var head);
+            head.AddToClassList("sc-board-card__head--wrap");
+            head.Add(pane.Count);
+
+            var spacer = new VisualElement();
+            spacer.style.flexGrow = 1f;
+            head.Add(spacer);
+
+            head.Add(BoardLayout.Switch(SliceNames, (int)_slice, index =>
+            {
+                _slice = (Slice)index;
+                if (!string.IsNullOrEmpty(pane.TableId))
+                {
+                    LoadSlice(pane);
+                }
+            }));
+
+            pane.LeaguePicker.AddToClassList("sc-trn-picker");
+            card.Add(pane.LeaguePicker);
+            card.Add(pane.EntriesSlot);
+            return card;
+        }
+
+        private static void RenderCount(TournamentPane pane)
+        {
+            BoardLayout.SetCount(pane.Count, pane.EntriesLoaded && pane.Entries > 0 ? Fmt.Number(pane.Entries) : null);
         }
 
         /// <summary>
-        /// Opens a pane: the league comes first because every entries endpoint needs a table id, and
-        /// only then are the standings and the player's own row requested. Bound by hand rather than
-        /// through <see cref="ViewBind"/> — the response picks the table rather than filling a slot.
+        /// Opens a tournament: the league comes first because every entries endpoint needs a table id,
+        /// and only then are the standings and the player's own row requested. Bound by hand rather
+        /// than through <see cref="ViewBind"/> — the response picks the table rather than filling a slot.
         /// </summary>
         private async void OpenPane(TournamentPane pane)
         {
@@ -513,14 +608,17 @@ await op.Task();";
             pane.TableId = tableId;
             _leagueByTournament[Key(pane.Config)] = tableId;
 
+            pane.Me = null;
+            pane.MeLoaded = false;
+            pane.HighlightId = null;
             RenderLeagues(pane);
-            RenderKpis(pane);
+            RenderStanding(pane);
             LoadMyEntry(pane);
             LoadSlice(pane);
         }
 
-        /// <summary>Repaints the league picker and the per-league cards; both mark the player's own
-        /// league, which is only known once the meta call has landed.</summary>
+        /// <summary>Repaints the league picker and the ladder; both mark the player's own league, which
+        /// is only known once the meta call has landed, and the one on screen.</summary>
         private void RenderLeagues(TournamentPane pane)
         {
             var tables = pane.Config.tables;
@@ -530,6 +628,10 @@ await op.Task();";
             {
                 return;
             }
+
+            var caption = new Label("League");
+            caption.AddToClassList("sc-trn-picker__label");
+            pane.LeaguePicker.Add(caption);
 
             string mine = pane.Meta != null ? pane.Meta.currentLeagueTableId : null;
             for (int i = 0; i < tables.Length; i++)
@@ -542,12 +644,13 @@ await op.Task();";
 
                 string id = table.id;
                 bool isMine = !string.IsNullOrEmpty(id) && id == mine;
+                bool shown = !string.IsNullOrEmpty(id) && id == pane.TableId;
 
                 var btn = new Button(() => SelectLeague(pane, id));
+                btn.AddToClassList("sc-btn");
                 btn.AddToClassList("sc-trn-league");
-                btn.EnableInClassList("sc-trn-league--active", id == pane.TableId);
+                btn.EnableInClassList("sc-btn--primary", shown);
                 btn.tooltip = isMine ? "The league this player is in right now" : "Read this league's standings";
-
                 if (isMine)
                 {
                     var crown = new Label(LucideIcon.Crown);
@@ -555,76 +658,124 @@ await op.Task();";
                     crown.AddToClassList("sc-icon");
                     btn.Add(crown);
                 }
-
                 var name = new Label(LeagueName(table, i));
                 name.enableRichText = false;
                 name.AddToClassList("sc-trn-league__name");
                 btn.Add(name);
-
                 pane.LeaguePicker.Add(btn);
-                pane.LeaguesSlot.Add(LeagueCard(pane, table, i, isMine));
+
+                pane.LeaguesSlot.Add(LeagueRow(pane, table, i, isMine, shown));
             }
         }
 
-        private VisualElement LeagueCard(TournamentPane pane, TournamentTableDto table, int index, bool isMine)
+        // ----- leagues card: the ladder with thresholds and rewards ----------------------------------
+
+        private VisualElement BuildLeaguesCard(TournamentPane pane)
         {
-            var card = new Card(isMine ? Meta.Accent : (Color?)null);
-            card.AddToClassList("sc-trn-league-card");
+            var card = BoardLayout.Card(LucideIcon.Layers, "Leagues and rewards", out var head);
+            var count = BoardLayout.Count();
+            BoardLayout.SetCount(count, pane.Config.tables.Length.ToString(CultureInfo.InvariantCulture));
+            head.Add(count);
+            card.Add(BoardLayout.Hint("On a reset the best players of a league move up, the worst move down, "
+                                      + "and every place or score in a reward range is paid into Economy."));
+            card.Add(pane.LeaguesSlot);
+            return card;
+        }
+
+        /// <summary>One league as a row: name and promotion rules on the left, reward ranges on the right.
+        /// A click shows its standings above.</summary>
+        private VisualElement LeagueRow(TournamentPane pane, TournamentTableDto table, int index, bool isMine, bool shown)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sc-trn-lrow");
+            row.EnableInClassList("sc-trn-lrow--shown", shown);
+
+            var texts = new VisualElement();
+            texts.AddToClassList("sc-trn-lrow__texts");
+
+            var title = new VisualElement();
+            title.AddToClassList("sc-trn-lrow__title");
+            var name = new Label(LeagueName(table, index));
+            name.enableRichText = false;
+            name.AddToClassList("sc-trn-lrow__name");
+            title.Add(name);
             if (isMine)
             {
-                card.AddToClassList("sc-trn-league-card--mine");
+                var you = new Badge("your league", ChipTone.Accent);
+                you.AddToClassList("sc-trn-lrow__badge");
+                title.Add(you);
             }
-            card.WithTitle(LeagueName(table, index), isMine ? Meta.Accent : (Color?)null);
-
-            var chips = new VisualElement();
-            chips.AddToClassList("sc-chip-row");
+            texts.Add(title);
 
             // Thresholds are counts of players, not places: on a reset the best N of this league move
             // up to the neighbouring one and the worst M drop down.
-            chips.Add(table.leagueUpThreshold > 0
-                ? new Chip("top " + table.leagueUpThreshold + " promoted", ChipTone.Ok)
-                : new Chip("no promotion", ChipTone.Neutral));
-            chips.Add(table.leagueDownThreshold > 0
-                ? new Chip("bottom " + table.leagueDownThreshold + " demoted", ChipTone.Bad)
-                : new Chip("no demotion", ChipTone.Neutral));
-            if (isMine)
-            {
-                chips.Add(new Chip("your league", ChipTone.Accent));
-            }
-            if (!string.IsNullOrEmpty(table.id) && table.id == pane.TableId)
-            {
-                chips.Add(new Chip("shown above", ChipTone.Info));
-            }
-            card.Body.Add(chips);
+            var rules = new Label(
+                (table.leagueUpThreshold > 0 ? "top " + table.leagueUpThreshold + " move up" : "no promotion")
+                + "  ·  "
+                + (table.leagueDownThreshold > 0 ? "bottom " + table.leagueDownThreshold + " move down" : "no demotion"));
+            rules.AddToClassList("sc-trn-lrow__rules");
+            texts.Add(rules);
+            row.Add(texts);
 
-            var ranges = table.rewardsForPlaces;
-            if (ranges == null || ranges.Length == 0)
-            {
-                var none = new Label("No rewards are attached to this league, so a reset only moves players "
-                                     + "between leagues. Reward ranges are authored per league in the console.");
-                none.enableRichText = false;
-                none.AddToClassList("sc-fs-hint");
-                card.Body.Add(none);
-                return card;
-            }
+            row.Add(RewardRanges(pane.Config, table.rewardsForPlaces));
 
-            var list = new VisualElement();
-            foreach (var range in ranges)
+            string id = table.id;
+            row.RegisterCallback<ClickEvent>(_ =>
             {
-                if (range == null)
+                if (!string.IsNullOrEmpty(id) && id != pane.TableId)
                 {
-                    continue;
+                    SelectLeague(pane, id);
                 }
-                var row = new ListRow();
-                row.SetTitle(RangeLabel(pane.Config, range));
-                row.SetSubtitle(range.rewards == null || range.rewards.Length == 0
-                    ? "nothing granted"
-                    : range.rewards.Length + (range.rewards.Length == 1 ? " reward" : " rewards"));
-                row.SetTrailing(RewardChips(range.rewards));
-                list.Add(row);
+            });
+            return row;
+        }
+
+        /// <summary>
+        /// The league's reward ranges as pills, "#1–3 · 4f2a…×10". The kind (currency or item) is
+        /// deliberately not claimed: the endpoint reports the economy resource id and the amount, and
+        /// which of the two it is comes from looking that id up in the Economy module.
+        /// </summary>
+        private VisualElement RewardRanges(TournamentConfigDto cfg, RewardRangeDto[] ranges)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sc-chip-row");
+            row.AddToClassList("sc-trn-lrow__rewards");
+
+            if (ranges != null)
+            {
+                foreach (var range in ranges)
+                {
+                    if (range == null)
+                    {
+                        continue;
+                    }
+                    var parts = new List<string>();
+                    var full = new List<string>();
+                    if (range.rewards != null)
+                    {
+                        foreach (var reward in range.rewards)
+                        {
+                            if (reward == null)
+                            {
+                                continue;
+                            }
+                            parts.Add(Fmt.Id(reward.rewardId, 6) + " ×" + reward.count);
+                            full.Add(Fmt.OrDash(reward.rewardId) + " ×" + reward.count);
+                        }
+                    }
+                    var chip = new RewardChip(LucideIcon.Gift,
+                        RangeLabel(cfg, range) + "  " + (parts.Count == 0 ? "nothing" : string.Join(", ", parts)),
+                        Meta.Accent);
+                    chip.tooltip = "Economy resources: " + (full.Count == 0 ? "none" : string.Join(", ", full));
+                    row.Add(chip);
+                }
             }
-            card.Body.Add(list);
-            return card;
+
+            if (row.childCount == 0)
+            {
+                row.Add(new Chip("no rewards", ChipTone.Neutral));
+            }
+            return row;
         }
 
         /// <summary>
@@ -646,39 +797,7 @@ await op.Task();";
             return single ? "#" + min : "#" + min + "–" + max;
         }
 
-        /// <summary>
-        /// The reward payload as pills. The kind (currency or item) is deliberately not claimed: the
-        /// tournaments endpoint reports the economy resource id and the amount, and which of the two
-        /// it is comes from looking that id up in the Economy module.
-        /// </summary>
-        private VisualElement RewardChips(RewardDataDto[] rewards)
-        {
-            var row = new VisualElement();
-            row.AddToClassList("sc-chip-row");
-
-            if (rewards != null)
-            {
-                foreach (var reward in rewards)
-                {
-                    if (reward == null)
-                    {
-                        continue;
-                    }
-                    var chip = new RewardChip(LucideIcon.Gift,
-                        Fmt.Id(reward.rewardId, 8) + " ×" + reward.count, Meta.Accent);
-                    chip.tooltip = "Economy resource " + Fmt.OrDash(reward.rewardId) + " ×" + reward.count;
-                    row.Add(chip);
-                }
-            }
-
-            if (row.childCount == 0)
-            {
-                row.Add(new Chip("nothing granted", ChipTone.Neutral));
-            }
-            return row;
-        }
-
-        // ----- standings ----------------------------------------------------------------------------
+        // ----- standings -----------------------------------------------------------------------------
 
         private void LoadSlice(TournamentPane pane)
         {
@@ -686,6 +805,8 @@ await op.Task();";
             string key = Key(pane.Config);
             string table = pane.TableId;
             pane.Bound.Clear();
+            pane.EntriesLoaded = false;
+            RenderCount(pane);
 
             switch (_slice)
             {
@@ -813,17 +934,8 @@ await op.Task();";
             var rows = entries ?? Array.Empty<TournamentEntryDto>();
             pane.Entries = rows.Length;
             pane.EntriesLoaded = true;
-            RenderKpis(pane);
-
-            var root = new VisualElement();
-
-            var chart = BuildChart(rows);
-            if (chart != null)
-            {
-                root.Add(chart);
-            }
-            root.Add(BuildTable(pane, rows, 420f));
-            return root;
+            RenderCount(pane);
+            return BuildTable(pane, rows, 480f);
         }
 
         private VisualElement BuildTopAndAroundBody(TournamentPane pane, TournamentTopAndPlayersAroundDto data)
@@ -834,42 +946,37 @@ await op.Task();";
             pane.Entries = top.Length + around.Length;
             pane.EntriesLoaded = true;
             AdoptTarget(pane, around);
-            RenderKpis(pane);
+            RenderCount(pane);
 
             var root = new VisualElement();
 
-            root.Add(new SectionHeader("Top of the league", top.Length.ToString()));
-            if (top.Length == 0)
-            {
-                root.Add(ZeroState.Table(Columns(pane),
-                    "Nobody has scored in this league yet.", 3,
-                    "Submit a score", () => OpenSubmitDialog(pane)));
-            }
-            else
-            {
-                var chart = BuildChart(top);
-                if (chart != null)
-                {
-                    root.Add(chart);
-                }
-                root.Add(BuildTable(pane, top, 320f));
-            }
+            root.Add(Subheader("Top of the league", top.Length));
+            root.Add(top.Length == 0
+                ? ZeroState.Table(Columns(pane), "Nobody has scored in this league yet.")
+                : (VisualElement)BuildTable(pane, top, 320f));
 
-            var header = new SectionHeader("Around you", around.Length.ToString());
-            header.AddToClassList("sc-trn-around");
-            root.Add(header);
-            if (around.Length == 0)
-            {
-                root.Add(ZeroState.Table(Columns(pane),
+            var aroundHeader = Subheader("Around you", around.Length);
+            aroundHeader.AddToClassList("sc-trn-sub--gap");
+            root.Add(aroundHeader);
+            root.Add(around.Length == 0
+                ? ZeroState.Table(Columns(pane),
                     "You have no position in this league, so there is no neighbourhood to show. It "
-                    + "appears as soon as you have an entry.", 3,
-                    "Submit a score", () => OpenSubmitDialog(pane)));
-            }
-            else
-            {
-                root.Add(BuildTable(pane, around, 320f));
-            }
+                    + "appears as soon as you have an entry.")
+                : (VisualElement)BuildTable(pane, around, 320f));
             return root;
+        }
+
+        private static VisualElement Subheader(string text, int count)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sc-trn-sub");
+            var label = new Label(text);
+            label.AddToClassList("sc-trn-sub__text");
+            row.Add(label);
+            var badge = BoardLayout.Count();
+            BoardLayout.SetCount(badge, count.ToString(CultureInfo.InvariantCulture));
+            row.Add(badge);
+            return row;
         }
 
         private VisualElement EmptySlice(TournamentPane pane, string message)
@@ -877,43 +984,15 @@ await op.Task();";
             pane.Entries = 0;
             pane.EntriesLoaded = true;
             pane.Bound.Clear();
-            RenderKpis(pane);
+            RenderCount(pane);
 
-            // The board keeps the shape it will have once scores arrive — the reader sees the columns
-            // they are going to get, plus the one call that fills them.
-            return ZeroState.Table(Columns(pane), message, 3, "Submit a score", () => OpenSubmitDialog(pane));
-        }
-
-        /// <summary>Top of the ranking as bars — the shape of the gap between the leaders, which a
-        /// column of numbers hides. Returns null when there is nothing to compare.</summary>
-        private VisualElement BuildChart(TournamentEntryDto[] rows)
-        {
-            if (rows.Length < 2)
-            {
-                return null;
-            }
-
-            var ordered = new List<TournamentEntryDto>(rows);
-            ordered.Sort((a, b) => a.position.CompareTo(b.position));
-
-            int count = Math.Min(ChartBars, ordered.Count);
-            var points = new List<ChartPoint>(count);
-            for (int i = 0; i < count; i++)
-            {
-                var e = ordered[i];
-                points.Add(new ChartPoint("#" + e.position, (float)e.value, MedalTint(e.position)));
-            }
-
-            var chart = new BarChart(150f);
-            chart.AddToClassList("sc-trn-chart");
-            chart.SetAccent(Meta.Accent);
-            chart.SetValueFormatter(v => Fmt.Number(v));
-            chart.SetData(points);
-            return chart;
+            // The board keeps the shape it will have once scores arrive — the reader sees the
+            // columns they are going to get, not a shrug.
+            return ZeroState.Table(Columns(pane), message);
         }
 
         /// <summary>Builds a standings table and registers it, so a late-arriving own entry can
-        /// re-highlight every table on the pane rather than only the last one.</summary>
+        /// re-highlight every table in the card rather than only the last one.</summary>
         private DataTable BuildTable(TournamentPane pane, TournamentEntryDto[] rows, float maxHeight)
         {
             var table = new DataTable(Columns(pane))
@@ -932,13 +1011,17 @@ await op.Task();";
                 new DataColumn
                 {
                     Header = "#", FixedWidth = true, Px = 74, Align = "center",
-                    Cell = RankCell,
+                    Cell = row => BoardLayout.RankCell(((TournamentEntryDto)row).position),
                     SortKey = row => ((TournamentEntryDto)row).position,
                 },
                 new DataColumn
                 {
                     Header = "PLAYER", Grow = 1f,
-                    Cell = row => PlayerCell(pane, row),
+                    Cell = row =>
+                    {
+                        var e = (TournamentEntryDto)row;
+                        return BoardLayout.PlayerCell(PlayerLabel(e), e.playerId, pane.IsMine(row));
+                    },
                     SortKey = row => PlayerLabel((TournamentEntryDto)row),
                 },
                 new DataColumn
@@ -948,58 +1031,6 @@ await op.Task();";
                     SortKey = row => ((TournamentEntryDto)row).value,
                 },
             };
-        }
-
-        private static VisualElement RankCell(object row)
-        {
-            var e = (TournamentEntryDto)row;
-
-            var text = new Label(e.position > 0 ? "#" + e.position : Fmt.Dash);
-            text.AddToClassList("sc-rank");
-            if (e.position < 1 || e.position > 3)
-            {
-                return text;
-            }
-
-            var tint = MedalTint(e.position).Value;
-            text.style.color = tint;
-
-            var wrap = new VisualElement();
-            wrap.AddToClassList("sc-trn-rank");
-
-            var medal = new Label(LucideIcon.Medal);
-            medal.AddToClassList("sc-trn-medal");
-            medal.AddToClassList("sc-icon");
-            medal.style.color = tint;
-            wrap.Add(medal);
-            wrap.Add(text);
-            return wrap;
-        }
-
-        private static VisualElement PlayerCell(TournamentPane pane, object row)
-        {
-            var e = (TournamentEntryDto)row;
-            string label = PlayerLabel(e);
-
-            var wrap = new VisualElement();
-            wrap.AddToClassList("sc-trn-player");
-
-            var avatar = new Avatar(26f).SetInitialsFor(label);
-            avatar.AddToClassList("sc-trn-player__avatar");
-            wrap.Add(avatar);
-
-            var name = new Label(Fmt.OrDash(label));
-            name.enableRichText = false;
-            name.tooltip = e.playerId;
-            wrap.Add(name);
-
-            if (pane.IsMine(row))
-            {
-                var you = new Badge("You", ChipTone.Accent);
-                you.AddToClassList("sc-trn-player__you");
-                wrap.Add(you);
-            }
-            return wrap;
         }
 
         private static VisualElement ScoreCell(object row)
@@ -1052,12 +1083,14 @@ await op.Task();";
                     if (pane.Me != null && !string.IsNullOrEmpty(pane.Me.playerId))
                     {
                         pane.HighlightId = pane.Me.playerId;
+                        // An entry proves participation; a 404 proves nothing.
+                        _side?.SetJoined(Key(pane.Config), true);
                     }
                 }
             }
 
             pane.MeLoaded = true;
-            RenderKpis(pane);
+            RenderStanding(pane);
             RebindHighlight(pane);
         }
 
@@ -1093,169 +1126,127 @@ await op.Task();";
             }
         }
 
-        /// <summary>Re-runs the two calls that a submitted score changes, in place: the tab itself is
-        /// left alone so the card that ran the write keeps showing its result.</summary>
+        /// <summary>
+        /// Re-reads what a join, leave or submit changes, in place. Joining can move the player into
+        /// a league, so the league is asked again too — but the one the reader is looking at stays.
+        /// </summary>
         private void ReloadStandings(TournamentPane pane)
         {
-            if (string.IsNullOrEmpty(pane.TableId))
+            var tables = pane.Config.tables;
+            if (tables == null || tables.Length == 0)
             {
                 return;
             }
-
-            pane.Me = null;
-            pane.MeLoaded = false;
-            pane.Entries = 0;
-            pane.EntriesLoaded = false;
-            RenderKpis(pane);
-
-            LoadMyEntry(pane);
-            LoadSlice(pane);
+            OpenPane(pane);
         }
 
-        // ----- submitting a score -------------------------------------------------------------------
+        // ----- join / leave from the sidebar ---------------------------------------------------------
 
-        private static VisualElement SubmitHint(TournamentConfigDto cfg)
+        private async void Join(TournamentConfigDto cfg)
         {
-            string strategy;
-            switch (cfg.updateStrategy)
+            string key = Key(cfg);
+            _side.SetBusy(key, true);
+
+            RestApiResult<TournamentEntryDto> result = null;
+            try
             {
-                case TournamentEnums.UpdateStrategy.Best:
-                    strategy = "This tournament keeps the best value, so a worse score leaves the entry alone.";
-                    break;
-                case TournamentEnums.UpdateStrategy.Total:
-                    strategy = "This tournament totals the values, so every submission adds to the entry.";
-                    break;
-                default:
-                    strategy = "This tournament keeps the latest value, so every submission replaces the entry.";
-                    break;
+                var op = Sdk.Tournaments.JoinAsync(key);
+                await op.Task();
+                result = op.Result;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Showcase] Tournaments: join threw: " + e.Message);
             }
 
-            string ordering = cfg.orderType == TournamentEnums.OrderType.Highest
-                ? " Higher values rank first."
-                : " Lower values rank first.";
-            if (cfg.type == TournamentEnums.TournamentsType.Time)
+            _side.SetBusy(key, false);
+            if (result == null)
             {
-                ordering += " It is a time-based tournament, so the value is a duration in whatever unit "
-                            + "the game measures in.";
-            }
-
-            var hint = new Label("There is no table id here: the score goes to the league the player "
-                                 + "currently sits in. " + strategy + ordering);
-            hint.enableRichText = false;
-            hint.AddToClassList("sc-fs-hint");
-            return hint;
-        }
-
-        private VisualElement JoinCard(TournamentPane pane)
-        {
-            var card = new ActionCard("Join the tournament",
-                    "Makes the player a participant and places them into a league. Joining twice is harmless.",
-                    LucideIcon.UserPlus)
-                .WithSnippet(JoinSnippet)
-                .OnRun("Join", _ => Join(pane));
-            card.AddToClassList("sc-trn-submit");
-            return card;
-        }
-
-        private async Task<ActionOutcome> Join(TournamentPane pane)
-        {
-            var outcome = await AwaitData(Sdk.Tournaments.JoinAsync(Key(pane.Config)), "Tournaments: join");
-            if (!outcome.Ok)
-            {
-                return ActionOutcome.Failure(outcome.Message);
-            }
-
-            ReloadStandings(pane);
-            return ActionOutcome.Success("Joined — the standings above have been reloaded");
-        }
-
-        private VisualElement SubmitCard(TournamentPane pane)
-        {
-            var card = new ActionCard("Submit a score",
-                    "Writes one value for this tournament and reloads the standings above.", LucideIcon.Send)
-                .WithFields(SubmitFields())
-                .WithSnippet(SubmitSnippet)
-                .OnRun("Submit", values => SubmitScore(pane, values));
-            card.AddToClassList("sc-trn-submit");
-            return card;
-        }
-
-        private static FormField[] SubmitFields()
-        {
-            return new[]
-            {
-                FormField.Float("score", "Score", 1000f)
-                    .WithPlaceholder("Any number; the update strategy above decides what the server does with it.")
-                    .AsRequired(),
-                FormField.Text("playerName", "Player name")
-                    .WithPlaceholder("Optional. Left blank, the SDK sends the nickname from PlayerAccount."),
-            };
-        }
-
-        private void OpenSubmitDialog(TournamentPane pane)
-        {
-            if (Popup == null)
-            {
+                Toasts?.Fail("Join failed: no response");
                 return;
             }
-            FormDialog.Open(Popup, "Submit a score to " + Title(pane.Config), SubmitFields(), "Submit",
-                values => SubmitFromDialog(pane, values));
+
+            Ctx.Log?.Record("Tournaments: join", result, JoinSnippet);
+            if (!result.IsSuccess)
+            {
+                Toasts?.Fail("Join failed: " + ErrorText(result));
+                return;
+            }
+
+            _side.SetJoined(key, true);
+            var entry = result.Data;
+            Toasts?.Ok(entry != null && entry.position > 0
+                ? "Joined " + Title(cfg) + " — you are #" + entry.position
+                : "Joined " + Title(cfg) + " — submit a score to get a place");
+            ReloadIfSelected(key);
         }
 
-        /// <summary>The zero-state call to action. It shares <see cref="SubmitScore"/> with the card,
-        /// which already toasts on success — only the failure needs reporting here.</summary>
-        private async void SubmitFromDialog(TournamentPane pane, FormValues values)
+        private void ConfirmLeave(TournamentConfigDto cfg)
         {
-            var outcome = await SubmitScore(pane, values);
-            if (!outcome.Ok && Toasts != null)
-            {
-                Toasts.Fail("Submit score failed · " + outcome.Message);
-            }
+            ConfirmDialog.Open(Popup, "Leave " + Title(cfg),
+                "The player stops being a participant, and their result in this tournament is removed.",
+                "Leave", () => Leave(cfg));
         }
 
-        private async Task<ActionOutcome> SubmitScore(TournamentPane pane, FormValues values)
+        private async void Leave(TournamentConfigDto cfg)
         {
-            double score;
-            // Parsed here rather than through FormValues.Float: the SDK takes a double, and a
-            // tournament score can easily be larger than a float represents exactly.
-            if (!double.TryParse(values.Text("score").Trim(), NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out score))
+            string key = Key(cfg);
+            _side.SetBusy(key, true);
+
+            RestApiResult result = null;
+            try
             {
-                return ActionOutcome.Failure("Score must be a number (use a dot for decimals).");
+                var op = Sdk.Tournaments.LeaveAsync(key);
+                await op.Task();
+                result = op.Result;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Showcase] Tournaments: leave threw: " + e.Message);
             }
 
-            string name = values.Text("playerName");
-            var op = Sdk.Tournaments.SubmitScoreAsync(Key(pane.Config), score,
-                string.IsNullOrWhiteSpace(name) ? null : name.Trim());
-
-            var outcome = await Await(op, "Tournaments: submit score");
-            if (!outcome.Ok)
+            _side.SetBusy(key, false);
+            if (result == null)
             {
-                return ActionOutcome.Failure(outcome.Message);
+                Toasts?.Fail("Leave failed: no response");
+                return;
             }
 
-            if (Toasts != null)
+            Ctx.Log?.Record("Tournaments: leave", result, LeaveSnippet);
+            if (!result.IsSuccess)
             {
-                Toasts.Ok("Score " + Fmt.Number(score) + " submitted");
+                Toasts?.Fail("Leave failed: " + ErrorText(result));
+                return;
             }
-            ReloadStandings(pane);
-            return ActionOutcome.Success("Submitted " + Fmt.Number(score)
-                + " — the standings and your position above have been reloaded");
+
+            _side.SetJoined(key, false);
+            Toasts?.Ok("Left " + Title(cfg) + " — your result is gone");
+            ReloadIfSelected(key);
         }
 
-        // ----- rewards ------------------------------------------------------------------------------
-
-        private VisualElement BuildRewards()
+        private void ReloadIfSelected(string key)
         {
-            return new PendingRewardsPanel(Ctx, RewardSourceType.Tournament,
-                "When a run resets, the server settles the final standings of every league, works out what "
-                + "each place (or score) earned and pays it into Economy, where the game reads and claims it. "
-                + "Nothing is claimed by reading.",
-                "Nothing is waiting for this player. A reward lands here when a tournament run resets and the "
-                + "player's place (or score) matches one of the ranges configured on their league.");
+            if (_pane != null && Key(_pane.Config) == key)
+            {
+                ReloadStandings(_pane);
+            }
         }
 
         // ----- shared plumbing ----------------------------------------------------------------------
+
+        private static string ErrorText(RestApiResult result)
+        {
+            if (result == null || result.Error == null)
+            {
+                return "no response";
+            }
+            var errors = result.Error.Errors;
+            if (errors != null && errors.Count > 0 && errors[0] != null && !string.IsNullOrEmpty(errors[0].Message))
+            {
+                return errors[0].Message;
+            }
+            return string.IsNullOrEmpty(result.Error.Message) ? "HTTP " + result.HttpStatusCode : result.Error.Message;
+        }
 
         /// <summary>Flattens an around-me response into one ranked list (the table sorts it).</summary>
         private static TournamentEntryDto[] Around(TournamentPlayersAroundDto data)
@@ -1355,60 +1346,6 @@ await op.Task();";
             return string.IsNullOrEmpty(cfg.key) ? cfg.id : cfg.key;
         }
 
-        /// <summary>Null for anything below third place, so the chart falls back to the module accent.</summary>
-        private static Color? MedalTint(int position)
-        {
-            switch (position)
-            {
-                case 1: return Gold;
-                case 2: return Silver;
-                case 3: return Bronze;
-                default: return null;
-            }
-        }
-
-        private async Task<Outcome> Await(AsyncOperation<RestApiResult> op, string label)
-        {
-            if (op == null)
-            {
-                return new Outcome { Ok = false, Message = "the call could not be started" };
-            }
-            await op.Task();
-            return Fold(op.Result, label);
-        }
-
-        private async Task<Outcome> AwaitData<T>(AsyncOperation<RestApiResult<T>> op, string label)
-        {
-            if (op == null)
-            {
-                return new Outcome { Ok = false, Message = "the call could not be started" };
-            }
-            await op.Task();
-            return Fold(op.Result, label);
-        }
-
-        private Outcome Fold(RestApiResult result, string label)
-        {
-            if (Ctx.Log != null && result != null)
-            {
-                Ctx.Log.Record(label, result);
-            }
-            if (result != null && result.IsSuccess)
-            {
-                return new Outcome { Ok = true };
-            }
-            string message = result != null && result.Error != null && !string.IsNullOrEmpty(result.Error.Message)
-                ? result.Error.Message
-                : "no response";
-            return new Outcome { Ok = false, Message = message };
-        }
-
-        private struct Outcome
-        {
-            public bool Ok;
-            public string Message;
-        }
-
         /// <summary>One rendered standings table plus the rows it was bound with, so the "You"
         /// highlight can be reapplied when the player's own entry arrives late.</summary>
         private sealed class BoundTable
@@ -1418,19 +1355,24 @@ await op.Task();";
         }
 
         /// <summary>
-        /// One tournament tab's mutable state. It exists because a pane is filled by three calls that
-        /// can land in any order (league, own entry, slice): whichever arrives re-renders the KPI strip
-        /// from here, and the league the reader picked has to survive both of the others.
+        /// The selected tournament's mutable state. It exists because the right side is filled by
+        /// three calls that can land in any order (league, own entry, slice): whichever arrives
+        /// re-renders its part from here, and the league the reader picked has to survive the others.
         /// </summary>
         private sealed class TournamentPane
         {
             public readonly TournamentConfigDto Config;
-            public readonly KpiRow Kpis = new KpiRow();
+
+            /// <summary>Right edge of the header card: the player's place, score and league.</summary>
+            public readonly VisualElement Standing = new VisualElement();
+
+            /// <summary>Row count badge next to the standings title.</summary>
+            public readonly Label Count = BoardLayout.Count();
 
             /// <summary>Host of the league picker buttons (rebuilt whenever the selection changes).</summary>
             public readonly VisualElement LeaguePicker = new VisualElement();
 
-            /// <summary>Host of the per-league cards (thresholds and reward ranges).</summary>
+            /// <summary>Host of the league ladder rows (thresholds and reward ranges).</summary>
             public readonly VisualElement LeaguesSlot = new VisualElement();
 
             /// <summary>Host of the standings — one table, or two for the top-and-around slice.</summary>
@@ -1438,13 +1380,13 @@ await op.Task();";
 
             public readonly List<BoundTable> Bound = new List<BoundTable>();
 
-            /// <summary>Which league table the pane is reading; every entries call needs it.</summary>
+            /// <summary>Which league table the card is reading; every entries call needs it.</summary>
             public string TableId;
 
             /// <summary>The league the server says the player is in, or null when it never answered.</summary>
             public PlayerLeagueMetaDto Meta;
 
-            /// <summary>True once the league call finished — tells "unassigned" apart from "still loading".</summary>
+            /// <summary>True once the league call finished.</summary>
             public bool MetaLoaded;
 
             /// <summary>The player's own entry, or null when they have never scored in this league.</summary>

@@ -50,7 +50,8 @@ Showcase/
     App/      ShowcaseApp, ShowcaseInstaller, ShowcaseModules, Nav, Popup, Toasts
     Views/    AuthView, ServicesView, ServiceView (base) + one view per service
     Components/  Avatar, Card, Chip/RewardChip/CountdownChip, StatTile, ListRow,
-                 DataTable, ProgressBar, SectionHeader, Skeleton/EmptyState/ErrorState
+                 DataTable, ProgressBar, SectionHeader, Skeleton/EmptyState/ErrorState,
+                 BoardSidebar/BoardLayout (the ranking screens' sidebar and cards)
     Infra/    ViewBind, RemoteImageLoader, Fmt
 ```
 
@@ -97,7 +98,7 @@ values), so each view only writes the happy-path render.
 | Friends | Counts strip + friends (presence) / incoming / outgoing requests |
 | Assets Storage | File-manager browser (folders, previews) → asset details: load by path, anonymous fetch of a public asset |
 | Chats | Lookup by channel/group id → channel header, members, recent messages |
-| Tournaments | Tab per tournament, leagues with rewards-for-places, standings, your rewards |
+| Tournaments | Tournaments in a sidebar with Join / Leave, one-line config with your place and league, submit card, one league's standings with a slice switch, the league ladder with thresholds and rewards |
 | Challenges | Card per challenge with live progress bar, status, reward tiers, countdown |
 | Daily Rewards | Streak/progress header + day-by-day reward track + streak bonuses + milestones |
 | Groups | My groups / Discover → open a group: its card, the actions it allows, members, requests, roles, invites, bans |
