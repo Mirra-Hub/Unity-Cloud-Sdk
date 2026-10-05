@@ -54,8 +54,14 @@ var data = new CloudSaveDataRequest()
     .AddString(""nickname"", ""Ada"", readMask: AccessMask.Owner | AccessMask.Other);
 
 await sdk.CloudSave.UpsertPlayerDataAsync(data).Task();
-await sdk.CloudSave.SaveGlobalDataAsync(data).Task();
 await sdk.CloudSave.SaveCustomDataAsync(""season_3"", data).Task();
+
+// Global data is published from the console or Cloud Code. A player can only change
+// global keys whose write mask includes AccessMask.Other.
+await sdk.CloudSave.SaveGlobalDataAsync(new CloudSaveDataRequest().AddInt(""votes"", 12)).Task();
+
+// Masks you leave out keep the key's current ones; a new key of yours is readable and writable
+// by you and by the game server. The server bit cannot be removed from the client.
 
 // expectedVersion makes a write conditional — it fails if someone else wrote first.
 var guarded = new CloudSaveDataRequest().AddInt(""level"", 8, expectedVersion: 3);";
@@ -78,6 +84,8 @@ var request = new QueryIndexRequest
 
 var op = sdk.CloudSave.QueryPlayerDataAsync(request);
 await op.Task();
+// QueryCustomDataAsync(request) searches every custom entity (rooms, guilds), never global data.
+// Only entities whose indexed keys other players may read are found.
 
 foreach (QueryIndexItem item in op.Result.Data.items)
 {
@@ -99,8 +107,8 @@ await sdk.CloudSave.UpdatePlayerFileMetaAsync(""save1"", newMeta).Task();
 await sdk.CloudSave.UpdatePlayerFileContentAsync(""save1"", bytes, ""save1.json"", ""application/json"").Task();
 await sdk.CloudSave.DeletePlayerFileAsync(""save1"").Task();
 
-// Global files, and another player's files, mirror the same set.
-var globalUp = sdk.CloudSave.UploadGlobalFileAsync(""motd"", bytes, ""motd.txt"", ""text/plain"");
+// Global files are published from the console; players read them.
+var motd = sdk.CloudSave.GetGlobalFileUrlAsync(""motd"");
 var theirs = sdk.CloudSave.GetOtherPlayerFileAsync(profileId, ""save1"");";
 
         private enum Scope
@@ -227,10 +235,14 @@ var theirs = sdk.CloudSave.GetOtherPlayerFileAsync(profileId, ""save1"");";
             header.AddToClassList("sc-row-actions");
             header.style.justifyContent = Justify.SpaceBetween;
             header.Add(new SectionHeader(NameOf(scope) + " keys"));
-            var add = new Button(() => OpenWriteDialog(scope, null)) { text = "Add a key" };
-            add.AddToClassList("sc-btn");
-            add.AddToClassList("sc-btn--primary");
-            header.Add(add);
+            // Players cannot create global keys: the console and Cloud Code publish them.
+            if (scope != Scope.Global)
+            {
+                var add = new Button(() => OpenWriteDialog(scope, null)) { text = "Add a key" };
+                add.AddToClassList("sc-btn");
+                add.AddToClassList("sc-btn--primary");
+                header.Add(add);
+            }
             host.Add(header);
 
             var slot = new VisualElement();
@@ -247,12 +259,16 @@ var theirs = sdk.CloudSave.GetOtherPlayerFileAsync(profileId, ""save1"");";
                     Snippet = ReadSnippet,
                     ServiceName = "Cloud Save",
                     AllowRetry = true,
-                    EmptyView = () => ZeroState.Table(ScopeColumns(scope),
-                        scope == Scope.Custom
-                            ? "Nothing stored under \"" + _customId + "\" yet."
-                            : "Nothing stored in this scope yet. A key appears here the moment the game "
-                                + "writes it — the console does not have to declare it first.",
-                        3, "Save a demo value", () => SaveDemo(scope)),
+                    EmptyView = () => scope == Scope.Global
+                        ? ZeroState.Table(ScopeColumns(scope),
+                            "No global data yet. Global keys are published from the console or Cloud Code; "
+                                + "players read them and can change only the ones opened to them.")
+                        : ZeroState.Table(ScopeColumns(scope),
+                            scope == Scope.Custom
+                                ? "Nothing stored under \"" + _customId + "\" yet."
+                                : "Nothing stored in this scope yet. A key appears here the moment the game "
+                                    + "writes it — the console does not have to declare it first.",
+                            3, "Save a demo value", () => SaveDemo(scope)),
                 });
             return host;
         }
@@ -687,17 +703,27 @@ var theirs = sdk.CloudSave.GetOtherPlayerFileAsync(profileId, ""save1"");";
                     ? Sdk.CloudSave.GetGlobalFileUrlAsync(v.Text("key"))
                     : Sdk.CloudSave.GetPlayerFileUrlAsync(v.Text("key")))));
 
-            col.Add(new ActionCard("Upload a file",
-                    "Creates or replaces the slot, with optional metadata.", LucideIcon.Upload)
-                .WithFields(
-                    FormField.Text("key", "File key", "save1", true),
-                    FormField.Text("name", "File name", "save1.json"),
-                    FormField.Text("mime", "MIME type", "application/json"),
-                    FormField.LongText("content", "Content", "{\n  \"slot\": 1\n}"),
-                    FormField.Text("metaKey", "Metadata key (optional)"),
-                    FormField.Text("metaValue", "Metadata value (optional)"))
-                .WithSnippet(FilesSnippet)
-                .OnRun("Upload", v => Upload(global, v)));
+            if (global)
+            {
+                var publishHint = new Label("Global files are published from the console; a player cannot "
+                    + "create one and can replace or delete only files opened to players.");
+                publishHint.AddToClassList("sc-fs-hint");
+                col.Add(publishHint);
+            }
+            else
+            {
+                col.Add(new ActionCard("Upload a file",
+                        "Creates or replaces the slot, with optional metadata.", LucideIcon.Upload)
+                    .WithFields(
+                        FormField.Text("key", "File key", "save1", true),
+                        FormField.Text("name", "File name", "save1.json"),
+                        FormField.Text("mime", "MIME type", "application/json"),
+                        FormField.LongText("content", "Content", "{\n  \"slot\": 1\n}"),
+                        FormField.Text("metaKey", "Metadata key (optional)"),
+                        FormField.Text("metaValue", "Metadata value (optional)"))
+                    .WithSnippet(FilesSnippet)
+                    .OnRun("Upload", v => Upload(global, v)));
+            }
 
             col.Add(new ActionCard("Replace the content",
                     "Keeps the slot and its metadata, swaps the bytes.", LucideIcon.RefreshCw)
@@ -849,7 +875,6 @@ var theirs = sdk.CloudSave.GetOtherPlayerFileAsync(profileId, ""save1"");";
                     LucideIcon.FileSearch)
                 .WithFields(
                     FormField.Choice("scope", "Scope", new[] { "Player", "Global", "Custom" }, "Player"),
-                    FormField.Text("customId", "Custom id (Custom scope only)", "demo"),
                     FormField.Text("indexId", "Index id", null, true),
                     FormField.Text("filterKey", "Filter key"),
                     FormField.Choice("op", "Operator",
@@ -917,9 +942,7 @@ var theirs = sdk.CloudSave.GetOtherPlayerFileAsync(profileId, ""save1"");";
             }
             else if (scope == "Custom")
             {
-                string customId = values.Text("customId");
-                call = Sdk.CloudSave.QueryCustomDataAsync(
-                    string.IsNullOrWhiteSpace(customId) ? _customId : customId.Trim(), request);
+                call = Sdk.CloudSave.QueryCustomDataAsync(request);
             }
             else
             {
