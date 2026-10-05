@@ -2489,6 +2489,8 @@
     padding-left: 14px;
     padding-right: 14px;
 }
+/* neutral at rest, red under the pointer: the destructive tone shows only when it is about to fire */
+.sc-btn.sc-svc-topbar__logout:hover { background-color: #EF4444; }
 .sc-svc-topbar__icon-btn {
     width: 36px;
     height: 36px;
