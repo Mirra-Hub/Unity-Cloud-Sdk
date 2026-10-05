@@ -17,6 +17,8 @@ The SDK is `0.x`: the public API can change between minor versions. Breaking cha
 - **Showcase — Tournaments.** The same layout: tournaments in a sidebar with Join / Leave, the configuration on one
   line next to the player's place and league, a submit card, the standings of one league with a league picker and the
   slice switch, and the league ladder — thresholds and reward ranges — as rows that open a league's standings.
+- **Showcase.** Scrollbars are a thin rounded thumb that brightens under the pointer, without arrow buttons or a
+  track, on every screen and dialog.
 
 ## [0.12.0] — 2026-10-05
 

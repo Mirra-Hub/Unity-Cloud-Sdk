@@ -9,6 +9,40 @@
     -unity-font-definition: initial;
 }
 
+/* ---- scrollbars: a thin rounded thumb, no arrow buttons, no track ----
+   Every ScrollView in the sample, vertical and horizontal. Scoped to .sc-root so the selectors
+   outrank the default runtime theme's own scroller rules. */
+.sc-root .unity-scroller--vertical { width: 10px; }
+.sc-root .unity-scroller--horizontal { height: 10px; }
+.sc-root .unity-scroller .unity-scroller__low-button,
+.sc-root .unity-scroller .unity-scroller__high-button { display: none; }
+/* the slider is inset by the arrow buttons' size; with the buttons gone it takes the full length.
+   The theme also gives every slider a 24px minimum, which would poke out of the 10px bar. */
+.sc-root .unity-scroller > .unity-scroller__slider { min-width: 0; min-height: 0; }
+.sc-root .unity-scroller--vertical > .unity-scroller__slider {
+    width: 10px;
+    margin-top: 2px; margin-bottom: 2px; margin-left: 0; margin-right: 0;
+}
+.sc-root .unity-scroller--horizontal > .unity-scroller__slider {
+    height: 10px;
+    margin-top: 0; margin-bottom: 0; margin-left: 2px; margin-right: 2px;
+}
+.sc-root .unity-scroller .unity-base-slider__tracker {
+    background-color: rgba(0, 0, 0, 0);
+    border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;
+}
+.sc-root .unity-scroller .unity-base-slider__dragger {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;
+    border-top-left-radius: 3px; border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px; border-bottom-right-radius: 3px;
+    margin-top: 0; margin-bottom: 0; margin-left: 0; margin-right: 0;
+}
+.sc-root .unity-scroller--vertical .unity-base-slider__dragger { width: 6px; left: 2px; }
+.sc-root .unity-scroller--horizontal .unity-base-slider__dragger { height: 6px; top: 2px; }
+.sc-root .unity-scroller .unity-base-slider__dragger:hover { background-color: rgba(255, 255, 255, 0.26); }
+.sc-root .unity-scroller .unity-base-slider__dragger:active { background-color: rgba(255, 255, 255, 0.34); }
+
 /* ---- gallery scaffold ---- */
 .sc-gallery {
     padding-top: 22px;
