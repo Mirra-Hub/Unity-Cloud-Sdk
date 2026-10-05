@@ -88,6 +88,7 @@ namespace MirraCloud.Example.Showcase
 
             var logout = new Button(() => LogoutRequested?.Invoke()) { text = "Logout" };
             logout.AddToClassList("sc-btn");
+            logout.AddToClassList("sc-btn--danger");
             logout.AddToClassList("sc-svc-topbar__logout");
             bar.Add(logout);
             Add(bar);

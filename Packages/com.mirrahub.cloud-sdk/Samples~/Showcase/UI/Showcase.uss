@@ -2007,6 +2007,11 @@
     font-size: 12px;
 }
 
+/* friends: the "all at once" answers above a request list */
+.sc-fr-bulk { margin-bottom: 10px; }
+/* the status chip and the copy button are not .sc-btn, so they need the row's spacing too */
+.sc-fr-request__actions > * { margin-left: 6px; }
+
 /* ===== economy ===== */
 /* actions attached to the thing they change: a meter's card, an item's dialog */
 .sc-eco-actions {
