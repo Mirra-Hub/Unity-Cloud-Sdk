@@ -92,7 +92,7 @@ values), so each view only writes the happy-path render.
 | Service | View |
 | --- | --- |
 | Player Account | Hero card (avatar, nickname/@handle, trait chips, lifetime stat tiles, segments) + sub-profiles |
-| Leaderboard | Tab per board, config chips + ranked table (medal ranks, avatars, scores) |
+| Leaderboard | Boards in a sidebar with Join / Leave, one-line board config, submit card, standings with a slice switch (your table, global, around you, friends, country) |
 | Economy | Wallet listing every defined currency (add/subtract/set per row) + item slots with grant/take/consume/properties + energy meters + catalog |
 | Friends | Counts strip + friends (presence) / incoming / outgoing requests |
 | Assets Storage | File-manager browser (folders, previews) → asset details: load by path, anonymous fetch of a public asset |
