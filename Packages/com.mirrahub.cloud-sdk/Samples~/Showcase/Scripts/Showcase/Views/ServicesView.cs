@@ -16,10 +16,9 @@ namespace MirraCloud.Example.Showcase
     }
 
     /// <summary>
-    /// The post-login home: a header (profile, the project/branch this build talks to, the request
-    /// journal, logout) and a search box over the SDK modules grouped by
-    /// <see cref="ServiceCategory"/>. Cards are built once and only toggled while filtering, so a
-    /// keystroke never rebuilds the tree. Tapping a card raises <see cref="ModuleOpened"/>; the
+    /// The post-login home: a header (profile, the project/branch this build talks to, logout) and a
+    /// search box over the SDK modules grouped by <see cref="ServiceCategory"/>. Cards are built once
+    /// and only toggled while filtering, so a keystroke never rebuilds the tree. Tapping a card raises <see cref="ModuleOpened"/>; the
     /// header avatar stays a placeholder until <see cref="SetProfile"/> gets the loaded account.
     /// </summary>
     public sealed class ServicesView : VisualElement
@@ -79,12 +78,6 @@ namespace MirraCloud.Example.Showcase
             bar.Add(spacer);
 
             bar.Add(BuildConnection());
-
-            var log = BuildLogButton();
-            if (log != null)
-            {
-                bar.Add(log);
-            }
 
             var logout = new Button(() => LogoutRequested?.Invoke()) { text = "Logout" };
             logout.AddToClassList("sc-btn");
@@ -327,26 +320,6 @@ namespace MirraCloud.Example.Showcase
             t.AddToClassList("sc-svc-conn__text");
             pill.Add(t);
             return pill;
-        }
-
-        // The journal is app-wide, so it belongs on the home screen too — without it, traffic from a
-        // service screen is only visible while that screen is open.
-        private Button BuildLogButton()
-        {
-            if (_ctx == null || _ctx.Log == null || _ctx.Popup == null)
-            {
-                return null;
-            }
-
-            var btn = new Button(() => _ctx.Popup.Open(_ctx.Log.BuildPanel(), "Request log"))
-            {
-                text = LucideIcon.History
-            };
-            btn.tooltip = "Request log";
-            btn.AddToClassList("sc-btn");
-            btn.AddToClassList("sc-icon");
-            btn.AddToClassList("sc-svc-topbar__icon-btn");
-            return btn;
         }
 
         private void ApplyFilter(string query)

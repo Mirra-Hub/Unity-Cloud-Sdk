@@ -20,7 +20,8 @@ The SDK is `0.x`: the public API can change between minor versions. Breaking cha
 - **Showcase — Friends.** No Actions tab: everything sits where a game puts it. Add friend in the toolbar takes one id
   or several; requests are accepted, rejected, blocked or revoked on their rows, with "all" buttons (the bulk calls)
   above each list; answered requests can be removed.
-- **Showcase.** Logout turns red under the pointer.
+- **Showcase.** Logout turns red under the pointer. The home screen drops its request-log button — the editor has a
+  tool for that; each screen keeps the log inside its SDK call drawer.
 - **Showcase.** Scrollbars are a thin rounded thumb that brightens under the pointer, without arrow buttons or a
   track, on every screen and dialog.
 
