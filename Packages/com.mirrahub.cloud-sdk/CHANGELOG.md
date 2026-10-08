@@ -6,6 +6,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.13.0] — 2026-10-09
+
+Follows the backend's hardening of sign-in and player accounts. Needs that backend release: against an older backend
+the browser sign-in and the new session calls fail. Upgrade steps: pass the code verifier to
+`CompleteOpenIdLoginAsync`, link OpenID with `LinkOpenIdAsync(providerKey)`, and drop calls that write segments.
+
+### Added
+
+- **Sessions.** `Authentication.GetSessionsAsync(activeOnly)` lists the player's sessions (`PlayerSessionInfo`: device,
+  client platform, OS, game version, last activity) with the current one first; `RevokeSessionAsync(sessionId)` signs
+  one out (the current one — as `LogoutAsync`), `LogoutOtherSessionsAsync()` signs out every other device.
+- **Device of a session.** Every sign-in, link, conflict resolution, browser sign-in and session refresh sends what the
+  client runs on (`SessionDeviceDto`: device name and model, device type, `ClientPlatform`, OS, game, SDK and engine
+  versions); the session list and the console show it. No location or network address is sent.
+- **`MirraCloudSdkInfo.Version`** — the package version.
+- **`Authentication.OnProfileSelectionRequired`** — a sign-in or refresh came back without a usable profile (none
+  selected, or the selected one is banned); `GetAuthDataDto.ProfileSelectionRequired` says the same.
+- **`Authentication.OnSessionRevoked`** — a refresh found the account banned; the session is gone for good, do not
+  retry or sign in again automatically.
+- **`OpenIdPkce`** — verifier and challenge for the manual browser sign-in.
+- **Error codes:** `PlayerAccountsAccountBanned`, `PlayerAccountsProfileBanned`, `PlayerAccountsTooManyAttempts`,
+  `PlayerAccountsSuccessUrlNotAllowed`, `PlayerAccountsOpenIdVerifierMismatch`, `PlayerAccountsCredentialTicket*`,
+  `PlayerAccountsLastProfile`, `PlayerAccountsSessionIdRequired`, `PlayerAccountsAvatarSourceNotAllowed`,
+  `PlayerAccountsImageTooLarge`, `PlayerAccountsImageTypeUnsupported` and the rest the backend now returns.
+
+### Changed
+
+- **Breaking — browser sign-in is bound to the client.** `LoginOpenIdAsync` proves itself with a code verifier, so a
+  result key that leaks through the return address is useless alone. For the manual flow `StartOpenIdLoginAsync`
+  returns the verifier, `CompleteOpenIdLoginAsync(key, verifier)` takes it, and `BeginOpenIdLoginUrlAsync` takes the
+  challenge. A return address must be one of the SDK's own receivers or on the platform's list of return addresses in
+  the console (`PlayerAccountsSuccessUrlNotAllowed` otherwise).
+- **Breaking — `LinkOpenIdAsync(providerKey, options)`** links through the provider's page like `LoginOpenIdAsync`;
+  the link by a user id is gone. A conflict carries `GetAuthDataDto.CredentialTicket`, and
+  `ResolveLinkConflictAsync` sends it (the last conflict's ticket when the dto has none); `LinkAuthProviderDto` lost
+  `UserId` and gained `CredentialTicket`.
+- **Breaking — other players are public data only.** `GetRandomProfilesAsync` returns `PublicProfileDto[]`, a link
+  conflict's `ExistingAccount` is a `PublicAccountDto`.
+- **Profiles** go to `…/player-accounts/v1/projects/{projectId}/profiles`.
+- **`DeleteProfileAsync`** of the selected profile completes after the session was refreshed for the profile the
+  server selected next; the account's only profile cannot be deleted (`PlayerAccountsLastProfile`).
+
+### Removed
+
+- **Breaking — `UpdateSegmentsAsync` and `UpdateProfileSegmentsAsync`.** Segments are computed by the server at
+  sign-in and on every session refresh; the game cannot write them.
+- `PlayerAccountsSuccessUrlScheme` — replaced by `PlayerAccountsSuccessUrlNotAllowed`.
+
 ## [0.12.1] — 2026-10-05
 
 ### Changed
