@@ -655,6 +655,11 @@ namespace MirraCloud.Core.Errors
         public const string PlatformsProjectIdInvalid = "platforms.project_id_invalid";
 
         // === player_accounts ===
+        /// <summary>
+        /// 403: the account is banned. On sign-in nothing is issued; on a session refresh the session is revoked and
+        /// <see cref="Auth.AuthenticationService.OnSessionRevoked"/> fires — do not retry or sign in again.
+        /// </summary>
+        public const string PlayerAccountsAccountBanned = "player_accounts.account_banned";
         public const string PlayerAccountsAccountDoesNotExist = "player_accounts.account_does_not_exist";
         public const string PlayerAccountsAccountIdInvalid = "player_accounts.account_id_invalid";
         public const string PlayerAccountsAccountNotFound = "player_accounts.account_not_found";
@@ -670,12 +675,23 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsAuthRecordNotFound = "player_accounts.auth_record_not_found";
         public const string PlayerAccountsAuthRedirectUrlMissing = "player_accounts.auth_redirect_url_missing";
         public const string PlayerAccountsAvatarChangeDisabled = "player_accounts.avatar_change_disabled";
+        /// <summary>
+        /// 422: the avatar is neither a generated preset, an https image the project allows, nor the player's own
+        /// upload. <c>data.reason</c>: <c>external_not_allowed</c> or <c>foreign_storage_key</c>.
+        /// </summary>
+        public const string PlayerAccountsAvatarSourceNotAllowed = "player_accounts.avatar_source_not_allowed";
         public const string PlayerAccountsBranchEnvironmentMissing = "player_accounts.branch_environment_missing";
         public const string PlayerAccountsBranchNotEditable = "player_accounts.branch_not_editable";
         public const string PlayerAccountsBranchProjectMismatch = "player_accounts.branch_project_mismatch";
         public const string PlayerAccountsCacheKeyExists = "player_accounts.cache_key_exists";
         public const string PlayerAccountsCacheKeyMissing = "player_accounts.cache_key_missing";
         public const string PlayerAccountsCacheTtlInvalid = "player_accounts.cache_ttl_invalid";
+        /// <summary>400: an OpenID or sign-in conflict was resolved without the credential ticket of the conflict answer.</summary>
+        public const string PlayerAccountsCredentialTicketRequired = "player_accounts.credential_ticket_required";
+        /// <summary>404: the credential ticket is unknown, already spent or older than 10 minutes — link again.</summary>
+        public const string PlayerAccountsCredentialTicketNotFound = "player_accounts.credential_ticket_not_found";
+        /// <summary>400: the credential ticket was issued for another kind of sign-in, project or scope.</summary>
+        public const string PlayerAccountsCredentialTicketMismatch = "player_accounts.credential_ticket_mismatch";
         public const string PlayerAccountsDeviceIdRequired = "player_accounts.device_id_required";
         public const string PlayerAccountsEmailRequired = "player_accounts.email_required";
         public const string PlayerAccountsExternalAuthCertificateInvalid = "player_accounts.external_auth_certificate_invalid";
@@ -713,15 +729,22 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsImageFetchFailed = "player_accounts.image_fetch_failed";
         public const string PlayerAccountsImageNotFound = "player_accounts.image_not_found";
         public const string PlayerAccountsImageUploadFailed = "player_accounts.image_upload_failed";
+        /// <summary>413: the avatar image is larger than 1 MB.</summary>
+        public const string PlayerAccountsImageTooLarge = "player_accounts.image_too_large";
+        /// <summary>415: the avatar file is not a PNG, JPEG or WebP image.</summary>
+        public const string PlayerAccountsImageTypeUnsupported = "player_accounts.image_type_unsupported";
         public const string PlayerAccountsInvalidCredentials = "player_accounts.invalid_credentials";
         public const string PlayerAccountsInvalidProjectId = "player_accounts.invalid_project_id";
         public const string PlayerAccountsLastAuthMethod = "player_accounts.last_auth_method";
+        /// <summary>409: the account's only profile cannot be deleted.</summary>
+        public const string PlayerAccountsLastProfile = "player_accounts.last_profile";
         public const string PlayerAccountsLoginRequired = "player_accounts.login_required";
         public const string PlayerAccountsNicknamePatternInvalid = "player_accounts.nickname_pattern_invalid";
         public const string PlayerAccountsNicknamePatternMismatch = "player_accounts.nickname_pattern_mismatch";
         public const string PlayerAccountsNicknameProfanity = "player_accounts.nickname_profanity";
         public const string PlayerAccountsNicknameRequired = "player_accounts.nickname_required";
         public const string PlayerAccountsNicknameTaken = "player_accounts.nickname_taken";
+        public const string PlayerAccountsNicknameGenerationFailed = "player_accounts.nickname_generation_failed";
         public const string PlayerAccountsUsernamePatternInvalid = "player_accounts.username_pattern_invalid";
         public const string PlayerAccountsUsernamePatternMismatch = "player_accounts.username_pattern_mismatch";
         public const string PlayerAccountsUsernameProfanity = "player_accounts.username_profanity";
@@ -750,6 +773,13 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsProfileIdInvalid = "player_accounts.profile_id_invalid";
         public const string PlayerAccountsProfileNotFound = "player_accounts.profile_not_found";
         /// <summary>
+        /// 403: the profile is banned and cannot be selected. The account still works: select or create another
+        /// profile (<see cref="Auth.AuthenticationService.OnProfileSelectionRequired"/>).
+        /// </summary>
+        public const string PlayerAccountsProfileBanned = "player_accounts.profile_banned";
+        public const string PlayerAccountsPresenceProfileIdInvalid = "player_accounts.presence_profile_id_invalid";
+        public const string PlayerAccountsPresenceProfileIdsTooMany = "player_accounts.presence_profile_ids_too_many";
+        /// <summary>
         /// 403: the sign-in method is on the platform but switched off. <c>data.platformKey</c>, <c>data.kind</c>,
         /// <c>data.integrationKey</c>.
         /// </summary>
@@ -768,14 +798,27 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsRepositoryFailure = "player_accounts.repository_failure";
         public const string PlayerAccountsSessionExpired = "player_accounts.session_expired";
         public const string PlayerAccountsSessionIdInvalid = "player_accounts.session_id_invalid";
+        /// <summary>400 on <c>LogoutOtherSessionsAsync</c>: the token predates session ids, so the current session is unknown — sign in again.</summary>
+        public const string PlayerAccountsSessionIdRequired = "player_accounts.session_id_required";
         public const string PlayerAccountsSessionMismatch = "player_accounts.session_mismatch";
         public const string PlayerAccountsSessionNotFound = "player_accounts.session_not_found";
         public const string PlayerAccountsSessionProjectMismatch = "player_accounts.session_project_mismatch";
         public const string PlayerAccountsSettingsUniqueRelock = "player_accounts.settings_unique_relock";
         public const string PlayerAccountsSettingsValidation = "player_accounts.settings_validation";
-        public const string PlayerAccountsSuccessUrlScheme = "player_accounts.success_url_scheme";
+        /// <summary>
+        /// 403: the OpenID return address is neither one of the SDK's own receivers (WebView, loopback) nor on the
+        /// platform's list of return addresses in the console. <c>data.successUrl</c>.
+        /// </summary>
+        public const string PlayerAccountsSuccessUrlNotAllowed = "player_accounts.success_url_not_allowed";
+        /// <summary>401: the OpenID result was redeemed with a code verifier that does not match the sign-in's challenge.</summary>
+        public const string PlayerAccountsOpenIdVerifierMismatch = "player_accounts.openid_verifier_mismatch";
         public const string PlayerAccountsTestAccountCredentialsRequired = "player_accounts.test_account_credentials_required";
         public const string PlayerAccountsTestAccountLimitReached = "player_accounts.test_account_limit_reached";
+        /// <summary>
+        /// 429: too many failed email / username sign-ins for this login; further attempts are refused even with the
+        /// right password. <c>data.retryAfterSeconds</c>.
+        /// </summary>
+        public const string PlayerAccountsTooManyAttempts = "player_accounts.too_many_attempts";
         public const string PlayerAccountsUnsupportedProviderType = "player_accounts.unsupported_provider_type";
         public const string PlayerAccountsUserIdRequired = "player_accounts.user_id_required";
 

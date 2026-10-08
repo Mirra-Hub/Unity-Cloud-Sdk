@@ -47,6 +47,8 @@ namespace MirraCloud.Core.Auth
         private List<AsyncOperation<RestApiResult>> _refreshWaiters;
         private bool _refreshSignsOutOnTransientFailure;
         private bool _missingPlatformKeyReported;
+        private string _lastConflictTicket;
+        private readonly SessionDeviceDto _device;
 
         // InitializeAsync calls still reading the saved refresh token, and the refreshes asked for meanwhile. A request
         // sent right after InitializeAsync can come back 401 before the token is known; its refresh has to be the
@@ -64,6 +66,21 @@ namespace MirraCloud.Core.Auth
         public event Action OnSessionExpired;
 
         /// <summary>
+        /// The server revoked the session for good — the account is banned (the argument is the error code,
+        /// <see cref="CloudErrorCodes.PlayerAccountsAccountBanned"/>). Raised after <see cref="OnSessionExpired"/>; do
+        /// not retry or sign in again automatically.
+        /// </summary>
+        public event Action<string> OnSessionRevoked;
+
+        /// <summary>
+        /// A sign-in or session refresh came back without a usable profile: none is selected, or the selected one is
+        /// banned. Profile-scoped services refuse calls until the game selects or creates a profile
+        /// (<c>PlayerAccount.SelectProfileAsync</c> / <c>CreateProfileAsync</c>); <c>PlayerAccount.Profiles</c>
+        /// carries each profile's status.
+        /// </summary>
+        public event Action OnProfileSelectionRequired;
+
+        /// <summary>
         /// The account snapshot that came with a successful session refresh — the restore in
         /// <see cref="InitializeAsync"/> as well as a refresh after a 401. Raised right before
         /// <see cref="OnSessionRefreshed"/>, and only when the response carried an account. A restored
@@ -78,6 +95,7 @@ namespace MirraCloud.Core.Auth
             _logger = logger;
             _storage = storage;
             _webView = webView;
+            _device = DeviceInfoProvider.Collect();
 
             _restApi.UseRequestInterceptor(AuthTokenInterceptor);
             _restApi.SetSessionRefresher(this);
@@ -189,7 +207,7 @@ namespace MirraCloud.Core.Auth
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginGuestAsync(bool createAccount = true)
         {
             var route = $"{AuthLoginScope()}/guest";
-            var dto = new LoginAsGuestDto { CreateAccount = createAccount };
+            var dto = new LoginAsGuestDto { CreateAccount = createAccount, Device = _device };
             return PostWithSavedGuestId(dto, () => PostAuthAsync(route, dto, noAuth: true));
         }
 
@@ -224,21 +242,21 @@ namespace MirraCloud.Core.Auth
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginDeviceAsync(string deviceId, bool createAccount = true, string nickname = null)
         {
             var route = $"{AuthLoginScope()}/device";
-            var dto = new LoginByDeviceIdDto { DeviceId = deviceId, CreateAccount = createAccount, Nickname = nickname };
+            var dto = new LoginByDeviceIdDto { DeviceId = deviceId, CreateAccount = createAccount, Nickname = nickname, Device = _device };
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginEmailAsync(string email, string password, bool createAccount = true, string nickname = null)
         {
             var route = $"{AuthLoginScope()}/email";
-            var dto = new LoginByEmailDto { Email = email, Password = password, CreateAccount = createAccount, Nickname = nickname };
+            var dto = new LoginByEmailDto { Email = email, Password = password, CreateAccount = createAccount, Nickname = nickname, Device = _device };
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginUsernameAsync(string username, string password, bool createAccount = true, string nickname = null)
         {
             var route = $"{AuthLoginScope()}/username";
-            var dto = new LoginByUsernameDto { Login = username, Password = password, CreateAccount = createAccount, Nickname = nickname };
+            var dto = new LoginByUsernameDto { Login = username, Password = password, CreateAccount = createAccount, Nickname = nickname, Device = _device };
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
@@ -294,48 +312,68 @@ namespace MirraCloud.Core.Auth
         /// <summary>
         /// Begins a browser sign-in and opens its page in the system browser. <paramref name="providerKey"/> is the
         /// <see cref="LoginMethodDto.IntegrationKey"/> of an <c>openid</c>, <c>google</c>, <c>apple</c> or
-        /// <c>yandex</c> method from <see cref="GetLoginMethodsAsync"/>. Finish it with <see cref="CompleteOpenIdLoginAsync"/>.
+        /// <c>yandex</c> method from <see cref="GetLoginMethodsAsync"/>. On success the data is the code verifier of
+        /// this sign-in: keep it and finish with <see cref="CompleteOpenIdLoginAsync"/> once
+        /// <paramref name="successUrl"/> receives <c>mirra_openid_key</c>.
         /// </summary>
-        public AsyncOperation<RestApiResult> StartOpenIdLoginAsync(string providerKey, string successUrl)
+        /// <remarks>
+        /// <paramref name="successUrl"/> must be one of the SDK's own receivers or an address on the platform's list
+        /// of OpenID return addresses in the console; otherwise
+        /// <see cref="CloudErrorCodes.PlayerAccountsSuccessUrlNotAllowed"/>.
+        /// </remarks>
+        public AsyncOperation<RestApiResult<string>> StartOpenIdLoginAsync(string providerKey, string successUrl)
         {
-            var op = new AsyncOperation<RestApiResult>();
-            var urlOp = BeginOpenIdLoginUrlAsync(providerKey, successUrl);
+            var op = new AsyncOperation<RestApiResult<string>>();
+            var verifier = OpenIdPkce.CreateVerifier();
+            var urlOp = BeginOpenIdLoginUrlAsync(providerKey, successUrl, OpenIdPkce.ChallengeOf(verifier));
             OnDone(urlOp, _ =>
             {
                 if (!urlOp.Result.IsSuccess)
                 {
-                    op.Complete(RestApiResult.Fail(urlOp.Result.Error).WithMetaFrom(urlOp.Result));
+                    op.Complete(RestApiResult<string>.Fail(urlOp.Result.Error).WithMetaFrom(urlOp.Result));
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(urlOp.Result.Data))
                 {
-                    op.Complete(RestApiResult.ValidationFail("OpenId auth url is empty.").WithMetaFrom(urlOp.Result));
+                    op.Complete(RestApiResult<string>.ValidationFail("OpenId auth url is empty.").WithMetaFrom(urlOp.Result));
                     return;
                 }
 
                 Application.OpenURL(urlOp.Result.Data);
-                op.Complete(RestApiResult.Success().WithMetaFrom(urlOp.Result));
+                op.Complete(RestApiResult<string>.Success(verifier).WithMetaFrom(urlOp.Result));
             });
 
             return op;
         }
 
-        public AsyncOperation<RestApiResult<GetAuthDataDto>> CompleteOpenIdLoginAsync(string openIdKey)
+        /// <summary>
+        /// Finishes a browser sign-in or link with the <c>mirra_openid_key</c> the return address received and the
+        /// code verifier the sign-in was started with. The key is spent by the first attempt.
+        /// </summary>
+        public AsyncOperation<RestApiResult<GetAuthDataDto>> CompleteOpenIdLoginAsync(string openIdKey, string codeVerifier)
         {
             if (string.IsNullOrWhiteSpace(openIdKey))
             {
                 return AsyncOperation<RestApiResult<GetAuthDataDto>>.CreateCompleted(RestApiResult<GetAuthDataDto>.ValidationFail("OpenId key is empty."));
             }
 
-            return GetAuthAsync($"{OPENID_RESULT_ROUTE}/{openIdKey}", noAuth: true);
+            if (string.IsNullOrWhiteSpace(codeVerifier))
+            {
+                return AsyncOperation<RestApiResult<GetAuthDataDto>>.CreateCompleted(RestApiResult<GetAuthDataDto>.ValidationFail("OpenId code verifier is empty."));
+            }
+
+            var dto = new RedeemOpenIdResultDto { ResultKey = openIdKey, CodeVerifier = codeVerifier };
+            return PostAuthAsync(OPENID_RESULT_ROUTE, dto, noAuth: true);
         }
 
         /// <summary>
         /// Begins a browser sign-in and returns the provider's page to open (low-level step 1).
-        /// <paramref name="providerKey"/> is the <see cref="LoginMethodDto.IntegrationKey"/> of the method.
+        /// <paramref name="providerKey"/> is the <see cref="LoginMethodDto.IntegrationKey"/> of the method;
+        /// <paramref name="codeChallenge"/> is <see cref="OpenIdPkce.ChallengeOf"/> of a verifier from
+        /// <see cref="OpenIdPkce.CreateVerifier"/>, kept for <see cref="CompleteOpenIdLoginAsync"/>.
         /// </summary>
-        public AsyncOperation<RestApiResult<string>> BeginOpenIdLoginUrlAsync(string providerKey, string successUrl)
+        public AsyncOperation<RestApiResult<string>> BeginOpenIdLoginUrlAsync(string providerKey, string successUrl, string codeChallenge)
         {
             if (string.IsNullOrWhiteSpace(providerKey))
             {
@@ -343,7 +381,7 @@ namespace MirraCloud.Core.Auth
             }
 
             var route = $"{AuthLoginScope()}/openid/{Uri.EscapeDataString(providerKey)}";
-            return RequestOpenIdLoginUrlAsync(route, successUrl);
+            return RequestOpenIdLoginUrlAsync(route, successUrl, codeChallenge, noAuth: true);
         }
 
         /// <summary>
@@ -359,25 +397,33 @@ namespace MirraCloud.Core.Auth
                 return AsyncOperation<RestApiResult<GetAuthDataDto>>.CreateCompleted(RestApiResult<GetAuthDataDto>.ValidationFail("OpenId provider key is empty."));
             }
 
-            return RunOpenIdLoginAsync(successUrl => BeginOpenIdLoginUrlAsync(providerKey, successUrl), options);
+            return RunOpenIdLoginAsync(
+                (successUrl, challenge) => BeginOpenIdLoginUrlAsync(providerKey, successUrl, challenge), options);
         }
 
-        private AsyncOperation<RestApiResult<string>> RequestOpenIdLoginUrlAsync(string route, string successUrl)
+        private AsyncOperation<RestApiResult<string>> RequestOpenIdLoginUrlAsync(
+            string route, string successUrl, string codeChallenge, bool noAuth)
         {
             if (string.IsNullOrWhiteSpace(successUrl))
             {
                 return AsyncOperation<RestApiResult<string>>.CreateCompleted(RestApiResult<string>.ValidationFail("SuccessUrl is empty."));
             }
 
-            var dto = new RegisterOpenIdProviderDto { SuccessUrl = successUrl };
-            var config = AuthRequestConfig(noAuth: true);
+            if (string.IsNullOrWhiteSpace(codeChallenge))
+            {
+                return AsyncOperation<RestApiResult<string>>.CreateCompleted(RestApiResult<string>.ValidationFail("OpenId code challenge is empty."));
+            }
+
+            var dto = new RegisterOpenIdProviderDto { SuccessUrl = successUrl, CodeChallenge = codeChallenge, Device = _device };
+            var config = AuthRequestConfig(noAuth);
             config.RedirectLimit = 0;
             config.AllowedHttpStatusCodes = new long[] { 301, 302, 303, 307, 308 };
 
             return _restApi.PostAsync<string>(route, dto, config, ExtractRedirectLocation);
         }
 
-        private AsyncOperation<RestApiResult<GetAuthDataDto>> RunOpenIdLoginAsync(Func<string, AsyncOperation<RestApiResult<string>>> beginLoginUrlAsync, OpenIdLoginOptions options)
+        private AsyncOperation<RestApiResult<GetAuthDataDto>> RunOpenIdLoginAsync(
+            Func<string, string, AsyncOperation<RestApiResult<string>>> beginLoginUrlAsync, OpenIdLoginOptions options)
         {
             var op = new AsyncOperation<RestApiResult<GetAuthDataDto>>();
 
@@ -387,7 +433,8 @@ namespace MirraCloud.Core.Auth
                 return op;
             }
 
-            var beginOp = beginLoginUrlAsync(receiver.SuccessUrl);
+            var verifier = OpenIdPkce.CreateVerifier();
+            var beginOp = beginLoginUrlAsync(receiver.SuccessUrl, OpenIdPkce.ChallengeOf(verifier));
             OnDone(beginOp, _ =>
             {
                 if (!beginOp.Result.IsSuccess)
@@ -429,9 +476,7 @@ namespace MirraCloud.Core.Auth
                         return;
                     }
 
-                    // CompleteOpenIdLoginAsync hands out an operation of its own, so this no longer replaces the
-                    // SDK's handling of the sign-in — it did, and the player stayed signed out.
-                    OnDone(CompleteOpenIdLoginAsync(callbackResult.Key), op.Complete);
+                    OnDone(CompleteOpenIdLoginAsync(callbackResult.Key, verifier), op.Complete);
                 });
             });
 
@@ -466,36 +511,47 @@ namespace MirraCloud.Core.Auth
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkGuestAsync(bool createAccount = false)
         {
             var route = $"{LinkScope()}/guest";
-            var dto = new LoginAsGuestDto { CreateAccount = createAccount };
+            var dto = new LoginAsGuestDto { CreateAccount = createAccount, Device = _device };
             return PostWithSavedGuestId(dto, () => PostAuthAsync(route, dto));
         }
 
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkDeviceAsync(string deviceId, bool createAccount = false)
         {
             var route = $"{LinkScope()}/device";
-            var dto = new LoginByDeviceIdDto { DeviceId = deviceId, CreateAccount = createAccount };
+            var dto = new LoginByDeviceIdDto { DeviceId = deviceId, CreateAccount = createAccount, Device = _device };
             return PostAuthAsync(route, dto);
         }
 
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkEmailAsync(string email, string password, bool createAccount = false)
         {
             var route = $"{LinkScope()}/email";
-            var dto = new LoginByEmailDto { Email = email, Password = password, CreateAccount = createAccount };
+            var dto = new LoginByEmailDto { Email = email, Password = password, CreateAccount = createAccount, Device = _device };
             return PostAuthAsync(route, dto);
         }
 
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkUsernameAsync(string username, string password, bool createAccount = false)
         {
             var route = $"{LinkScope()}/username";
-            var dto = new LoginByUsernameDto { Login = username, Password = password, CreateAccount = createAccount };
+            var dto = new LoginByUsernameDto { Login = username, Password = password, CreateAccount = createAccount, Device = _device };
             return PostAuthAsync(route, dto);
         }
 
-        public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkOpenIdAsync(string userId, bool createAccount = false)
+        /// <summary>
+        /// Links an OpenID, or Google / Apple / Yandex ID, sign-in to the signed-in account through the provider's
+        /// page, the way <see cref="LoginOpenIdAsync"/> signs in. If the identity already belongs to another account
+        /// the answer is a conflict (<see cref="OnAuthConflict"/>) with a <see cref="GetAuthDataDto.CredentialTicket"/>
+        /// for <see cref="ResolveLinkConflictAsync"/>.
+        /// </summary>
+        public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkOpenIdAsync(string providerKey, OpenIdLoginOptions options = null)
         {
-            var route = $"{LinkScope()}/openid";
-            var dto = new LoginByOpenIdDto { UserId = userId, CreateAccount = createAccount };
-            return PostAuthAsync(route, dto);
+            if (string.IsNullOrWhiteSpace(providerKey))
+            {
+                return AsyncOperation<RestApiResult<GetAuthDataDto>>.CreateCompleted(RestApiResult<GetAuthDataDto>.ValidationFail("OpenId provider key is empty."));
+            }
+
+            var route = $"{LinkScope()}/openid/{Uri.EscapeDataString(providerKey)}";
+            return RunOpenIdLoginAsync(
+                (successUrl, challenge) => RequestOpenIdLoginUrlAsync(route, successUrl, challenge, noAuth: false), options);
         }
 
         /// <summary>
@@ -538,11 +594,30 @@ namespace MirraCloud.Core.Auth
             return PostAuthAsync(route, dto);
         }
 
+        /// <summary>
+        /// Resolves a link conflict by keeping <see cref="LinkAuthProviderDto.TargetAccountId"/> — the signed-in account
+        /// or the one the credentials belong to. An OpenID or Google / Apple / Yandex sign-in conflict needs the
+        /// conflict's <see cref="GetAuthDataDto.CredentialTicket"/>; when the dto has none, the ticket of the last
+        /// conflict is used.
+        /// </summary>
         public AsyncOperation<RestApiResult<GetAuthDataDto>> ResolveLinkConflictAsync(LinkAuthProviderDto dto)
         {
             var route = $"{LinkScope()}/conflict/resolve";
+            dto.Device ??= _device;
+            if (string.IsNullOrEmpty(dto.CredentialTicket) && IsVerifiedIdentityType(dto.ProviderType))
+            {
+                dto.CredentialTicket = _lastConflictTicket;
+                _lastConflictTicket = null;
+            }
+
             return PostAuthAsync(route, dto);
         }
+
+        private static bool IsVerifiedIdentityType(int providerType) =>
+            providerType == AuthProviderTypeOpenId || providerType >= AuthProviderTypeGoogleSignIn;
+
+        private const int AuthProviderTypeOpenId = 4;
+        private const int AuthProviderTypeGoogleSignIn = 6;
 
         #endregion
 
@@ -636,7 +711,7 @@ namespace MirraCloud.Core.Auth
 
             // Refresh URL does NOT include branchId — the server reads branch/environment from the Session.
             var route = $"{SessionScope()}/session/refresh";
-            var dto = new RefreshSessionDto { RefreshToken = _refreshToken };
+            var dto = new RefreshSessionDto { RefreshToken = _refreshToken, Device = _device };
 
             var refreshOp = _restApi.PostAsync<SessionRefreshResultDto>(route, dto, new RestRequestConfig { NoAuth = true, DisableRetry = true }, ReadRefreshResult);
 
@@ -682,6 +757,12 @@ namespace MirraCloud.Core.Auth
             if (!response.IsSuccess || response.Data?.Session == null)
             {
                 HandleSessionExpired();
+                var revokedCode = response.Error.FirstCloudError()?.Code;
+                if (revokedCode == CloudErrorCodes.PlayerAccountsAccountBanned)
+                {
+                    Raise(OnSessionRevoked, revokedCode);
+                }
+
                 return response.IsSuccess
                     ? RestApiResult.Fail(RestApiError.Validation("Refresh response without session."))
                     : response;
@@ -704,6 +785,11 @@ namespace MirraCloud.Core.Auth
             }
 
             OnSessionRefreshed?.Invoke();
+            if (response.Data.ProfileSelectionRequired)
+            {
+                Raise(OnProfileSelectionRequired);
+            }
+
             return RestApiResult.Success();
         }
 
@@ -768,6 +854,43 @@ namespace MirraCloud.Core.Auth
             return EndSessionAfter(_restApi.PostAsync(route, dto), onlyOnSuccess: false);
         }
 
+        /// <summary>
+        /// The signed-in player's sessions: this one first (<see cref="PlayerSessionInfo.IsCurrent"/>), then the most
+        /// recently used, at most 100. Revoke one with <see cref="RevokeSessionAsync"/>.
+        /// </summary>
+        public AsyncOperation<RestApiResult<List<PlayerSessionInfo>>> GetSessionsAsync(bool activeOnly = true)
+        {
+            var route = $"{AccountsScope()}/sessions?activeOnly={(activeOnly ? "true" : "false")}";
+            return _restApi.GetAsync<List<PlayerSessionInfo>>(route);
+        }
+
+        /// <summary>
+        /// Signs one of the player's sessions out. For this client's own session it is <see cref="LogoutAsync"/>: the
+        /// local session is dropped as well.
+        /// </summary>
+        public AsyncOperation<RestApiResult> RevokeSessionAsync(string sessionId)
+        {
+            if (string.IsNullOrWhiteSpace(sessionId))
+            {
+                return AsyncOperation<RestApiResult>.CreateCompleted(RestApiResult.ValidationFail("Session id is empty."));
+            }
+
+            if (sessionId == _sessionId)
+            {
+                return LogoutAsync();
+            }
+
+            var route = $"{AccountsScope()}/logout";
+            return _restApi.PostAsync(route, new LogoutSessionDto { SessionId = sessionId });
+        }
+
+        /// <summary>Signs every other device out: revokes all of the player's sessions except this one.</summary>
+        public AsyncOperation<RestApiResult> LogoutOtherSessionsAsync()
+        {
+            var route = $"{AccountsScope()}/logout/others";
+            return _restApi.PostAsync(route, new { });
+        }
+
         public AsyncOperation<RestApiResult> LogoutAllAsync()
         {
             var route = $"{AccountsScope()}/logout/all";
@@ -820,11 +943,6 @@ namespace MirraCloud.Core.Auth
             return CompleteAfterAuthHandled(_restApi.PostAsync<GetAuthDataDto>(route, dto, AuthRequestConfig(noAuth)));
         }
 
-        private AsyncOperation<RestApiResult<GetAuthDataDto>> GetAuthAsync(string route, bool noAuth = false)
-        {
-            return CompleteAfterAuthHandled(_restApi.GetAsync<GetAuthDataDto>(route, AuthRequestConfig(noAuth)));
-        }
-
         /// <summary>
         /// The game gets an operation of its own, completed once the SDK has handled the answer. UseCompleted keeps a
         /// single callback, so while the SDK hooked the operation it handed out, a UseCompleted of the game's — or the
@@ -847,6 +965,11 @@ namespace MirraCloud.Core.Auth
             if (signedIn != null)
             {
                 Raise(OnLogin, signedIn);
+                if (signedIn.ProfileSelectionRequired)
+                {
+                    Raise(OnProfileSelectionRequired);
+                }
+
                 await _storage.FlushAsync();
             }
 
@@ -968,6 +1091,11 @@ namespace MirraCloud.Core.Auth
 
             if (data.Status == AuthResultStatus.Conflict)
             {
+                if (string.IsNullOrEmpty(data.CredentialTicket) == false)
+                {
+                    _lastConflictTicket = data.CredentialTicket;
+                }
+
                 Raise(OnAuthConflict, data);
                 return null;
             }
@@ -1011,6 +1139,7 @@ namespace MirraCloud.Core.Auth
             _sessionId = null;
             _refreshToken = null;
             _sessionExpiresAt = default;
+            _lastConflictTicket = null;
             IsAuth = false;
         }
 

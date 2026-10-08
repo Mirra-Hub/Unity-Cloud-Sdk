@@ -20,7 +20,6 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
         private readonly AuthenticationService _authenticationService;
 
         private const string ACCOUNTS_ROUTE = "/player-accounts/v1/projects";
-        private const string PROFILES_ROUTE = "/player-accounts/v1";
 
         public PlayerAccountInfo PlayerAccountInfo { get; private set; }
         public IReadOnlyList<ProfileInfo> Profiles => _profiles;
@@ -85,6 +84,8 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
         private string _languageHeader;
         private string[] _segmentsHeaderSource;
         private string _segmentsHeader = string.Empty;
+
+        private string ProfilesScope() => $"{ACCOUNTS_ROUTE}/{_configuration.ProjectId}/profiles";
 
         private RestRequestConfig MetaDataHeadersInterceptor(RestRequestConfig config)
         {
@@ -337,20 +338,13 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
             }
         }
 
-        public AsyncOperation<RestApiResult> UpdateSegmentsAsync(string[] segmentIds)
-        {
-            var route = $"{ACCOUNTS_ROUTE}/{_configuration.ProjectId}/accounts/segments";
-            var dto = new { SegmentIds = segmentIds };
-            return _restApi.PatchAsync(route, dto);
-        }
-
         #endregion
 
         #region Profiles
 
         public AsyncOperation<RestApiResult<ProfileInfo[]>> GetProfilesAsync()
         {
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles";
+            var route = $"{ProfilesScope()}";
             var op = _restApi.GetAsync<ProfileInfo[]>(route);
 
             op.UseCompleted(completed =>
@@ -367,7 +361,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
 
         public AsyncOperation<RestApiResult<ProfileInfo>> GetProfileAsync(string profileId)
         {
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}";
+            var route = $"{ProfilesScope()}/{profileId}";
             var op = _restApi.GetAsync<ProfileInfo>(route);
 
             op.UseCompleted(completed =>
@@ -387,19 +381,19 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
         /// flows that need a few real-looking opponents to display. The server
         /// caps <paramref name="count"/> at 10 and rejects values below 1, so
         /// the client validates the same range to fail fast without a network
-        /// round-trip. The returned profiles are NOT merged into the local
-        /// profile cache (they belong to other accounts).
+        /// round-trip. Other players' profiles come with their public fields only
+        /// and are not merged into the local profile cache.
         /// </summary>
-        public AsyncOperation<RestApiResult<ProfileInfo[]>> GetRandomProfilesAsync(int count)
+        public AsyncOperation<RestApiResult<PublicProfileDto[]>> GetRandomProfilesAsync(int count)
         {
             if (count < 1 || count > 10)
             {
-                return AsyncOperation<RestApiResult<ProfileInfo[]>>.CreateCompleted(
-                    RestApiResult<ProfileInfo[]>.ValidationFail("count must be between 1 and 10."));
+                return AsyncOperation<RestApiResult<PublicProfileDto[]>>.CreateCompleted(
+                    RestApiResult<PublicProfileDto[]>.ValidationFail("count must be between 1 and 10."));
             }
 
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/random?count={count}";
-            return _restApi.GetAsync<ProfileInfo[]>(route);
+            var route = $"{ProfilesScope()}/random?count={count}";
+            return _restApi.GetAsync<PublicProfileDto[]>(route);
         }
 
         /// <summary>
@@ -408,7 +402,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
         /// </summary>
         public AsyncOperation<RestApiResult<ProfileInfo>> CreateProfileAsync(CreateProfileDto dto, bool autoSelect = false)
         {
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles?autoSelect={autoSelect}";
+            var route = $"{ProfilesScope()}?autoSelect={autoSelect}";
 
             if (autoSelect)
             {
@@ -444,26 +438,62 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
             return result;
         }
 
+        /// <summary>
+        /// Deletes one of the account's profiles; the only one cannot be deleted
+        /// (<see cref="global::MirraCloud.Core.Errors.CloudErrorCodes.PlayerAccountsLastProfile"/>). Deleting the
+        /// selected profile makes the server select the next one that is not banned (or none): the operation then
+        /// completes after the session was refreshed for it, as <see cref="SelectProfileAsync"/> does.
+        /// </summary>
         public AsyncOperation<RestApiResult> DeleteProfileAsync(string profileId)
         {
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}";
-            var op = _restApi.DeleteAsync(route);
+            var route = $"{ProfilesScope()}/{profileId}";
+            var wasSelected = PlayerAccountInfo != null && PlayerAccountInfo.SelectedProfileId == profileId;
 
-            op.UseCompleted(completed =>
+            if (wasSelected)
             {
-                if (completed.Result.IsSuccess)
+                OnProfileSwitching?.Invoke();
+            }
+
+            var raw = _restApi.DeleteAsync(route);
+            var result = new AsyncOperation<RestApiResult>();
+
+            raw.UseCompleted(completed =>
+            {
+                if (!completed.Result.IsSuccess)
                 {
-                    _profiles.RemoveAll(p => p.Id == profileId);
-                    OnProfilesChanged?.Invoke(Profiles);
+                    result.Complete(completed.Result);
+                    return;
                 }
+
+                _profiles.RemoveAll(p => p.Id == profileId);
+                OnProfilesChanged?.Invoke(Profiles);
+
+                if (!wasSelected)
+                {
+                    result.Complete(completed.Result);
+                    return;
+                }
+
+                var refresh = _authenticationService.RefreshSessionAsync(signOutOnTransientFailure: false);
+                WhenCompleted(refresh, () =>
+                {
+                    var selected = PlayerAccountInfo?.SelectedProfileId;
+                    if (refresh.Result.IsSuccess && IsProfileId(selected))
+                    {
+                        OnSelectedProfileApplied?.Invoke(selected);
+                        OnProfileSelected?.Invoke(selected);
+                    }
+
+                    result.Complete(completed.Result);
+                });
             });
 
-            return op;
+            return result;
         }
 
         public AsyncOperation<RestApiResult> UpdateProfileNicknameAsync(string profileId, string nickname)
         {
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}/nickname";
+            var route = $"{ProfilesScope()}/{profileId}/nickname";
             var dto = new UpdateProfileNicknameDto { Nickname = nickname };
             var op = _restApi.PatchAsync(route, dto);
 
@@ -480,7 +510,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
 
         public AsyncOperation<RestApiResult> UpdateProfileUsernameAsync(string profileId, string username)
         {
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}/username";
+            var route = $"{ProfilesScope()}/{profileId}/username";
             var dto = new UpdateProfileUsernameDto { Username = username };
             var op = _restApi.PatchAsync(route, dto);
 
@@ -497,7 +527,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
 
         public AsyncOperation<RestApiResult> UpdateProfileGenderAsync(string profileId, Gender gender)
         {
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}/gender";
+            var route = $"{ProfilesScope()}/{profileId}/gender";
             var dto = new { Gender = (int)gender };
             var op = _restApi.PatchAsync(route, dto);
 
@@ -519,7 +549,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
                 return CreateValidationErrorOperation("Invalid iconUrl. Only http/https URL is allowed. Use upload methods to set internal icons.");
             }
 
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}/icon";
+            var route = $"{ProfilesScope()}/{profileId}/icon";
             var dto = new UpdateProfileIconDto { IconKey = iconUrl };
             var op = _restApi.PatchAsync(route, dto);
 
@@ -536,7 +566,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
 
         public AsyncOperation<RestApiResult> UpdateProfileIconWithUploadAsync(string profileId, byte[] fileData, string fileName = "icon.png", string contentType = "image/png")
         {
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}/icon/upload";
+            var route = $"{ProfilesScope()}/{profileId}/icon/upload";
             var form = new List<IMultipartFormSection>
             {
                 new MultipartFormFileSection("file", fileData, fileName, contentType)
@@ -580,23 +610,6 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
             }
         }
 
-        public AsyncOperation<RestApiResult> UpdateProfileSegmentsAsync(string profileId, string[] segmentIds)
-        {
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}/segments";
-            var dto = new UpdateProfileSegmentsDto { SegmentIds = segmentIds };
-            var op = _restApi.PatchAsync(route, dto);
-
-            op.UseCompleted(completed =>
-            {
-                if (completed.Result.IsSuccess)
-                {
-                    RefreshProfile(profileId);
-                }
-            });
-
-            return op;
-        }
-
         public AsyncOperation<RestApiResult> UpdateProfilePresenceStatusAsync(string profileId, ProfilePresenceStatus status)
         {
             if (string.IsNullOrWhiteSpace(profileId))
@@ -604,7 +617,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
                 return CreateValidationErrorOperation("profileId is required.");
             }
 
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}/status";
+            var route = $"{ProfilesScope()}/{profileId}/status";
             var dto = new UpdateProfilePresenceStatusDto { Status = status };
             return _restApi.PatchAsync(route, dto);
         }
@@ -626,7 +639,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
                 return validation;
             }
 
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}/status";
+            var route = $"{ProfilesScope()}/{profileId}/status";
             var raw = _restApi.GetAsync<GetProfilePresenceStatusDto>(route);
             var mapped = new AsyncOperation<RestApiResult<ProfilePresenceStatus>>();
 
@@ -646,7 +659,7 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
 
         public AsyncOperation<RestApiResult<ProfileInfo>> ReplaceProfileAsync(string profileId, CreateProfileDto dto)
         {
-            var route = $"{PROFILES_ROUTE}/{_configuration.ProjectId}/profiles/{profileId}";
+            var route = $"{ProfilesScope()}/{profileId}";
             var op = _restApi.PutAsync<ProfileInfo>(route, dto);
 
             op.UseCompleted(completed =>
@@ -659,6 +672,9 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
 
             return op;
         }
+
+        private static bool IsProfileId(string id) =>
+            string.IsNullOrEmpty(id) == false && id.Trim('0').Length > 0;
 
         private void RefreshProfile(string profileId)
         {

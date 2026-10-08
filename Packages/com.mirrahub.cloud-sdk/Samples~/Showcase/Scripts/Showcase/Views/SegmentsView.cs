@@ -51,21 +51,18 @@ if (op.Result.IsSuccess)
 // The account captured at sign-in is also available without a request:
 PlayerAccountInfo cached = sdk.PlayerAccount.PlayerAccountInfo;";
 
-        private const string WriteSnippet =
-@"// Writing segments is a Player Account call, not a Segments one — this screen never runs
-// these two, it only shows where they live.
-await sdk.PlayerAccount.UpdateSegmentsAsync(new[] { ""vip"", ""whales"" }).Task();
-
-// The same for one of the account's profiles:
-await sdk.PlayerAccount.UpdateProfileSegmentsAsync(profileId, new[] { ""vip"" }).Task();";
+        private const string RecomputeSnippet =
+@"// The game cannot write segments: the server runs the rule trees at sign-in and on every
+// session refresh, and the token carries what matched. A fresh refresh picks up a change.
+await sdk.Authentication.RefreshSessionAsync().Task();
+var keys = sdk.PlayerAccount.PlayerAccountInfo.SegmentKeys;";
 
         private const string FilterAll = "All";
         private const string FilterMine = "Mine";
         private const string FilterOthers = "Not mine";
 
-        // The account stores what the rule engine matched, which is the segment's *name*; a hand
-        // written update can put an id in there instead. Both are accepted as a match, so neither
-        // way of filling the list makes this screen lie about membership.
+        // The account stores what the rule engine matched, which is the segment's *name*; a list
+        // written from the console can hold an id instead. Both are accepted as a match.
         private readonly HashSet<string> _mine = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         private SegmentDto[] _segments;
@@ -96,8 +93,8 @@ await sdk.PlayerAccount.UpdateProfileSegmentsAsync(profileId, new[] { ""vip"" })
             DeclareCall(new SdkCall("List the project's segments", SegmentsSnippet));
             DeclareCall(new SdkCall("Read the player's membership", AccountSnippet,
                 "A Player Account call: the segments a player is in live on the account."));
-            DeclareCall(new SdkCall("Change a player's segments", WriteSnippet,
-                "Shown for completeness. This screen is read-only and never issues it."));
+            DeclareCall(new SdkCall("Pick up recomputed segments", RecomputeSnippet,
+                "Segments are computed by the server; a session refresh brings the current ones."));
 
             UseToolbar()
                 .WithSearch("Filter segments by name or description", OnSearch)
@@ -653,8 +650,8 @@ await sdk.PlayerAccount.UpdateProfileSegmentsAsync(profileId, new[] { ""vip"" })
 
         /// <summary>
         /// The one thing a reader is most likely to look for here and not find: how to put a player
-        /// into a segment. It is a Player Account call, so the section says so and shows the code
-        /// rather than leaving the screen looking incomplete.
+        /// into a segment. The game cannot — the server decides — so the section says so and shows how
+        /// to pick up the current membership.
         /// </summary>
         private VisualElement WritesSection()
         {
@@ -663,20 +660,19 @@ await sdk.PlayerAccount.UpdateProfileSegmentsAsync(profileId, new[] { ""vip"" })
             box.Add(new SectionHeader("Changing a player's segments"));
 
             var card = new Card(Meta.Accent);
-            card.WithTitle("Written through Player Account", Meta.Accent);
+            card.WithTitle("Computed by the server", Meta.Accent);
 
-            var text = new Label("The Segments service only reads. Membership is stored on the account, "
-                + "so the two calls that change it — UpdateSegmentsAsync for the account and "
-                + "UpdateProfileSegmentsAsync for one of its profiles — belong to PlayerAccountService. "
-                + "Open the Player Account screen from the services list to see the account and the "
-                + "profiles they write to.");
+            var text = new Label("The game does not write segments. The server runs every enabled "
+                + "segment's rules for the player at sign-in and on each session refresh, stores what "
+                + "matched on the account and puts it in the token. To move a player by hand, edit the "
+                + "profile's segments in the console.");
             text.AddToClassList("sc-fs-hint");
             card.Body.Add(text);
 
-            card.Body.Add(SdkCallDrawer.CodeBlock(WriteSnippet));
+            card.Body.Add(SdkCallDrawer.CodeBlock(RecomputeSnippet));
 
-            var caveat = new Label("Both calls overwrite the whole list, and neither re-runs the rule "
-                + "trees: a value written this way stays until the next sign-in recomputes membership.");
+            var caveat = new Label("A rule change reaches a player on their next sign-in or session "
+                + "refresh, not instantly.");
             caveat.AddToClassList("sc-fs-hint");
             caveat.AddToClassList("sc-seg-note");
             card.Body.Add(caveat);

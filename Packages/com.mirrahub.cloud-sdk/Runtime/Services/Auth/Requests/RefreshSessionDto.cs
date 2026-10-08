@@ -6,6 +6,7 @@ namespace MirraCloud.Core.Auth
     public class RefreshSessionDto
     {
         public string RefreshToken;
+        public SessionDeviceDto Device;
     }
 }
 

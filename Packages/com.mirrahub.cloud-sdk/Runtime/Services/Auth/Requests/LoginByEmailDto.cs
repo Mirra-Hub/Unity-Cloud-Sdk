@@ -10,6 +10,8 @@ namespace MirraCloud.Core.Auth
         public bool CreateAccount;
         /// <summary>Required when CreateAccount=true and the account does not yet exist.</summary>
         public string Nickname;
+        /// <summary>What this client runs on; the SDK fills it.</summary>
+        public SessionDeviceDto Device;
     }
 }
 
