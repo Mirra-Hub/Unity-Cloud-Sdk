@@ -2,16 +2,14 @@ using System;
 
 namespace MirraCloud.Core.Auth
 {
+    /// <summary>Adds a password to the signed-in account, with the email and/or username it will be used with.</summary>
     [Serializable]
-    public class LoginByUsernameDto
+    public class LinkPasswordDto
     {
-        public string Login;
+        public string Email;
+        public string Username;
         public string Password;
-        public bool CreateAccount;
-        /// <summary>Applied once, if this sign-in creates the account.</summary>
-        public LoginOptionsDto Options;
         /// <summary>What this client runs on; the SDK fills it.</summary>
         public SessionDeviceDto Device;
     }
 }
-

@@ -195,8 +195,18 @@ namespace MirraCloud.Example.Showcase
             var auth = new AuthView(_popup, project, branch, platform);
             auth.GuestRequested += () => RunAuth("Guest", _sdk.Authentication.LoginGuestAsync());
             auth.DeviceRequested += () => RunAuth("Device", _sdk.Authentication.LoginDeviceAsync(SystemInfo.deviceUniqueIdentifier));
-            auth.EmailLoginRequested += (email, pass) => RunAuth("Email", _sdk.Authentication.LoginEmailAsync(email, pass));
-            auth.UsernameLoginRequested += (user, pass) => RunAuth("Username", _sdk.Authentication.LoginUsernameAsync(user, pass));
+            auth.PasswordLoginRequested += (email, user, pass) => RunAuth("Password",
+                _sdk.Authentication.LoginPasswordAsync(email, user, pass),
+                verification => AskCode("Confirm your email", verification, "Confirm",
+                    (code, _) => RunAuth("Password", _sdk.Authentication.ConfirmPasswordRegistrationAsync(verification.ChallengeId, code))));
+            auth.EmailCodeRequested += email => RunCodeRequest("Email code",
+                _sdk.Authentication.RequestLoginCodeAsync(email),
+                verification => AskCode("Enter the code", verification, "Log in",
+                    (code, _) => RunAuth("Email code", _sdk.Authentication.LoginEmailCodeAsync(verification.ChallengeId, code))));
+            auth.PasswordResetRequested += (email, user) => RunCodeRequest("Reset",
+                _sdk.Authentication.RequestPasswordResetAsync(email, user),
+                verification => AskCode("Set a new password", verification, "Change password",
+                    (code, newPassword) => RunReset(verification.ChallengeId, code, newPassword), askNewPassword: true));
             auth.OpenIdRequested += providerKey =>
             {
                 _toasts.Info("Opening provider…");
@@ -358,7 +368,69 @@ namespace MirraCloud.Example.Showcase
             _nav.Push(view);
         }
 
-        private async void RunAuth<T>(string label, AsyncOperation<RestApiResult<T>> op)
+        /// <summary>Opens the code form for a request that sent a letter; resend replaces the code in place.</summary>
+        private void AskCode(string title, EmailVerificationDto verification, string submitText,
+            Action<string, string> submitted, bool askNewPassword = false)
+        {
+            var form = new EmailCodeForm(verification, submitText, askNewPassword);
+            form.Submitted += submitted;
+            form.ResendRequested += async () =>
+            {
+                var op = _sdk.Authentication.ResendEmailCodeAsync(verification.ChallengeId);
+                await op.Task();
+                if (op.Result != null && op.Result.IsSuccess)
+                {
+                    form.Update(op.Result.Data);
+                    _toasts.Ok("New code sent");
+                }
+                else
+                {
+                    _toasts.Fail("Resend · " + ErrText(op.Result));
+                }
+            };
+            _popup.Open(form, title);
+        }
+
+        private async void RunCodeRequest(string label, AsyncOperation<RestApiResult<EmailVerificationDto>> op,
+            Action<EmailVerificationDto> onSent)
+        {
+            try
+            {
+                await op.Task();
+            }
+            catch (Exception e)
+            {
+                _toasts.Fail(label + " · " + e.Message);
+                return;
+            }
+
+            if (op.Result != null && op.Result.IsSuccess && op.Result.Data != null)
+            {
+                onSent(op.Result.Data);
+            }
+            else
+            {
+                _toasts.Fail(label + " · " + ErrText(op.Result));
+            }
+        }
+
+        private async void RunReset(string challengeId, string code, string newPassword)
+        {
+            var op = _sdk.Authentication.ConfirmPasswordResetAsync(challengeId, code, newPassword);
+            await op.Task();
+            if (op.Result != null && op.Result.IsSuccess)
+            {
+                _popup.Close();
+                _toasts.Ok("Password changed · sign in with the new one");
+            }
+            else
+            {
+                _toasts.Fail("Reset · " + ErrText(op.Result));
+            }
+        }
+
+        private async void RunAuth<T>(string label, AsyncOperation<RestApiResult<T>> op,
+            Action<EmailVerificationDto> onVerificationRequired = null)
         {
             if (op == null)
             {
@@ -381,6 +453,12 @@ namespace MirraCloud.Example.Showcase
                 // then opening the link prompt. Closing here would tear that fresh prompt back down.
                 _toasts.Ok(label + " · signed in");
                 // navigation handled by Authentication.OnLogin
+            }
+            else if (op.Result != null && (object)op.Result.Data is GetAuthDataDto held && held.Status == AuthResultStatus.EmailVerificationRequired
+                     && held.EmailVerification != null && onVerificationRequired != null)
+            {
+                // Registration with an email the platform confirms: nothing is created until the code comes back.
+                onVerificationRequired(held.EmailVerification);
             }
             else
             {
@@ -417,8 +495,14 @@ namespace MirraCloud.Example.Showcase
             }
 
             var view = new LinkPromptView(_loginKinds);
-            view.EmailLinkRequested += (email, pass) => RunLink("Email", _sdk.Authentication.LinkEmailAsync(email, pass));
-            view.UsernameLinkRequested += (user, pass) => RunLink("Username", _sdk.Authentication.LinkUsernameAsync(user, pass));
+            view.PasswordLinkRequested += (email, user, pass) => RunLink("Password",
+                _sdk.Authentication.LinkPasswordAsync(email, user, pass),
+                verification => AskCode("Confirm your email", verification, "Confirm",
+                    (code, _) => RunLink("Password", _sdk.Authentication.ConfirmPasswordLinkAsync(verification.ChallengeId, code))));
+            view.EmailCodeLinkRequested += email => RunCodeRequest("Email code",
+                _sdk.Authentication.RequestEmailCodeLinkAsync(email),
+                verification => AskCode("Enter the code", verification, "Link",
+                    (code, _) => RunLink("Email code", _sdk.Authentication.LinkEmailCodeAsync(verification.ChallengeId, code))));
             view.DeviceLinkRequested += () => RunLink("Device", _sdk.Authentication.LinkDeviceAsync(SystemInfo.deviceUniqueIdentifier));
             view.SkipRequested += () =>
             {
@@ -429,7 +513,8 @@ namespace MirraCloud.Example.Showcase
             _popup.Open(view, "Link your account", onClose: () => _linkPromptDismissed = true);
         }
 
-        private async void RunLink(string label, AsyncOperation<RestApiResult<GetAuthDataDto>> op)
+        private async void RunLink(string label, AsyncOperation<RestApiResult<GetAuthDataDto>> op,
+            Action<EmailVerificationDto> onVerificationRequired = null)
         {
             if (op == null)
             {
@@ -451,6 +536,13 @@ namespace MirraCloud.Example.Showcase
                 // The provider is already attached to a different account — linking would need a
                 // conflict resolution the showcase doesn't build a UI for.
                 _toasts.Fail(label + " · already linked to another account");
+                return;
+            }
+
+            if (r != null && r.IsSuccess && r.Data != null && r.Data.Status == AuthResultStatus.EmailVerificationRequired
+                && r.Data.EmailVerification != null && onVerificationRequired != null)
+            {
+                onVerificationRequired(r.Data.EmailVerification);
                 return;
             }
 

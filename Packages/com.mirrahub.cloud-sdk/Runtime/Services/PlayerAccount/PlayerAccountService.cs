@@ -52,6 +52,8 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
 
             _authenticationService.OnLogin += OnAuthLogin;
             _authenticationService.OnSessionAccountRefreshed += OnSessionAccountRefreshed;
+            _authenticationService.OnEmailConfirmed += OnEmailConfirmed;
+            _authenticationService.OnPhoneChanged += OnPhoneChanged;
             _restApi.UseRequestInterceptor(MetaDataHeadersInterceptor);
         }
 
@@ -66,6 +68,8 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
         {
             _authenticationService.OnLogin -= OnAuthLogin;
             _authenticationService.OnSessionAccountRefreshed -= OnSessionAccountRefreshed;
+            _authenticationService.OnEmailConfirmed -= OnEmailConfirmed;
+            _authenticationService.OnPhoneChanged -= OnPhoneChanged;
         }
         
         private readonly string _deviceModel = SystemInfo.deviceModel;
@@ -162,6 +166,30 @@ namespace Plugins.MirraCloud.Core.Services.PlayerAccount
             }
 
             PlayerAccountInfo = new PlayerAccountInfo(account);
+        }
+
+        // newEmail is null when the current email got confirmed rather than changed.
+        private void OnEmailConfirmed(string newEmail)
+        {
+            if (PlayerAccountInfo == null)
+            {
+                return;
+            }
+
+            if (newEmail != null)
+            {
+                PlayerAccountInfo.Email = newEmail;
+            }
+
+            PlayerAccountInfo.IsEmailVerified = true;
+        }
+
+        private void OnPhoneChanged(string phoneNumber)
+        {
+            if (PlayerAccountInfo != null)
+            {
+                PlayerAccountInfo.PhoneNumber = phoneNumber;
+            }
         }
 
         private void OnSessionAccountRefreshed(AccountDto account)

@@ -54,18 +54,37 @@ namespace MirraCloud.Core.Tests
             var dto = JsonMapper.FromJson<LoginMethodsDto>(
                 "{\"platformKey\":\"web\",\"methods\":["
                 + "{\"kind\":\"steam\",\"integrationKey\":null,\"displayName\":null},"
-                + "{\"kind\":\"email\",\"integrationKey\":null,\"displayName\":null}]}");
+                + "{\"kind\":\"email_code\",\"integrationKey\":null,\"displayName\":null}]}");
 
             Assert.That(dto.Methods, Has.Count.EqualTo(2));
             Assert.That(dto.Methods[0].Kind, Is.EqualTo(LoginMethodKind.Unknown));
             Assert.That(dto.Methods[0].KindKey, Is.EqualTo("steam"));
-            Assert.That(dto.Methods[1].Kind, Is.EqualTo(LoginMethodKind.Email));
+            Assert.That(dto.Methods[1].Kind, Is.EqualTo(LoginMethodKind.EmailCode));
+        }
+
+        [Test]
+        public void Password_method_says_which_fields_to_ask_for()
+        {
+            var dto = JsonMapper.FromJson<LoginMethodsDto>(
+                "{\"platformKey\":\"web\",\"methods\":["
+                + "{\"kind\":\"password\",\"integrationKey\":null,\"displayName\":null,"
+                + "\"password\":{\"email\":true,\"username\":false,\"emailVerification\":true}},"
+                + "{\"kind\":\"guest\",\"integrationKey\":null,\"displayName\":null,\"password\":null}]}");
+
+            Assert.That(dto.Methods[0].Kind, Is.EqualTo(LoginMethodKind.Password));
+            Assert.That(dto.Methods[0].Password, Is.Not.Null);
+            Assert.That(dto.Methods[0].Password.Email, Is.True);
+            Assert.That(dto.Methods[0].Password.Username, Is.False);
+            Assert.That(dto.Methods[0].Password.EmailVerification, Is.True);
+            Assert.That(dto.Methods[1].Password, Is.Null);
         }
 
         [TestCase("guest", LoginMethodKind.Guest)]
         [TestCase("device", LoginMethodKind.Device)]
-        [TestCase("email", LoginMethodKind.Email)]
-        [TestCase("username", LoginMethodKind.Username)]
+        [TestCase("password", LoginMethodKind.Password)]
+        [TestCase("email_code", LoginMethodKind.EmailCode)]
+        [TestCase("email", LoginMethodKind.Unknown)]
+        [TestCase("username", LoginMethodKind.Unknown)]
         [TestCase("openid", LoginMethodKind.OpenId)]
         [TestCase("google", LoginMethodKind.Google)]
         [TestCase("apple", LoginMethodKind.Apple)]

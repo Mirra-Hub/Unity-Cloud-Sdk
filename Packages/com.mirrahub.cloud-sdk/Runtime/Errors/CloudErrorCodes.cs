@@ -750,11 +750,53 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsUsernameProfanity = "player_accounts.username_profanity";
         public const string PlayerAccountsUsernameRequired = "player_accounts.username_required";
         public const string PlayerAccountsUsernameTaken = "player_accounts.username_taken";
-        /// <summary>A new password does not match the pattern of the platform's email / username sign-in (422).</summary>
+        /// <summary>A new password does not match the pattern of the platform's password sign-in (422).</summary>
         public const string PlayerAccountsPasswordPatternMismatch = "player_accounts.password_pattern_mismatch";
         public const string PlayerAccountsPasswordPatternInvalid = "player_accounts.password_pattern_invalid";
         /// <summary>A new password is shorter than the platform's minimum (422). <c>data.minLength</c>.</summary>
         public const string PlayerAccountsPasswordTooShort = "player_accounts.password_too_short";
+        /// <summary>Password sign-in or reset without an email and a username (400).</summary>
+        public const string PlayerAccountsPasswordIdentifierRequired = "player_accounts.password_identifier_required";
+        /// <summary>
+        /// The platform's password sign-in does not take this field: sign-in by email or by username is off (403).
+        /// <c>LoginMethodDto.Password</c> says which fields it takes.
+        /// </summary>
+        public const string PlayerAccountsPasswordIdentifierNotAllowed = "player_accounts.password_identifier_not_allowed";
+        /// <summary><c>LinkPasswordAsync</c>: the account already has a password (409).</summary>
+        public const string PlayerAccountsPasswordAlreadySet = "player_accounts.password_already_set";
+        /// <summary><c>ChangePasswordAsync</c>: the account has no password (409).</summary>
+        public const string PlayerAccountsPasswordNotSet = "player_accounts.password_not_set";
+        /// <summary><c>ChangePasswordAsync</c>: the current password is wrong (401).</summary>
+        public const string PlayerAccountsCurrentPasswordInvalid = "player_accounts.current_password_invalid";
+        /// <summary>Link conflict: the account to keep already has its own password or email (409).</summary>
+        public const string PlayerAccountsCredentialsAlreadyPresent = "player_accounts.credentials_already_present";
+        /// <summary>Another account of the project has this email (409).</summary>
+        public const string PlayerAccountsEmailTaken = "player_accounts.email_taken";
+        /// <summary>Not an email address (422).</summary>
+        public const string PlayerAccountsEmailInvalid = "player_accounts.email_invalid";
+        /// <summary>
+        /// Password sign-in by an email that is not confirmed yet while the platform confirms emails (403). A code went
+        /// to it: <c>data.challengeId</c>; confirm it with <c>ConfirmEmailAsync</c>.
+        /// </summary>
+        public const string PlayerAccountsEmailNotVerified = "player_accounts.email_not_verified";
+        /// <summary>The account already has an email (409).</summary>
+        public const string PlayerAccountsEmailAlreadySet = "player_accounts.email_already_set";
+        /// <summary><c>VerifyEmailAsync</c>, or a password reset: the account has no email to send a code to (409).</summary>
+        public const string PlayerAccountsEmailNotSet = "player_accounts.email_not_set";
+        /// <summary>Another account of the project has this phone number (409).</summary>
+        public const string PlayerAccountsPhoneTaken = "player_accounts.phone_taken";
+        /// <summary>Not a phone number in the international format (422).</summary>
+        public const string PlayerAccountsPhoneInvalid = "player_accounts.phone_invalid";
+        /// <summary>The code request expired, was used up or never existed (404): request a new code.</summary>
+        public const string PlayerAccountsEmailChallengeNotFound = "player_accounts.email_challenge_not_found";
+        /// <summary>Wrong code (401). <c>data.attemptsLeft</c>.</summary>
+        public const string PlayerAccountsEmailCodeInvalid = "player_accounts.email_code_invalid";
+        /// <summary>Too many wrong codes (429): the request is spent, request a new code.</summary>
+        public const string PlayerAccountsEmailCodeAttemptsExceeded = "player_accounts.email_code_attempts_exceeded";
+        /// <summary><c>ResendEmailCodeAsync</c> too early, or too many letters to the email (429). <c>data.retryAfterSeconds</c>.</summary>
+        public const string PlayerAccountsEmailResendTooEarly = "player_accounts.email_resend_too_early";
+        /// <summary>The letter could not be handed over for sending (503); try again later.</summary>
+        public const string PlayerAccountsEmailDeliveryUnavailable = "player_accounts.email_delivery_unavailable";
         /// <summary>
         /// <see cref="MirraCloud.Core.Auth.AuthenticationService.UnlinkPlatformAsync"/> without a platform key (400).
         /// Not to be confused with <see cref="PlatformsPlatformKeyRequired"/>.

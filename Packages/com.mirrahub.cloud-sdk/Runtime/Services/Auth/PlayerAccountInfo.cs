@@ -23,6 +23,16 @@ namespace MirraCloud.Core.Auth
 
         /// <summary>Mutable, project-unique public handle (stored with the acc_ prefix).</summary>
         public string Username { get; set; }
+
+        /// <summary>The account's email; null — none. Changes through <c>AuthenticationService.ChangeEmailAsync</c> and <c>ConfirmEmailAsync</c>.</summary>
+        public string Email { get; internal set; }
+        /// <summary>The player proved <see cref="Email"/>.</summary>
+        public bool IsEmailVerified { get; internal set; }
+        /// <summary>Phone number in the international format; null — none.</summary>
+        public string PhoneNumber { get; internal set; }
+        /// <summary>Phone numbers are not confirmed yet: always false.</summary>
+        public bool IsPhoneNumberVerified { get; internal set; }
+
         public Gender Gender { get; set; }
 
         public int Age { get; private set; }
@@ -58,6 +68,10 @@ namespace MirraCloud.Core.Auth
             NicknameSuffix = dto.Nickname?.Suffix;
             Nickname = dto.Nickname?.Displayed ?? dto.Nickname?.Base;
             Username = dto.Username;
+            Email = dto.Email;
+            IsEmailVerified = dto.IsEmailVerified;
+            PhoneNumber = dto.PhoneNumber;
+            IsPhoneNumberVerified = dto.IsPhoneNumberVerified;
             Gender = dto.Gender;
             Age = dto.Age;
             IconKey = dto.IconKey;

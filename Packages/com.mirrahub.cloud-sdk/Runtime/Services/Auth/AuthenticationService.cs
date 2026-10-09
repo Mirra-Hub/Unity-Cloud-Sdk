@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using MirraCloud.Core.Storage;
 using MirraCloud.Core.Auth.OpenId;
+using MirraCloud.Core.Enums;
 using MirraCloud.Core.Errors;
 using MirraCloud.Core.WebView;
 using MirraCloud.Json;
@@ -88,6 +89,18 @@ namespace MirraCloud.Core.Auth
         /// </summary>
         internal event Action<AccountDto> OnSessionAccountRefreshed;
 
+        /// <summary>
+        /// An email was confirmed with <see cref="ConfirmEmailAsync"/>: the new address of an email change, or null
+        /// when the account's current email got confirmed. PlayerAccountService updates the account with it.
+        /// </summary>
+        internal event Action<string> OnEmailConfirmed;
+
+        /// <summary>The phone number <see cref="ChangePhoneAsync"/> set; null when it was removed.</summary>
+        internal event Action<string> OnPhoneChanged;
+
+        // ChangeEmailAsync's new address by the id of its code, so the account learns it once the code is confirmed.
+        private readonly Dictionary<string, string> _pendingEmails = new Dictionary<string, string>();
+
         public AuthenticationService(Configuration configuration, Logger.ILogger logger, IStorage storage, RestApiClient restApi, WebViewService webView)
         {
             _configuration = configuration;
@@ -103,7 +116,8 @@ namespace MirraCloud.Core.Auth
 
         // Helpers for URL composition. All login/link routes are scoped per branch;
         // refresh / logout / unlink are NOT — they use the branch already stored on the Session.
-        private string AuthLoginScope() => $"{AUTH_BRANCH_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.Branch}/login";
+        private string AuthBranchScope() => $"{AUTH_BRANCH_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.Branch}";
+        private string AuthLoginScope() => $"{AuthBranchScope()}/login";
         private string LinkScope() => $"{LINK_BRANCH_ROUTE}/{_configuration.ProjectId}/branches/{_configuration.Branch}";
         private string UnlinkScope() => $"{UNLINK_ROUTE}/{_configuration.ProjectId}";
         private string SessionScope() => $"{AUTH_ROUTE}/{_configuration.ProjectId}";
@@ -246,19 +260,106 @@ namespace MirraCloud.Core.Auth
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
-        public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginEmailAsync(string email, string password, bool createAccount = true, string nickname = null)
+        /// <summary>
+        /// Signs in with a password and the email or the username (<see cref="LoginMethodKind.Password"/>). The login
+        /// is the account's username, compared exactly; fill one of <paramref name="email"/> and
+        /// <paramref name="username"/>. With <paramref name="createAccount"/> an unknown player is registered with what
+        /// the platform takes (<see cref="LoginMethodDto.Password"/>): the email, the username or both.
+        /// </summary>
+        /// <remarks>
+        /// When the platform confirms emails, a registration with an email answers
+        /// <see cref="AuthResultStatus.EmailVerificationRequired"/> and creates nothing yet: a code goes to the email
+        /// (<see cref="GetAuthDataDto.EmailVerification"/>) — finish with <see cref="ConfirmPasswordRegistrationAsync"/>.
+        /// </remarks>
+        public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginPasswordAsync(
+            string email, string username, string password, bool createAccount = true, string nickname = null)
         {
-            var route = $"{AuthLoginScope()}/email";
-            var dto = new LoginByEmailDto { Email = email, Password = password, CreateAccount = createAccount, Options = LoginOptionsDto.WithNickname(nickname), Device = _device };
+            var route = $"{AuthLoginScope()}/password";
+            var dto = new LoginByPasswordDto
+            {
+                Email = NullIfBlank(email), Username = NullIfBlank(username), Password = password,
+                CreateAccount = createAccount, Options = LoginOptionsDto.WithNickname(nickname), Device = _device
+            };
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
-        public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginUsernameAsync(string username, string password, bool createAccount = true, string nickname = null)
+        /// <summary>
+        /// Finishes a registration <see cref="LoginPasswordAsync"/> held for email confirmation: the account is created
+        /// with the code from the letter, its email already confirmed.
+        /// </summary>
+        public AsyncOperation<RestApiResult<GetAuthDataDto>> ConfirmPasswordRegistrationAsync(string challengeId, string code)
         {
-            var route = $"{AuthLoginScope()}/username";
-            var dto = new LoginByUsernameDto { Login = username, Password = password, CreateAccount = createAccount, Options = LoginOptionsDto.WithNickname(nickname), Device = _device };
+            var route = $"{AuthLoginScope()}/password/confirm";
+            var dto = new ConfirmEmailCodeDto { ChallengeId = challengeId, Code = code, Device = _device };
             return PostAuthAsync(route, dto, noAuth: true);
         }
+
+        /// <summary>
+        /// Sends a one-time sign-in code to the email (<see cref="LoginMethodKind.EmailCode"/>); finish with
+        /// <see cref="LoginEmailCodeAsync"/>. The answer is the same whether the player exists or not; without
+        /// <paramref name="createAccount"/> no letter goes to an email no account has.
+        /// </summary>
+        /// <param name="language">Language of the letter for a new player; a known player gets the account's.</param>
+        public AsyncOperation<RestApiResult<EmailVerificationDto>> RequestLoginCodeAsync(
+            string email, bool createAccount = true, LanguageCode? language = null)
+        {
+            var route = $"{AuthLoginScope()}/email-code/request";
+            var dto = new RequestEmailCodeDto { Email = email, CreateAccount = createAccount, Language = language?.ToString() };
+            return _restApi.PostAsync<EmailVerificationDto>(route, dto, AuthRequestConfig(noAuth: true));
+        }
+
+        /// <summary>
+        /// Signs in with the code <see cref="RequestLoginCodeAsync"/> sent. An email no account has creates one with
+        /// <paramref name="createAccount"/>, its email confirmed.
+        /// </summary>
+        public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginEmailCodeAsync(
+            string challengeId, string code, bool createAccount = true, string nickname = null)
+        {
+            var route = $"{AuthLoginScope()}/email-code";
+            var dto = new LoginByEmailCodeDto
+            {
+                ChallengeId = challengeId, Code = code, CreateAccount = createAccount,
+                Options = LoginOptionsDto.WithNickname(nickname), Device = _device
+            };
+            return PostAuthAsync(route, dto, noAuth: true);
+        }
+
+        /// <summary>
+        /// Sends a new code for any request that sent one (sign-in, registration, link, email change, reset) once
+        /// <see cref="EmailVerificationDto.ResendAfterSeconds"/> is over; the old code stops working.
+        /// </summary>
+        public AsyncOperation<RestApiResult<EmailVerificationDto>> ResendEmailCodeAsync(string challengeId)
+        {
+            if (string.IsNullOrWhiteSpace(challengeId))
+            {
+                return AsyncOperation<RestApiResult<EmailVerificationDto>>.CreateCompleted(
+                    RestApiResult<EmailVerificationDto>.ValidationFail("Challenge id is empty."));
+            }
+
+            var route = $"{SessionScope()}/email-challenges/{Uri.EscapeDataString(challengeId)}/resend";
+            return _restApi.PostAsync<EmailVerificationDto>(route, new { }, AuthRequestConfig(noAuth: true));
+        }
+
+        /// <summary>
+        /// Sends a password reset code to the confirmed email of the account found by email or username; finish with
+        /// <see cref="ConfirmPasswordResetAsync"/>. The answer is the same for an unknown player, and then no letter goes.
+        /// </summary>
+        public AsyncOperation<RestApiResult<EmailVerificationDto>> RequestPasswordResetAsync(string email, string username = null)
+        {
+            var route = $"{AuthBranchScope()}/password/reset/request";
+            var dto = new RequestPasswordResetDto { Email = NullIfBlank(email), Username = NullIfBlank(username) };
+            return _restApi.PostAsync<EmailVerificationDto>(route, dto, AuthRequestConfig(noAuth: true));
+        }
+
+        /// <summary>Sets a new password with the reset code. Every session of the account ends.</summary>
+        public AsyncOperation<RestApiResult> ConfirmPasswordResetAsync(string challengeId, string code, string newPassword)
+        {
+            var route = $"{AuthBranchScope()}/password/reset/confirm";
+            var dto = new ConfirmPasswordResetDto { ChallengeId = challengeId, Code = code, NewPassword = newPassword };
+            return _restApi.PostAsync(route, dto, AuthRequestConfig(noAuth: true));
+        }
+
+        private static string NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         /// <summary>
         /// Signs in with the store of this build's platform (<see cref="Configuration.PlatformKey"/>): Google Play Games,
@@ -522,17 +623,43 @@ namespace MirraCloud.Core.Auth
             return PostAuthAsync(route, dto);
         }
 
-        public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkEmailAsync(string email, string password, bool createAccount = false)
+        /// <summary>
+        /// Adds a password to the signed-in account, with the email and/or username it is used with. A new email
+        /// becomes the account's; a new username replaces the account's. If the email or username belongs to another
+        /// account the answer is a conflict (<see cref="OnAuthConflict"/>). When the platform confirms emails and the
+        /// email is not the account's confirmed one, the answer is <see cref="AuthResultStatus.EmailVerificationRequired"/>:
+        /// finish with <see cref="ConfirmPasswordLinkAsync"/>.
+        /// </summary>
+        public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkPasswordAsync(string email, string username, string password)
         {
-            var route = $"{LinkScope()}/email";
-            var dto = new LoginByEmailDto { Email = email, Password = password, CreateAccount = createAccount, Device = _device };
+            var route = $"{LinkScope()}/password";
+            var dto = new LinkPasswordDto { Email = NullIfBlank(email), Username = NullIfBlank(username), Password = password, Device = _device };
             return PostAuthAsync(route, dto);
         }
 
-        public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkUsernameAsync(string username, string password, bool createAccount = false)
+        /// <summary>Finishes a password link held for email confirmation with the code from the letter.</summary>
+        public AsyncOperation<RestApiResult<GetAuthDataDto>> ConfirmPasswordLinkAsync(string challengeId, string code)
         {
-            var route = $"{LinkScope()}/username";
-            var dto = new LoginByUsernameDto { Login = username, Password = password, CreateAccount = createAccount, Device = _device };
+            var route = $"{LinkScope()}/password/confirm";
+            var dto = new ConfirmEmailCodeDto { ChallengeId = challengeId, Code = code, Device = _device };
+            return PostAuthAsync(route, dto);
+        }
+
+        /// <summary>Sends a code to the email whose sign-in by code is being added; finish with <see cref="LinkEmailCodeAsync"/>.</summary>
+        public AsyncOperation<RestApiResult<EmailVerificationDto>> RequestEmailCodeLinkAsync(string email)
+        {
+            var route = $"{LinkScope()}/email-code/request";
+            return _restApi.PostAsync<EmailVerificationDto>(route, new EmailDto { Email = email }, AuthRequestConfig(noAuth: false));
+        }
+
+        /// <summary>
+        /// Adds sign-in by email code with the code from the letter. If the email belongs to another account the
+        /// answer is a conflict with a <see cref="GetAuthDataDto.CredentialTicket"/> for <see cref="ResolveLinkConflictAsync"/>.
+        /// </summary>
+        public AsyncOperation<RestApiResult<GetAuthDataDto>> LinkEmailCodeAsync(string challengeId, string code)
+        {
+            var route = $"{LinkScope()}/email-code";
+            var dto = new ConfirmEmailCodeDto { ChallengeId = challengeId, Code = code, Device = _device };
             return PostAuthAsync(route, dto);
         }
 
@@ -613,11 +740,17 @@ namespace MirraCloud.Core.Auth
             return PostAuthAsync(route, dto);
         }
 
+        // OpenId, Google / Apple / Yandex sign-in and the email code: the server holds the proven identity behind a
+        // ticket. A password conflict carries the email / username and the password instead.
         private static bool IsVerifiedIdentityType(int providerType) =>
-            providerType == AuthProviderTypeOpenId || providerType >= AuthProviderTypeGoogleSignIn;
+            providerType == AuthProviderTypeOpenId
+            || (providerType >= AuthProviderTypeGoogleSignIn && providerType <= AuthProviderTypeYandexSignIn)
+            || providerType == AuthProviderTypeEmailCode;
 
         private const int AuthProviderTypeOpenId = 4;
         private const int AuthProviderTypeGoogleSignIn = 6;
+        private const int AuthProviderTypeYandexSignIn = 8;
+        private const int AuthProviderTypeEmailCode = 10;
 
         #endregion
 
@@ -640,6 +773,17 @@ namespace MirraCloud.Core.Auth
             var dto = new UnlinkPlatformDto { PlatformKey = platformKey, ExternalUserId = externalUserId };
             return DeleteAsync(route, dto);
         }
+
+        /// <summary>
+        /// Removes the password from the account. The email and the username stay on the account; sign-in by email
+        /// code, if it has one, keeps working.
+        /// </summary>
+        public AsyncOperation<RestApiResult> UnlinkPasswordAsync()
+            => DeleteAsync($"{UnlinkScope()}/password", new { });
+
+        /// <summary>Removes sign-in by email code from the account; the email stays on it.</summary>
+        public AsyncOperation<RestApiResult> UnlinkEmailCodeAsync()
+            => DeleteAsync($"{UnlinkScope()}/email-code", new { });
 
         /// <summary>Removes the Google sign-in with this Google user id (<c>sub</c>) from the account.</summary>
         public AsyncOperation<RestApiResult> UnlinkGoogleSignInAsync(string externalUserId)
@@ -664,6 +808,85 @@ namespace MirraCloud.Core.Auth
         {
             // Unlink revokes all sessions on success — clear local state too.
             return EndSessionAfter(_restApi.DeleteAsync(route, dto), onlyOnSuccess: true);
+        }
+
+        #endregion
+
+        #region Account credentials
+
+        /// <summary>Changes the signed-in player's password; the player's other sessions end.</summary>
+        public AsyncOperation<RestApiResult> ChangePasswordAsync(string currentPassword, string newPassword)
+        {
+            var route = $"{AccountsScope()}/password";
+            var dto = new ChangePasswordDto { CurrentPassword = currentPassword, NewPassword = newPassword };
+            return _restApi.PutAsync(route, dto);
+        }
+
+        /// <summary>
+        /// Sends a code to a new email for the account; the email changes once the code comes back to
+        /// <see cref="ConfirmEmailAsync"/>.
+        /// </summary>
+        public AsyncOperation<RestApiResult<EmailVerificationDto>> ChangeEmailAsync(string email)
+        {
+            var route = $"{AccountsScope()}/email";
+            var op = new AsyncOperation<RestApiResult<EmailVerificationDto>>();
+            OnDone(_restApi.PostAsync<EmailVerificationDto>(route, new EmailDto { Email = email }), result =>
+            {
+                if (result.IsSuccess && string.IsNullOrEmpty(result.Data?.ChallengeId) == false)
+                {
+                    _pendingEmails[result.Data.ChallengeId] = email?.Trim();
+                }
+
+                op.Complete(result);
+            });
+            return op;
+        }
+
+        /// <summary>Sends a code to the account's current, not yet confirmed email; finish with <see cref="ConfirmEmailAsync"/>.</summary>
+        public AsyncOperation<RestApiResult<EmailVerificationDto>> VerifyEmailAsync()
+        {
+            var route = $"{AccountsScope()}/email/verify";
+            return _restApi.PostAsync<EmailVerificationDto>(route, new { });
+        }
+
+        /// <summary>Finishes an email change (<see cref="ChangeEmailAsync"/>) or confirmation (<see cref="VerifyEmailAsync"/>) with the code.</summary>
+        public AsyncOperation<RestApiResult> ConfirmEmailAsync(string challengeId, string code)
+        {
+            var route = $"{AccountsScope()}/email/confirm";
+            var dto = new ConfirmEmailCodeDto { ChallengeId = challengeId, Code = code };
+            var op = new AsyncOperation<RestApiResult>();
+            OnDone(_restApi.PostAsync(route, dto), result =>
+            {
+                if (result.IsSuccess)
+                {
+                    _pendingEmails.TryGetValue(challengeId ?? string.Empty, out var newEmail);
+                    _pendingEmails.Remove(challengeId ?? string.Empty);
+                    Raise(OnEmailConfirmed, newEmail);
+                }
+
+                op.Complete(result);
+            });
+            return op;
+        }
+
+        /// <summary>
+        /// Sets the account's phone number in the international format (<c>+79991234567</c>); empty removes it. Phone
+        /// numbers are not confirmed.
+        /// </summary>
+        public AsyncOperation<RestApiResult> ChangePhoneAsync(string phoneNumber)
+        {
+            var route = $"{AccountsScope()}/phone";
+            var op = new AsyncOperation<RestApiResult>();
+            OnDone(_restApi.PatchAsync(route, new UpdatePhoneDto { PhoneNumber = phoneNumber ?? string.Empty }), result =>
+            {
+                if (result.IsSuccess)
+                {
+                    Raise(OnPhoneChanged, NullIfBlank(phoneNumber));
+                }
+
+                op.Complete(result);
+            });
+            return op;
         }
 
         #endregion
@@ -1100,6 +1323,13 @@ namespace MirraCloud.Core.Auth
                 return null;
             }
 
+            if (data.Status == AuthResultStatus.EmailVerificationRequired)
+            {
+                // Not a failure: the game asks the player for the code from the letter and confirms it.
+                _logger.Log("auth held for email confirmation");
+                return null;
+            }
+
             if (string.IsNullOrEmpty(data.Token) || data.Session == null)
             {
                 _logger.Error("Auth response without token or session");
@@ -1140,6 +1370,7 @@ namespace MirraCloud.Core.Auth
             _refreshToken = null;
             _sessionExpiresAt = default;
             _lastConflictTicket = null;
+            _pendingEmails.Clear();
             IsAuth = false;
         }
 

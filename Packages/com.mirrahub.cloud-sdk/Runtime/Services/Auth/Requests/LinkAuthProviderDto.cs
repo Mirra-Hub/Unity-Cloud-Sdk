@@ -20,7 +20,8 @@ namespace MirraCloud.Core.Auth
         public string GuestId;
         public string DeviceId;
         public string Email;
-        public string Login;
+        /// <summary>For a password conflict: the username the password is used with.</summary>
+        public string Username;
         public string Password;
 
         public string ExternalUserId;

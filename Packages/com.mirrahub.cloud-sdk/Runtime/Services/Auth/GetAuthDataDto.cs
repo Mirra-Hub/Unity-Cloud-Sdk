@@ -24,5 +24,10 @@ namespace MirraCloud.Core.Auth
         /// valid for 10 minutes, that <see cref="AuthenticationService.ResolveLinkConflictAsync"/> needs.
         /// </summary>
         [JsonNameCamel] public string CredentialTicket;
+        /// <summary>
+        /// With <see cref="AuthResultStatus.EmailVerificationRequired"/>: the code sent to the email. No token and no
+        /// session come with it.
+        /// </summary>
+        [JsonNameCamel] public EmailVerificationDto EmailVerification;
     }
 }

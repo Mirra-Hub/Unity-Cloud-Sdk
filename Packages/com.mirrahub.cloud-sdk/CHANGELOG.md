@@ -10,10 +10,29 @@ The SDK is `0.x`: the public API can change between minor versions. Breaking cha
 
 Follows the backend's hardening of sign-in and player accounts. Needs that backend release: against an older backend
 the browser sign-in and the new session calls fail. Upgrade steps: pass the code verifier to
-`CompleteOpenIdLoginAsync`, link OpenID with `LinkOpenIdAsync(providerKey)`, and drop calls that write segments.
+`CompleteOpenIdLoginAsync`, link OpenID with `LinkOpenIdAsync(providerKey)`, drop calls that write segments, and move
+email / username sign-in to `LoginPasswordAsync` (the platform's sign-in methods in the console move to «Password»).
 
 ### Added
 
+- **Password sign-in.** `Authentication.LoginPasswordAsync(email, username, password, createAccount, nickname)` replaces
+  the email and the username sign-ins: one method, the login is the account's username (compared exactly) or its
+  email, whichever the platform allows — `LoginMethodDto.Password` (`PasswordLoginMethodDto`) says which fields to
+  ask for. When the platform confirms emails, registering with an email answers
+  `AuthResultStatus.EmailVerificationRequired` with `GetAuthDataDto.EmailVerification` (`EmailVerificationDto`) and
+  creates nothing until `ConfirmPasswordRegistrationAsync(challengeId, code)`.
+- **Sign-in by email code** (`LoginMethodKind.EmailCode`): `RequestLoginCodeAsync(email, createAccount, language)`
+  sends a 6-digit code, `LoginEmailCodeAsync(challengeId, code, createAccount, nickname)` signs in with it.
+- **Codes from letters.** `ResendEmailCodeAsync(challengeId)` sends a new code for any request that sent one.
+- **Password reset and change.** `RequestPasswordResetAsync(email, username)` + `ConfirmPasswordResetAsync(challengeId,
+  code, newPassword)`; `ChangePasswordAsync(currentPassword, newPassword)` for the signed-in player.
+- **Email and phone on the account.** `AccountDto` / `PlayerAccountInfo` carry `Email`, `IsEmailVerified`,
+  `PhoneNumber`, `IsPhoneNumberVerified`. `ChangeEmailAsync(email)` / `VerifyEmailAsync()` send a code,
+  `ConfirmEmailAsync(challengeId, code)` applies it; `ChangePhoneAsync(phoneNumber)` sets or removes the number (not
+  confirmed). `PlayerAccountInfo` follows the confirmed email and the new number.
+- **Linking.** `LinkPasswordAsync(email, username, password)` (+ `ConfirmPasswordLinkAsync` when the email needs
+  confirming), `RequestEmailCodeLinkAsync(email)` + `LinkEmailCodeAsync(challengeId, code)`; `UnlinkPasswordAsync()`,
+  `UnlinkEmailCodeAsync()`. An email-code link conflict is resolved with its credential ticket, like OpenID.
 - **Sessions.** `Authentication.GetSessionsAsync(activeOnly)` lists the player's sessions (`PlayerSessionInfo`: device,
   client platform, OS, game version, last activity) with the current one first; `RevokeSessionAsync(sessionId)` signs
   one out (the current one — as `LogoutAsync`), `LogoutOtherSessionsAsync()` signs out every other device.
@@ -29,7 +48,12 @@ the browser sign-in and the new session calls fail. Upgrade steps: pass the code
 - **Error codes:** `PlayerAccountsAccountBanned`, `PlayerAccountsProfileBanned`, `PlayerAccountsTooManyAttempts`,
   `PlayerAccountsSuccessUrlNotAllowed`, `PlayerAccountsOpenIdVerifierMismatch`, `PlayerAccountsCredentialTicket*`,
   `PlayerAccountsLastProfile`, `PlayerAccountsSessionIdRequired`, `PlayerAccountsAvatarSourceNotAllowed`,
-  `PlayerAccountsImageTooLarge`, `PlayerAccountsImageTypeUnsupported` and the rest the backend now returns.
+  `PlayerAccountsImageTooLarge`, `PlayerAccountsImageTypeUnsupported` and the rest the backend now returns; for
+  password and email sign-in `PlayerAccountsPasswordIdentifierRequired` / `PasswordIdentifierNotAllowed` /
+  `PasswordAlreadySet` / `PasswordNotSet` / `CurrentPasswordInvalid` / `CredentialsAlreadyPresent`,
+  `PlayerAccountsEmailTaken` / `EmailInvalid` / `EmailNotVerified` / `EmailAlreadySet` / `EmailNotSet`,
+  `PlayerAccountsPhoneTaken` / `PhoneInvalid`, `PlayerAccountsEmailChallengeNotFound` / `EmailCodeInvalid` /
+  `EmailCodeAttemptsExceeded` / `EmailResendTooEarly` / `EmailDeliveryUnavailable`.
 
 ### Changed
 
@@ -45,6 +69,8 @@ the browser sign-in and the new session calls fail. Upgrade steps: pass the code
 - **Breaking — other players are public data only.** `GetRandomProfilesAsync` returns `PublicProfileDto[]`, a link
   conflict's `ExistingAccount` is a `PublicAccountDto`.
 - **Profiles** go to `…/player-accounts/v1/projects/{projectId}/profiles`.
+- **Showcase:** the sign-in screen offers «Password» (the fields the platform takes, «Forgot password?») and «Email
+  code», with a code form for confirmation, sign-in and reset; the link prompt offers a password and email-code sign-in.
 - **`DeleteProfileAsync`** of the selected profile completes after the session was refreshed for the profile the
   server selected next; the account's only profile cannot be deleted (`PlayerAccountsLastProfile`).
 - **A rejected request of the player-account calls** (sign-in, link, unlink, sessions, account, profiles, external ids)
@@ -52,7 +78,7 @@ the browser sign-in and the new session calls fail. Upgrade steps: pass the code
 
 ### Fixed
 
-- **The `nickname` of a sign-in reached nobody.** `LoginDeviceAsync`, `LoginEmailAsync`, `LoginUsernameAsync`,
+- **The `nickname` of a sign-in reached nobody.** `LoginDeviceAsync`, the password sign-in,
   `LoginPlatformAsync` and the Google / Apple / Yandex sign-ins sent it in a field the server does not read, so a
   new account always got a generated nickname. It now goes in `LoginOptionsDto` and names the account the sign-in
   creates; the project's nickname rules apply. `LinkAuthProviderDto.Nickname` is gone — a link never named an
@@ -60,6 +86,10 @@ the browser sign-in and the new session calls fail. Upgrade steps: pass the code
 
 ### Removed
 
+- **Breaking — the email and the username sign-ins.** `LoginEmailAsync`, `LoginUsernameAsync`, `LinkEmailAsync`,
+  `LinkUsernameAsync`, `LoginByEmailDto`, `LoginByUsernameDto` and `LoginMethodKind.Email` / `Username` are gone —
+  use `LoginPasswordAsync` / `LinkPasswordAsync` and `LoginMethodKind.Password`. `LinkAuthProviderDto.Login` is now
+  `Username`.
 - **Breaking — `UpdateSegmentsAsync` and `UpdateProfileSegmentsAsync`.** Segments are computed by the server at
   sign-in and on every session refresh; the game cannot write them.
 - `PlayerAccountsSuccessUrlScheme` — replaced by `PlayerAccountsSuccessUrlNotAllowed`.
