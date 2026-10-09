@@ -8,8 +8,8 @@ namespace MirraCloud.Core.Auth
         public string Login;
         public string Password;
         public bool CreateAccount;
-        /// <summary>Required when CreateAccount=true and the account does not yet exist.</summary>
-        public string Nickname;
+        /// <summary>Applied once, if this sign-in creates the account.</summary>
+        public LoginOptionsDto Options;
         /// <summary>What this client runs on; the SDK fills it.</summary>
         public SessionDeviceDto Device;
     }

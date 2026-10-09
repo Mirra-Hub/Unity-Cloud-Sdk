@@ -48,6 +48,14 @@ the browser sign-in and the new session calls fail. Upgrade steps: pass the code
 - **`DeleteProfileAsync`** of the selected profile completes after the session was refreshed for the profile the
   server selected next; the account's only profile cannot be deleted (`PlayerAccountsLastProfile`).
 
+### Fixed
+
+- **The `nickname` of a sign-in reached nobody.** `LoginDeviceAsync`, `LoginEmailAsync`, `LoginUsernameAsync`,
+  `LoginPlatformAsync` and the Google / Apple / Yandex sign-ins sent it in a field the server does not read, so a
+  new account always got a generated nickname. It now goes in `LoginOptionsDto` and names the account the sign-in
+  creates; the project's nickname rules apply. `LinkAuthProviderDto.Nickname` is gone — a link never named an
+  account.
+
 ### Removed
 
 - **Breaking — `UpdateSegmentsAsync` and `UpdateProfileSegmentsAsync`.** Segments are computed by the server at

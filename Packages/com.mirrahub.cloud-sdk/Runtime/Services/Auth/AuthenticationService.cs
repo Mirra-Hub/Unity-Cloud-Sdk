@@ -242,21 +242,21 @@ namespace MirraCloud.Core.Auth
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginDeviceAsync(string deviceId, bool createAccount = true, string nickname = null)
         {
             var route = $"{AuthLoginScope()}/device";
-            var dto = new LoginByDeviceIdDto { DeviceId = deviceId, CreateAccount = createAccount, Nickname = nickname, Device = _device };
+            var dto = new LoginByDeviceIdDto { DeviceId = deviceId, CreateAccount = createAccount, Options = LoginOptionsDto.WithNickname(nickname), Device = _device };
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginEmailAsync(string email, string password, bool createAccount = true, string nickname = null)
         {
             var route = $"{AuthLoginScope()}/email";
-            var dto = new LoginByEmailDto { Email = email, Password = password, CreateAccount = createAccount, Nickname = nickname, Device = _device };
+            var dto = new LoginByEmailDto { Email = email, Password = password, CreateAccount = createAccount, Options = LoginOptionsDto.WithNickname(nickname), Device = _device };
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
         public AsyncOperation<RestApiResult<GetAuthDataDto>> LoginUsernameAsync(string username, string password, bool createAccount = true, string nickname = null)
         {
             var route = $"{AuthLoginScope()}/username";
-            var dto = new LoginByUsernameDto { Login = username, Password = password, CreateAccount = createAccount, Nickname = nickname, Device = _device };
+            var dto = new LoginByUsernameDto { Login = username, Password = password, CreateAccount = createAccount, Options = LoginOptionsDto.WithNickname(nickname), Device = _device };
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
@@ -280,7 +280,7 @@ namespace MirraCloud.Core.Auth
         {
             var route = $"{AuthLoginScope()}/platform";
             var dto = BuildPlatformDto(externalUserId, authCode, platformToken, extra, createAccount);
-            dto.Nickname = nickname;
+            dto.Options = LoginOptionsDto.WithNickname(nickname);
             return PostAuthAsync(route, dto, noAuth: true);
         }
 
@@ -305,7 +305,7 @@ namespace MirraCloud.Core.Auth
         {
             var route = $"{AuthLoginScope()}/{suffix}";
             var dto = BuildSignInDto(externalUserId, idToken, authCode, extra, createAccount);
-            dto.Nickname = nickname;
+            dto.Options = LoginOptionsDto.WithNickname(nickname);
             return PostAuthAsync(route, dto, noAuth: true);
         }
 

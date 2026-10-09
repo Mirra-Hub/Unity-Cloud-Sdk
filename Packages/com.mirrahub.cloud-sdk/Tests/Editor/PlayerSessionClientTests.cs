@@ -60,6 +60,14 @@ namespace MirraCloud.Core.Auth.Tests
         }
 
         [Test]
+        public void A_nickname_goes_in_the_login_options_and_an_empty_one_sends_none()
+        {
+            Assert.AreEqual("Hero", LoginOptionsDto.WithNickname("  Hero ").Nickname);
+            Assert.IsNull(LoginOptionsDto.WithNickname(null));
+            Assert.IsNull(LoginOptionsDto.WithNickname(" "));
+        }
+
+        [Test]
         public void The_device_carries_the_sdk_version()
         {
             Assert.AreEqual(MirraCloudSdkInfo.Version, DeviceInfoProvider.Collect().SdkVersion);

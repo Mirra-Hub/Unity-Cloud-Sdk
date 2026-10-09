@@ -27,8 +27,6 @@ namespace MirraCloud.Core.Auth
         public string AuthCode;
         public string PlatformToken;
         public Dictionary<string, string> Extra;
-        /// <summary>Required when the linked provider has to create a new account.</summary>
-        public string Nickname;
         /// <summary>
         /// For an OpenID or Google / Apple / Yandex sign-in conflict: the <see cref="GetAuthDataDto.CredentialTicket"/>
         /// of the conflict answer. Left empty, the SDK fills in the ticket of the last conflict.
