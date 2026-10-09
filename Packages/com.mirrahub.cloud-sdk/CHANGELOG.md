@@ -47,6 +47,8 @@ the browser sign-in and the new session calls fail. Upgrade steps: pass the code
 - **Profiles** go to `…/player-accounts/v1/projects/{projectId}/profiles`.
 - **`DeleteProfileAsync`** of the selected profile completes after the session was refreshed for the profile the
   server selected next; the account's only profile cannot be deleted (`PlayerAccountsLastProfile`).
+- **A rejected request of the player-account calls** (sign-in, link, unlink, sessions, account, profiles, external ids)
+  now carries an error code: `CommonValidation` (400) with the field in `data.field`, where it used to come without one.
 
 ### Fixed
 

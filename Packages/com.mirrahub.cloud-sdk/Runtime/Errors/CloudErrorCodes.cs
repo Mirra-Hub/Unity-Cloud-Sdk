@@ -769,6 +769,7 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsPlayerRoleKeyExists = "player_accounts.player_role_key_exists";
         public const string PlayerAccountsPlayerRoleKeyInvalid = "player_accounts.player_role_key_invalid";
         public const string PlayerAccountsPlayerRoleNameRequired = "player_accounts.player_role_name_required";
+        public const string PlayerAccountsPlayerRoleNameTooLong = "player_accounts.player_role_name_too_long";
         public const string PlayerAccountsPlayerRoleNotFound = "player_accounts.player_role_not_found";
         public const string PlayerAccountsProfileIdInvalid = "player_accounts.profile_id_invalid";
         public const string PlayerAccountsProfileNotFound = "player_accounts.profile_not_found";
