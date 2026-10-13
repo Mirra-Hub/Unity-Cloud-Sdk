@@ -362,6 +362,32 @@ namespace MirraCloud.Core.Auth
         private static string NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         /// <summary>
+        /// The number as the server keeps it once it took the change: the international format without the separators
+        /// a player may type (spaces, <c>-</c>, <c>(</c>, <c>)</c>, <c>.</c>), so <c>+7 (999) 123-45-67</c> is
+        /// <c>+79991234567</c>. Null — the number was removed.
+        /// </summary>
+        internal static string StoredPhoneNumber(string phoneNumber)
+        {
+            if (string.IsNullOrWhiteSpace(phoneNumber))
+            {
+                return null;
+            }
+
+            var digits = new System.Text.StringBuilder(phoneNumber.Length);
+            foreach (var ch in phoneNumber)
+            {
+                if (char.IsWhiteSpace(ch) || ch == '-' || ch == '(' || ch == ')' || ch == '.')
+                {
+                    continue;
+                }
+
+                digits.Append(ch);
+            }
+
+            return digits.ToString();
+        }
+
+        /// <summary>
         /// Signs in with the store of this build's platform (<see cref="Configuration.PlatformKey"/>): Google Play Games,
         /// VK Games, Yandex Games or Apple Game Center, whichever store sign-in the platform has. Pass the store's
         /// proof: <paramref name="extra"/> for the VK / Yandex Games launch params (with their signature) and the Game
@@ -881,7 +907,7 @@ namespace MirraCloud.Core.Auth
             {
                 if (result.IsSuccess)
                 {
-                    Raise(OnPhoneChanged, NullIfBlank(phoneNumber));
+                    Raise(OnPhoneChanged, StoredPhoneNumber(phoneNumber));
                 }
 
                 op.Complete(result);
