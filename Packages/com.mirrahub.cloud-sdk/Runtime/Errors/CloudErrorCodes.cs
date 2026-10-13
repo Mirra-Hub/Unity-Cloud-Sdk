@@ -849,8 +849,8 @@ namespace MirraCloud.Core.Errors
         public const string PlayerAccountsSettingsUniqueRelock = "player_accounts.settings_unique_relock";
         public const string PlayerAccountsSettingsValidation = "player_accounts.settings_validation";
         /// <summary>
-        /// 403: the OpenID return address is neither one of the SDK's own receivers (WebView, loopback) nor on the
-        /// platform's list of return addresses in the console. <c>data.successUrl</c>.
+        /// 403: the return address is neither one of the SDK's own receivers (WebView, loopback) nor on the return
+        /// address list of the sign-in integration (Integrations in the console). <c>data.successUrl</c>.
         /// </summary>
         public const string PlayerAccountsSuccessUrlNotAllowed = "player_accounts.success_url_not_allowed";
         /// <summary>401: the OpenID result was redeemed with a code verifier that does not match the sign-in's challenge.</summary>

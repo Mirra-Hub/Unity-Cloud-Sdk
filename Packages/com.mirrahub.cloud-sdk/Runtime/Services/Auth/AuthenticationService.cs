@@ -418,8 +418,8 @@ namespace MirraCloud.Core.Auth
         /// <paramref name="successUrl"/> receives <c>mirra_openid_key</c>.
         /// </summary>
         /// <remarks>
-        /// <paramref name="successUrl"/> must be one of the SDK's own receivers or an address on the platform's list
-        /// of OpenID return addresses in the console; otherwise
+        /// <paramref name="successUrl"/> must be one of the SDK's own receivers or an address on the return address list
+        /// of the sign-in integration (its page in the console's Integrations); otherwise
         /// <see cref="CloudErrorCodes.PlayerAccountsSuccessUrlNotAllowed"/>.
         /// </remarks>
         public AsyncOperation<RestApiResult<string>> StartOpenIdLoginAsync(string providerKey, string successUrl)
