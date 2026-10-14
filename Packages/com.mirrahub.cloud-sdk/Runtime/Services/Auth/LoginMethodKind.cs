@@ -15,11 +15,17 @@ namespace MirraCloud.Core.Auth
         /// <summary><see cref="AuthenticationService.LoginDeviceAsync"/>.</summary>
         Device,
 
-        /// <summary><see cref="AuthenticationService.LoginEmailAsync"/>.</summary>
-        Email,
+        /// <summary>
+        /// Email and/or username with a password: <see cref="AuthenticationService.LoginPasswordAsync"/>.
+        /// <see cref="LoginMethodDto.Password"/> says which fields to ask for.
+        /// </summary>
+        Password,
 
-        /// <summary><see cref="AuthenticationService.LoginUsernameAsync"/>.</summary>
-        Username,
+        /// <summary>
+        /// A one-time code sent to the email, no password: <see cref="AuthenticationService.RequestLoginCodeAsync"/>,
+        /// then <see cref="AuthenticationService.LoginEmailCodeAsync"/>.
+        /// </summary>
+        EmailCode,
 
         /// <summary>An OpenID provider: <see cref="AuthenticationService.LoginOpenIdAsync"/> with <see cref="LoginMethodDto.IntegrationKey"/>.</summary>
         OpenId,
@@ -68,8 +74,8 @@ namespace MirraCloud.Core.Auth
             {
                 case "guest": return LoginMethodKind.Guest;
                 case "device": return LoginMethodKind.Device;
-                case "email": return LoginMethodKind.Email;
-                case "username": return LoginMethodKind.Username;
+                case "password": return LoginMethodKind.Password;
+                case "email_code": return LoginMethodKind.EmailCode;
                 case "openid": return LoginMethodKind.OpenId;
                 case "google": return LoginMethodKind.Google;
                 case "apple": return LoginMethodKind.Apple;

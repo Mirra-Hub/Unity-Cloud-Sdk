@@ -11,21 +11,24 @@
 - `UpdateLanguageAsync(languageCode)`
 - `SetAccountIconUrlAsync(iconUrl)`
 - `UpdateIconWithUploadAsync(fileData | texture | sprite)` — загрузка иконки
-- `UpdateSegmentsAsync(segmentIds)`
 
 ## Профили
 
 - `GetProfilesAsync()` → `ProfileInfo[]`
 - `GetProfileAsync(profileId)` → `ProfileInfo`
 - `CreateProfileAsync(dto, autoSelect)` → `ProfileInfo`. С `autoSelect: true` профиль ещё и выбирается — как в `SelectProfileAsync`, операция завершается после refresh сессии.
-- `DeleteProfileAsync(profileId)`
+- `DeleteProfileAsync(profileId)` — единственный профиль удалить нельзя (409 `player_accounts.last_profile`). При удалении выбранного сервер выбирает следующий незабаненный (или никакой), а SDK обновляет сессию — операция завершается после этого, `OnProfileSelected` приходит с новым профилем.
+- `GetRandomProfilesAsync(count)` → `PublicProfileDto[]` — случайные профили проекта в публичном виде (id, ник, username, иконка).
 - `SelectProfileAsync(profileId)` — выбрать активный профиль. Сервер не выдаёт новый токен, а все сервисы уровня профиля (экономика, сейвы, покупки, награды, аналитика) работают по токену — поэтому SDK сразу обновляет сессию, и операция завершается только после этого: вызовы после `await` уже идут от нового профиля. Если refresh не прошёл из-за сети или 5xx, игрок не разлогинивается: профиль на сервере уже выбран, SDK пишет ошибку в лог, а вызовы идут от старого профиля до следующего refresh (например, после 401). Аналитика до переключения отправляет буфер старого профиля и после него начинает новую игровую сессию; чаты переподключают сокет от нового профиля.
 - `ReplaceProfileAsync(profileId, dto)` — полная замена профиля
 - `UpdateProfileNicknameAsync(profileId, username)`
 - `SetProfileIconUrlAsync(profileId, iconUrl)`
 - `UpdateProfileIconWithUploadAsync(profileId, fileData | texture | sprite)`
-- `UpdateProfileSegmentsAsync(profileId, segmentIds)`
 - `UpdateProfilePresenceStatusAsync(profileId, status)`
+
+Сегменты из SDK не меняются: их считает сервер при входе и при каждом refresh сессии (`PlayerAccountInfo.SegmentKeys`). Вручную — только из консоли.
+
+Роут профилей — `…/player-accounts/v1/projects/{projectId}/profiles`. Выбрать забаненный профиль нельзя (403 `player_accounts.profile_banned`), создать новый — можно.
 
 ## Роли игрока
 

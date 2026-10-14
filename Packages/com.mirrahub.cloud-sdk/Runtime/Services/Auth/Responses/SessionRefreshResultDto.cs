@@ -17,5 +17,7 @@ namespace MirraCloud.Core.Auth
         /// returning player.
         /// </summary>
         [JsonNameCamel] public AccountDto PlayerInfo;
+        /// <summary>The selected profile is missing or banned: the refreshed token carries no profile.</summary>
+        [JsonNameCamel] public bool ProfileSelectionRequired;
     }
 }

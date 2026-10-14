@@ -7,7 +7,7 @@ namespace MirraCloud.Example.Showcase
 {
     /// <summary>
     /// Post-login "link your account" dialog content. Offers the sign-in methods the SDK can link
-    /// from a plain client (email / username / device) — each maps to Authentication.Link*Async —
+    /// from a plain client (password / email code / device) — each maps to Authentication.Link*Async —
     /// and only those the platform has switched on: a link is made on the session's platform, and
     /// the server refuses a method the platform does not offer.
     /// Raises intents; the app layer performs the SDK calls and reports the result.
@@ -20,8 +20,9 @@ namespace MirraCloud.Example.Showcase
     /// </summary>
     public sealed class LinkPromptView : VisualElement
     {
-        public event Action<string, string> EmailLinkRequested;
-        public event Action<string, string> UsernameLinkRequested;
+        /// <summary>Email (or empty), username (or empty), password.</summary>
+        public event Action<string, string, string> PasswordLinkRequested;
+        public event Action<string> EmailCodeLinkRequested;
         public event Action DeviceLinkRequested;
         public event Action SkipRequested;
 
@@ -53,13 +54,13 @@ namespace MirraCloud.Example.Showcase
             _body.Clear();
 
             var offered = 0;
-            if (Offers(LoginMethodKind.Email))
+            if (Offers(LoginMethodKind.Password))
             {
-                _body.Add(Block("Link email & password", offered++ == 0 ? "sc-btn--primary" : null, ShowEmailForm));
+                _body.Add(Block("Link a password", offered++ == 0 ? "sc-btn--primary" : null, ShowPasswordForm));
             }
-            if (Offers(LoginMethodKind.Username))
+            if (Offers(LoginMethodKind.EmailCode))
             {
-                _body.Add(Block("Link username & password", offered++ == 0 ? "sc-btn--primary" : null, ShowUsernameForm));
+                _body.Add(Block("Link email code sign-in", offered++ == 0 ? "sc-btn--primary" : null, ShowEmailCodeForm));
             }
             if (Offers(LoginMethodKind.Device))
             {
@@ -68,7 +69,7 @@ namespace MirraCloud.Example.Showcase
 
             if (offered == 0)
             {
-                var none = new Label("This platform offers no email, username or device sign-in to link.");
+                var none = new Label("This platform offers no password, email code or device sign-in to link.");
                 none.AddToClassList("sc-chat-hint");
                 _body.Add(none);
             }
@@ -101,27 +102,28 @@ namespace MirraCloud.Example.Showcase
             return false;
         }
 
-        private void ShowEmailForm()
+        // Email, username or both — whichever the platform's password sign-in takes; the server says which is missing.
+        private void ShowPasswordForm()
         {
             _body.Clear();
 
             var email = Field("Email", false);
+            var username = Field("Username", false);
             var pass = Field("Password", true);
             _body.Add(email);
+            _body.Add(username);
             _body.Add(pass);
-            _body.Add(Block("Link", "sc-btn--primary", () => EmailLinkRequested?.Invoke(email.value, pass.value)));
+            _body.Add(Block("Link", "sc-btn--primary", () => PasswordLinkRequested?.Invoke(email.value, username.value, pass.value)));
             _body.Add(BackButton());
         }
 
-        private void ShowUsernameForm()
+        private void ShowEmailCodeForm()
         {
             _body.Clear();
 
-            var username = Field("Username", false);
-            var pass = Field("Password", true);
-            _body.Add(username);
-            _body.Add(pass);
-            _body.Add(Block("Link", "sc-btn--primary", () => UsernameLinkRequested?.Invoke(username.value, pass.value)));
+            var email = Field("Email", false);
+            _body.Add(email);
+            _body.Add(Block("Send code", "sc-btn--primary", () => EmailCodeLinkRequested?.Invoke(email.value)));
             _body.Add(BackButton());
         }
 
