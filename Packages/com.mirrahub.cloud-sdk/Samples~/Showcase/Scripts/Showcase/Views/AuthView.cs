@@ -11,16 +11,19 @@ namespace MirraCloud.Example.Showcase
     /// The dedicated auth screen: brand + the sign-in buttons of this build's platform. The buttons are not
     /// hard-coded: the app layer asks <c>Authentication.GetLoginMethodsAsync()</c> and hands the answer to
     /// <see cref="ShowMethods"/>, so the screen offers exactly what the platform has switched on in the console —
-    /// Guest / Device / Email / Username as buttons, OpenID / Google / Apple / Yandex ID as provider tiles (each
-    /// opens an in-app WebView). Email and Username open a form popup. Raises intents; the app layer performs the
-    /// SDK calls.
+    /// Guest / Device / Password / Email code as buttons, OpenID / Google / Apple / Yandex ID as provider tiles (each
+    /// opens an in-app WebView). Password and Email code open a form popup: the password form asks for the email
+    /// and/or the username, whichever the platform takes. Raises intents; the app layer performs the SDK calls.
     /// </summary>
     public sealed class AuthView : VisualElement
     {
         public event Action GuestRequested;
         public event Action DeviceRequested;
-        public event Action<string, string> EmailLoginRequested;
-        public event Action<string, string> UsernameLoginRequested;
+        /// <summary>Email (or null), username (or null), password.</summary>
+        public event Action<string, string, string> PasswordLoginRequested;
+        /// <summary>Email or username of the account whose password is forgotten.</summary>
+        public event Action<string, string> PasswordResetRequested;
+        public event Action<string> EmailCodeRequested;
         /// <summary>The <see cref="LoginMethodDto.IntegrationKey"/> of the provider tile pressed.</summary>
         public event Action<string> OpenIdRequested;
         public event Action RetryRequested;
@@ -85,11 +88,12 @@ namespace MirraCloud.Example.Showcase
                     case LoginMethodKind.Guest:
                         _card.Add(Block("Continue as Guest", buttons++ == 0, () => GuestRequested?.Invoke()));
                         break;
-                    case LoginMethodKind.Email:
-                        _card.Add(Block("Continue with Email", buttons++ == 0, () => OpenCredentialsPopup("Email", "Email login", EmailLoginRequested)));
+                    case LoginMethodKind.Password:
+                        var fields = method.Password ?? new PasswordLoginMethodDto { Email = true, Username = true };
+                        _card.Add(Block("Continue with Password", buttons++ == 0, () => OpenPasswordPopup(fields)));
                         break;
-                    case LoginMethodKind.Username:
-                        _card.Add(Block("Continue with Username", buttons++ == 0, () => OpenCredentialsPopup("Username", "Username login", UsernameLoginRequested)));
+                    case LoginMethodKind.EmailCode:
+                        _card.Add(Block("Continue with Email code", buttons++ == 0, OpenEmailCodePopup));
                         break;
                     case LoginMethodKind.Device:
                         _card.Add(Block("Continue with Device", buttons++ == 0, () => DeviceRequested?.Invoke()));
@@ -195,19 +199,58 @@ namespace MirraCloud.Example.Showcase
             return b;
         }
 
-        private void OpenCredentialsPopup(string loginLabel, string title, Action<string, string> submitted)
+        // Only the fields the platform takes. Registration (createAccount) sends whatever is filled in; a sign-in
+        // needs just one of them.
+        private void OpenPasswordPopup(PasswordLoginMethodDto fields)
         {
             var form = new VisualElement();
             form.AddToClassList("sc-form");
-            var login = new TextField(loginLabel);
-            login.AddToClassList("sc-field");
-            var pass = new TextField("Password") { isPasswordField = true };
-            pass.AddToClassList("sc-field");
-            var submit = Block("Log in", true, () => submitted?.Invoke(login.value, pass.value));
-            form.Add(login);
+            var email = fields.Email ? Field("Email", false) : null;
+            var username = fields.Username ? Field("Username", false) : null;
+            var pass = Field("Password", true);
+            if (email != null) form.Add(email);
+            if (username != null) form.Add(username);
             form.Add(pass);
-            form.Add(submit);
-            _popup.Open(form, title);
+            if (fields.EmailVerification && email != null)
+            {
+                form.Add(Hint("Signing up with an email? We'll send a code to confirm it."));
+            }
+
+            form.Add(Block("Log in", true, () => PasswordLoginRequested?.Invoke(email?.value, username?.value, pass.value)));
+            var forgot = Block("Forgot password?", false, () => OpenResetPopup(fields));
+            forgot.style.marginTop = 4;
+            form.Add(forgot);
+            _popup.Open(form, "Password login");
+        }
+
+        private void OpenResetPopup(PasswordLoginMethodDto fields)
+        {
+            var form = new VisualElement();
+            form.AddToClassList("sc-form");
+            form.Add(Hint("We'll send a reset code to the account's confirmed email."));
+            var email = fields.Email ? Field("Email", false) : null;
+            var username = fields.Username ? Field("Username", false) : null;
+            if (email != null) form.Add(email);
+            if (username != null) form.Add(username);
+            form.Add(Block("Send code", true, () => PasswordResetRequested?.Invoke(email?.value, username?.value)));
+            _popup.Open(form, "Reset password");
+        }
+
+        private void OpenEmailCodePopup()
+        {
+            var form = new VisualElement();
+            form.AddToClassList("sc-form");
+            var email = Field("Email", false);
+            form.Add(email);
+            form.Add(Block("Send code", true, () => EmailCodeRequested?.Invoke(email.value)));
+            _popup.Open(form, "Email code login");
+        }
+
+        private static TextField Field(string label, bool isPassword)
+        {
+            var f = new TextField(label) { isPasswordField = isPassword };
+            f.AddToClassList("sc-field");
+            return f;
         }
 
         private static VisualElement Divider()

@@ -23,7 +23,7 @@ namespace MirraCloud.Core.Auth
     public class LoginMethodDto
     {
         /// <summary>
-        /// The kind as the server sends it (<c>guest</c>, <c>email</c>, <c>openid</c>, <c>google_play</c>, …).
+        /// The kind as the server sends it (<c>guest</c>, <c>password</c>, <c>openid</c>, <c>google_play</c>, …).
         /// Kept as text so a kind added on the server later reads as <see cref="LoginMethodKind.Unknown"/> instead
         /// of failing the whole list.
         /// </summary>
@@ -40,9 +40,29 @@ namespace MirraCloud.Core.Auth
         /// <summary>For <see cref="LoginMethodKind.OpenId"/>: the name to put on the button. Null for the other kinds.</summary>
         [JsonNameCamel] public string DisplayName;
 
+        /// <summary>For <see cref="LoginMethodKind.Password"/>: which fields to ask for. Null for the other kinds.</summary>
+        [JsonNameCamel] public PasswordLoginMethodDto Password;
+
         [JsonIgnore] public LoginMethodKind Kind => LoginMethodKinds.Parse(KindKey);
 
         /// <summary>A store sign-in (<see cref="LoginMethodKinds.IsStore"/>): <see cref="AuthenticationService.LoginPlatformAsync"/>.</summary>
         [JsonIgnore] public bool IsStore => LoginMethodKinds.IsStore(Kind);
+    }
+
+    /// <summary>What password sign-in takes on the platform.</summary>
+    [Serializable]
+    public class PasswordLoginMethodDto
+    {
+        /// <summary>Sign-in by email is on.</summary>
+        [JsonNameCamel] public bool Email;
+
+        /// <summary>Sign-in by username is on.</summary>
+        [JsonNameCamel] public bool Username;
+
+        /// <summary>
+        /// An email given at registration is confirmed by a code before the account is created: registration answers
+        /// <see cref="AuthResultStatus.EmailVerificationRequired"/>.
+        /// </summary>
+        [JsonNameCamel] public bool EmailVerification;
     }
 }

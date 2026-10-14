@@ -28,6 +28,14 @@ namespace MirraCloud.Core.Auth
         [JsonNameCamel] public AccountNicknameDto Nickname;
         /// <summary>Mutable, project-unique public handle (stored with the acc_ prefix).</summary>
         [JsonNameCamel] public string Username;
+        /// <summary>The account's email; with password sign-in by email it is the login. Null — none.</summary>
+        [JsonNameCamel] public string Email;
+        /// <summary>The player proved the email: a code from a letter, or the sign-in provider vouched for it.</summary>
+        [JsonNameCamel] public bool IsEmailVerified;
+        /// <summary>Phone number in the international format; null — none.</summary>
+        [JsonNameCamel] public string PhoneNumber;
+        /// <summary>Phone numbers are not confirmed yet: always false.</summary>
+        [JsonNameCamel] public bool IsPhoneNumberVerified;
         [JsonNameCamel] public Gender Gender;
         [JsonNameCamel] public int Age;
         [JsonName("iconKey")] public IconKeyDto IconKey;

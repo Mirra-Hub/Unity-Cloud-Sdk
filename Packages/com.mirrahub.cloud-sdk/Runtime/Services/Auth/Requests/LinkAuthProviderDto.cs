@@ -20,15 +20,20 @@ namespace MirraCloud.Core.Auth
         public string GuestId;
         public string DeviceId;
         public string Email;
-        public string UserId;
-        public string Login;
+        /// <summary>For a password conflict: the username the password is used with.</summary>
+        public string Username;
         public string Password;
 
         public string ExternalUserId;
         public string AuthCode;
         public string PlatformToken;
         public Dictionary<string, string> Extra;
-        /// <summary>Required when the linked provider has to create a new account.</summary>
-        public string Nickname;
+        /// <summary>
+        /// For an OpenID or Google / Apple / Yandex sign-in conflict: the <see cref="GetAuthDataDto.CredentialTicket"/>
+        /// of the conflict answer. Left empty, the SDK fills in the ticket of the last conflict.
+        /// </summary>
+        public string CredentialTicket;
+        /// <summary>What this client runs on; the SDK fills it.</summary>
+        public SessionDeviceDto Device;
     }
 }

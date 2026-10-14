@@ -113,8 +113,12 @@ foreach (var method in op.Result.Data.Methods)
 (ключ интеграции в консоли). Неизвестный платформе ключ → 403 `player_accounts.provider_not_on_platform`.
 
 - `LoginOpenIdAsync(providerKey, options)` — полный вход: открыть страницу провайдера, дождаться возврата, получить сессию.
-- `BeginOpenIdLoginUrlAsync(providerKey, successUrl)` — получить URL страницы провайдера (низкоуровневый шаг 1).
-- `StartOpenIdLoginAsync(providerKey, successUrl)` / `CompleteOpenIdLoginAsync(openIdKey)` — двухшаговый flow.
+- `StartOpenIdLoginAsync(providerKey, successUrl)` → code verifier / `CompleteOpenIdLoginAsync(openIdKey, codeVerifier)` — двухшаговый flow: verifier из первого шага нужен второму.
+- `BeginOpenIdLoginUrlAsync(providerKey, successUrl, codeChallenge)` — получить URL страницы провайдера (низкоуровневый шаг 1); пару verifier/challenge даёт `OpenIdPkce.CreateVerifier()` / `OpenIdPkce.ChallengeOf(verifier)`.
+
+**Результат привязан к клиенту (PKCE).** На старте SDK отправляет `codeChallenge = base64url(SHA-256(verifier))`, а результат забирает `POST …/openid/result { resultKey, codeVerifier }`. Ключ результата одноразовый; неверный verifier — 401 `player_accounts.openid_verifier_mismatch`. Ключ, утёкший через адрес возврата, без verifier бесполезен.
+
+**Адреса возврата.** `successUrl` должен быть встроенным приёмником SDK — WebView `https://mirra-openid.local/callback` или loopback `http://127.0.0.1|localhost:<порт>/mirra-openid/…` (Editor/Standalone) — либо адресом из списка платформы «Адреса возврата после входа» в консоли (WebGL-домен игры, deep-link вроде `myapp://mirra-openid`). Иначе 403 `player_accounts.success_url_not_allowed`.
 
 ### OpenIdLoginOptions
 
@@ -130,7 +134,7 @@ foreach (var method in op.Result.Data.Methods)
 Если `UseInAppWebView = true`, `LoginOpenIdAsync` открывает OAuth-страницу внутри приложения (через `WebViewService`, обёртка над `gree/unity-webview`), без выхода пользователя в системный браузер и **без необходимости настраивать deep-link схему на мобилках**.
 
 Требования:
-- `WebViewCallbackUrl` должен быть добавлен в список допустимых `successUrl` интеграции провайдера (консоль → «Интеграции»).
+- `WebViewCallbackUrl` по умолчанию разрешён всегда; свой адрес нужно добавить в «Адреса возврата после входа» платформы.
 - `WebViewService` должен быть инициализирован (инициализируется автоматически при `MirraCloudSDK.Initialize()`).
 - Поддерживаемые платформы: Editor, Standalone (Windows/macOS), Android, iOS. На WebGL и Editor/Linux режим вернёт ошибку валидации.
 
@@ -154,12 +158,16 @@ var op = MirraCloudSDK.Authentication.LoginOpenIdAsync(method.IntegrationKey, op
 | `LinkUsernameAsync(username, password, createAccount)` | Привязать username |
 | `LinkGoogleSignInAsync` / `LinkSignInWithAppleAsync` / `LinkYandexSignInAsync(externalUserId, idToken, authCode, extra, createAccount)` | Привязать Google / Apple / Yandex ID |
 | `LinkPlatformAsync(extra, authCode, platformToken, externalUserId, createAccount)` | Привязать вход через магазин платформы текущей сессии |
-| `LinkOpenIdAsync(userId, createAccount)` | Привязать кастомный OpenID-аккаунт |
+| `LinkOpenIdAsync(providerKey, options)` | Привязать OpenID или Google / Apple / Yandex ID через страницу провайдера — как `LoginOpenIdAsync` |
 
 Привязка идёт на платформе текущей сессии: способ входа, которого на ней нет, сервер отклонит
 (`player_accounts.provider_not_on_platform`).
 
-`ResolveLinkConflictAsync(LinkAuthProviderDto dto)` — разрешение конфликта при привязке. Заполните `ProviderType`, `TargetAccountId` и поля своего провайдера (`GuestId`, `DeviceId`, `Email`/`Password`, `Login`/`Password`, `UserId`; для магазина — `ExternalUserId` / `AuthCode` / `Extra`). Платформу DTO не называет: конфликт магазина разрешается на платформе сессии.
+`ResolveLinkConflictAsync(LinkAuthProviderDto dto)` — разрешение конфликта при привязке. Заполните `ProviderType`, `TargetAccountId` (свой аккаунт или тот, чьи это креды) и поля своего провайдера (`GuestId`, `DeviceId`, `Email`/`Password`, `Login`/`Password`; для магазина — `ExternalUserId` / `AuthCode` / `Extra`). Платформу DTO не называет: конфликт магазина разрешается на платформе сессии.
+
+Для OpenID и Google / Apple / Yandex ID личность берётся только из **билета** конфликта: ответ-конфликт несёт `GetAuthDataDto.CredentialTicket` (одноразовый, 10 минут), его нужно передать в `LinkAuthProviderDto.CredentialTicket`. Если поле пустое, SDK подставит билет последнего конфликта. Без билета — `player_accounts.credential_ticket_required`, просроченный — `credential_ticket_not_found`.
+
+В конфликте `ExistingAccount` — чужой аккаунт в публичном виде (`PublicAccountDto`: id, ник, username, аватар).
 
 ## Отвязка (Unlink)
 
@@ -182,6 +190,12 @@ var op = MirraCloudSDK.Authentication.LoginOpenIdAsync(method.IntegrationKey, op
 - Автоматический refresh на 401/403: вызов с токеном SDK повторяет один раз после refresh сессии, только если отказ касается самой сессии — ответ шлюза без кода ошибки (нет/битый/просроченный JWT) или код `common.unauthorized`, `purchases.selected_profile_required`, `player_accounts.session_expired` / `session_mismatch` / `session_project_mismatch`. Отказ самого эндпоинта (`player_accounts.invalid_credentials`, `external_auth_invalid_id_token`, `provider_not_on_platform`, `avatar_change_disabled`, `common.forbidden`, отказы платформы `platforms.*` и любой другой код) возвращается сразу: без refresh и без повторной отправки. Вызовы входа (`NoAuth`) сессию не обновляют, как и раньше.
 - `LogoutAsync()` — выход из текущей сессии
 - `LogoutAllAsync()` — выход из всех сессий
+- `GetSessionsAsync(activeOnly = true)` → `List<PlayerSessionInfo>` — сессии игрока на всех устройствах: текущая первой (`IsCurrent`), дальше по последней активности (`LastSeenAt`), не больше 100. В каждой — устройство (`DeviceName`, `DeviceModel`, `DeviceType`), `ClientPlatform`, ОС, версия игры, ключ платформы проекта. Id устройства не отдаётся.
+- `RevokeSessionAsync(sessionId)` — завершить одну свою сессию; для текущей — то же, что `LogoutAsync()`.
+- `LogoutOtherSessionsAsync()` — завершить все сессии, кроме текущей (токен без id сессии — 400 `player_accounts.session_id_required`, нужен новый вход).
+- **Устройство.** Каждый вход, привязка, разрешение конфликта, старт входа через провайдера и refresh отправляют `SessionDeviceDto`: имя и модель устройства, тип, `ClientPlatform` (тип клиента: Android, iOS, WebGL, Windows, macOS, Linux, Editor, консоль), ОС, версии игры, SDK (`MirraCloudSdkInfo.Version`) и движка. Refresh обновляет в сессии ОС и версии. Местоположение и IP не передаются.
+- **Бан.** Вход в забаненный аккаунт — 403 `player_accounts.account_banned`; refresh забаненного аккаунта завершает сессию (`OnSessionExpired`) и поднимает `OnSessionRevoked` с кодом — повторять или перелогиниваться автоматически не нужно. Если выбранный профиль забанен (или профиля нет), вход и refresh проходят, но токен без профиля: `GetAuthDataDto.ProfileSelectionRequired = true` и событие `OnProfileSelectionRequired` — игра предлагает выбрать или создать профиль.
+- **Перебор паролей.** После 10 неудачных входов по одному email/username за 15 минут — 429 `player_accounts.too_many_attempts` (`data.retryAfterSeconds`), даже с верным паролем.
 
 ## Свойства
 
@@ -195,6 +209,8 @@ var op = MirraCloudSDK.Authentication.LoginOpenIdAsync(method.IntegrationKey, op
 - `OnAuthConflict` — конфликт при привязке
 - `OnSessionRefreshed` — сессия обновлена: восстановление в `InitializeAsync` или refresh после 401
 - `OnSessionExpired` — сессия закончилась (выход, `ClearLocalSession`, unlink, неудачный refresh)
+- `OnSessionRevoked(code)` — refresh отказал навсегда: аккаунт забанен (`player_accounts.account_banned`); приходит после `OnSessionExpired`
+- `OnProfileSelectionRequired` — вход или refresh без пригодного профиля (не выбран или забанен)
 
 ## Code
 - `Packages/com.mirrahub.cloud-sdk/Runtime/Services/Auth/*`
