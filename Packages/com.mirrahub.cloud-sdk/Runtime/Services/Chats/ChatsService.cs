@@ -72,6 +72,7 @@ namespace MirraCloud.Core.Chats
         public event Action<ChatMemberEvent> OnMemberRemoved;
         public event Action<ChatMemberBannedEvent> OnMemberBanned;
         public event Action<string> OnChannelDeleted;
+        public event Action<ChatMessagePermissionsChangedEvent> OnMessagePermissionsChanged;
         public event Action<ChatErrorEvent> OnError;
 
         public ChatsService(
@@ -897,6 +898,11 @@ namespace MirraCloud.Core.Chats
             dispatcher.Register("channelDeleted", new ChannelDeletedEventHandler(channelId =>
             {
                 OnChannelDeleted?.Invoke(channelId);
+            }));
+
+            dispatcher.Register("messagePermissionsChanged", new MessagePermissionsChangedEventHandler(_jsonService, change =>
+            {
+                OnMessagePermissionsChanged?.Invoke(change);
             }));
 
             return dispatcher;
