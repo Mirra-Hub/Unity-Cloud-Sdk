@@ -102,7 +102,7 @@ values), so each view only writes the happy-path render.
 | Challenges | Card per challenge with live progress bar, status, reward tiers, countdown |
 | Daily Rewards | Streak/progress header + day-by-day reward track + streak bonuses + milestones |
 | Groups | My groups / Discover → open a group: its card, the actions it allows, members, requests, roles, invites, bans |
-| Localization | Lookup by collection → language selector + key→translation table |
+| Localization | Opens a collection by key (`showcase_ui` by default) → language selector + key→translation table |
 | Segments | Player membership chips + all-segments status table |
 | Events | What LiveOps is running for this player, and the one screen that shows an event's effect: the same energy read through the catalog and through the runtime |
 | Entities | Config snapshot → per-config dynamic field table + components |
@@ -120,6 +120,13 @@ values), so each view only writes the happy-path render.
 
 ## Notes
 
+- **Translated by the Localization service.** The sample is written in English and translates itself at runtime
+  from the `showcase_ui` collection of the SDK Showcase package: the English text is the key (`Leaderboards` →
+  `Лидерборды`), and `ShowcaseLocalizer` swaps every text in the visual tree that has a translation — the
+  screens call no translation function. The collection is public, so it loads before sign-in. The language
+  follows the system one when the collection has it; the button in the bottom-left corner switches it. Without
+  the package or the network the sample simply stays in English. Code snippets stay in English on purpose.
+  Liberation Sans covers Latin, Cyrillic and Greek; a language outside those needs a font of its own.
 - **Read-only by intent.** Detail screens demonstrate reads (and a few non-destructive tools like
   promo redeem, profanity check, cloud-code invoke). Money/buy flows and bulk mutations are left
   out on purpose.

@@ -6,6 +6,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.15.0] — 2026-10-15
+
+Localization by collection key, and anonymous reads of public collections. Needs the matching backend release
+(collection keys, `api/cloud/sdk/localization/v1/.../collections/by-key/...` and the public door
+`api/cloud/sdk/public/localization/v1/...` on the SDK gateway): against an older backend the new calls answer 404.
+
+### Added
+
+- **`Localization.GetCollectionAsync(collectionKey, access)`** — a whole collection in one request
+  (`LocalizationCollectionDto`: keys with every translation, `Languages`, `DefaultLanguage`), with `Get(key, language)`
+  / `TryGet(...)` that fall back to the default language.
+- **`Localization.GetKeyAsync(collectionKey, key, access)`** and **`GetValueAsync(collectionKey, key, language, access)`**
+  — one key, or one value, by collection key.
+- **`LocalizationAccess`** (`Player`, `Public`, `Auto`) — like `AssetAccess`: `Public` reads a collection published in
+  the console without a player session (a private one answers 403 `game_localization.collection_not_public`), `Auto`
+  reads as the player when there is a session and anonymously otherwise. The default is `Auto`.
+- Error codes `GameLocalizationCollectionKeyInvalid`, `GameLocalizationCollectionKeyTaken`,
+  `GameLocalizationKeyNameTaken`, `GameLocalizationCollectionNotPublic`, `GameLocalizationAutoTranslateDisabled`,
+  `GameLocalizationImportFileInvalid`.
+- **Showcase translates itself** from the `showcase_ui` collection of the SDK Showcase package (English text is the
+  key; a language switch sits in the bottom-left corner). Without the package the sample stays in English. The
+  Localization screen opens that collection by key.
+
+### Changed
+
+- **Breaking:** `Localization.GetValuesAsync(collectionId, key)` returns `LocalizationResponseDto` — what the backend
+  always sent — instead of a list that never parsed.
+
+### Deprecated
+
+- `GetValuesAsync(collectionId, …)`, `GetValueAsync(collectionId, …)` and `GetAllLocalizationsAsync(collectionId)` —
+  the collection id changes when the collection is edited in a committed branch; use the key-based calls.
+
 ## [0.14.0] — 2026-10-15
 
 Message permissions in chats. Needs the matching backend release: against an older backend channels come without
