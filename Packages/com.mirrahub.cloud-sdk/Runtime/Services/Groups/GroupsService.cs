@@ -1,4 +1,5 @@
 using MirraCloud;
+using MirraCloud.Core.Chats.Dto;
 using MirraCloud.Core.Groups.Dto.Request;
 using MirraCloud.Core.Groups.Dto.Response;
 using MirraCloud.Core.Logger;
@@ -69,10 +70,25 @@ namespace MirraCloud.Core.Groups
             return _restApi.PostAsync(route);
         }
 
-        public AsyncOperation<RestApiResult<ChatConfigDto>> CreateChatAsync(string groupId)
+        /// <summary>
+        /// Creates the group's chat from the chat template <paramref name="chatTemplateKey"/>. Needs the
+        /// <c>CanUpdateGroupData</c> group permission.
+        /// </summary>
+        public AsyncOperation<RestApiResult<GroupDto>> CreateChatAsync(string groupId, string chatTemplateKey)
         {
             var route = $"{GroupsApi}/{_configuration.ProjectId}/groups/{groupId}/chat";
-            return _restApi.PostAsync<ChatConfigDto>(route);
+            return _restApi.PostAsync<GroupDto>(route, new CreateGroupChatDto { ChatTemplateKey = chatTemplateKey });
+        }
+
+        /// <summary>
+        /// Changes what players may do with messages in the group chat. Needs the <c>CanManageChat</c> group
+        /// permission and a chat template that allows it. Returns the chat with its new permissions.
+        /// </summary>
+        public AsyncOperation<RestApiResult<ChatChannelDto>> UpdateChatMessagePermissionsAsync(
+            string groupId, UpdateChatMessagePermissionsDto dto)
+        {
+            var route = $"{GroupsApi}/{_configuration.ProjectId}/groups/{groupId}/chat/message-permissions";
+            return _restApi.PutAsync<ChatChannelDto>(route, dto);
         }
 
         #endregion

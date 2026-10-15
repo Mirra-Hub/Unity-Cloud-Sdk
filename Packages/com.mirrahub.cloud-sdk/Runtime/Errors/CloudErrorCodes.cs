@@ -89,6 +89,7 @@ namespace MirraCloud.Core.Errors
         public const string ChatsChannelNameRequired = "chats.channel_name_required";
         public const string ChatsChannelNotActive = "chats.channel_not_active";
         public const string ChatsChannelNotFound = "chats.channel_not_found";
+        public const string ChatsChannelOverrideNotAllowed = "chats.channel_override_not_allowed";
         public const string ChatsChannelOwnerRefRequired = "chats.channel_owner_ref_required";
         public const string ChatsChannelTemplateKeyRequired = "chats.channel_template_key_required";
         public const string ChatsFilterGroupNotFound = "chats.filter_group_not_found";
@@ -100,7 +101,8 @@ namespace MirraCloud.Core.Errors
         public const string ChatsMessageAlreadyDeleted = "chats.message_already_deleted";
         public const string ChatsMessageBodyRequired = "chats.message_body_required";
         public const string ChatsMessageBodyTooLong = "chats.message_body_too_long";
-        public const string ChatsMessageNotAuthor = "chats.message_not_author";
+        public const string ChatsMessageDeleteForbidden = "chats.message_delete_forbidden";
+        public const string ChatsMessageEditForbidden = "chats.message_edit_forbidden";
         public const string ChatsMessageNotFound = "chats.message_not_found";
         public const string ChatsMessageNumberExceedsLast = "chats.message_number_exceeds_last";
         public const string ChatsMessageNumberInvalid = "chats.message_number_invalid";
@@ -517,9 +519,11 @@ namespace MirraCloud.Core.Errors
         public const string GroupsAlreadyMember = "groups.already_member";
         public const string GroupsCannotAssignOwnerRole = "groups.cannot_assign_owner_role";
         public const string GroupsCannotKickOwner = "groups.cannot_kick_owner";
+        public const string GroupsChatTemplateKeyRequired = "groups.chat_template_key_required";
         public const string GroupsDefaultMemberRoleImmutable = "groups.default_member_role_immutable";
         public const string GroupsDefaultMemberRoleNotFound = "groups.default_member_role_not_found";
         public const string GroupsGroupAlreadyHasChat = "groups.group_already_has_chat";
+        public const string GroupsGroupChatNotFound = "groups.group_chat_not_found";
         public const string GroupsGroupFull = "groups.group_full";
         public const string GroupsGroupNotFound = "groups.group_not_found";
         public const string GroupsInsufficientPermissions = "groups.insufficient_permissions";

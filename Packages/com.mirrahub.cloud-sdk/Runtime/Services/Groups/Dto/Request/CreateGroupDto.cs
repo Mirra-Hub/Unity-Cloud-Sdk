@@ -15,6 +15,9 @@ namespace MirraCloud.Core.Groups.Dto.Request
         [JsonNameCamel] public int MaxMembers;
         [JsonNameCamel] public string Metadata;
         [JsonNameCamel] public bool CreateChat;
+
+        /// <summary>Key of the chat template for the group chat. Required when <see cref="CreateChat"/> is set.</summary>
+        [JsonNameCamel] public string ChatTemplateKey;
         [JsonNameCamel] public bool AutoJoinMembers;
     }
 }

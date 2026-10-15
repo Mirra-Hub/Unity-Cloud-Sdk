@@ -6,6 +6,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.14.0] — 2026-10-15
+
+Message permissions in chats. Needs the matching backend release: against an older backend channels come without
+`MessagePermissions` and the group chat calls fail. Upgrade steps: pass a chat template key to
+`Groups.CreateChatAsync` and to `CreateGroupDto` when `CreateChat` is set, and read `chats.message_edit_forbidden` /
+`chats.message_delete_forbidden` instead of `chats.message_not_author`.
+
+### Added
+
+- **Message permissions.** `ChatChannelDto.MessagePermissions` (`ChatMessagePermissionsDto`) says whether the player
+  may edit or delete their own and other players' messages in the channel — the chat template's settings with the
+  group admin's changes applied. `CanEdit(ownMessage)` / `CanDelete(ownMessage)` pick the right one;
+  `MessagePermissionOverrides` holds the admin's raw changes. Also on `ChatPlayerChannelDto.Channel`.
+- **`Chats.OnMessagePermissionsChanged`** (`ChatMessagePermissionsChangedEvent`) — the group admin changed the rules
+  of a subscribed channel.
+- **`Groups.UpdateChatMessagePermissionsAsync(groupId, UpdateChatMessagePermissionsDto)`** — a member whose role has
+  the new `GroupPermissionsDto.CanManageChat` changes the group chat's message rules (`null` = as in the template),
+  if the chat template allows it (`chats.channel_override_not_allowed` otherwise). Returns the chat.
+- Error codes `ChatsMessageEditForbidden`, `ChatsMessageDeleteForbidden`, `ChatsChannelOverrideNotAllowed`,
+  `GroupsChatTemplateKeyRequired`, `GroupsGroupChatNotFound`.
+
+### Changed
+
+- **Breaking:** `Groups.CreateChatAsync(groupId, chatTemplateKey)` takes the chat template key and returns the group
+  (`GroupDto`) — it used to return a `ChatConfigDto` the server never sent.
+- **Breaking:** `CreateGroupDto.ChatTemplateKey` is required when `CreateChat` is set
+  (`groups.chat_template_key_required`); a group whose chat cannot be created is not created either.
+- Edit and delete are refused by the channel's message rules (`chats.message_edit_forbidden` /
+  `chats.message_delete_forbidden`, 403) instead of "author only".
+- Showcase: chat actions follow the channel's message rules; groups ask for a chat template and offer
+  «Chat message rules».
+
+### Removed
+
+- **Breaking:** `CloudErrorCodes.ChatsMessageNotAuthor` — the server no longer sends it.
+
 ## [0.13.0] — 2026-10-09
 
 Follows the backend's hardening of sign-in and player accounts. Needs that backend release: against an older backend

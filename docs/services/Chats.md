@@ -27,6 +27,10 @@
 - `DeleteMessageAsync(channelId, messageId)`
 - `MarkAsReadAsync(channelId, messageNumber)`
 
+Править и удалять сообщения можно по правам канала: `ChatChannelDto.MessagePermissions` — настройки шаблона чата
+(свои / чужие сообщения) с поправками админа группы; `CanEdit(own)` / `CanDelete(own)`. Отказ —
+`chats.message_edit_forbidden` / `chats.message_delete_forbidden`.
+
 ## События
 
 - `OnConnectionStateChanged` — смена состояния подключения
@@ -36,6 +40,7 @@
 - `OnMessageDeleted` — сообщение удалено
 - `OnMemberAdded` / `OnMemberRemoved` / `OnMemberBanned` — события участников
 - `OnChannelDeleted` — канал удалён
+- `OnMessagePermissionsChanged` — админ группы поменял права на сообщения в канале
 - `OnError` — ошибка
 
 ## Code

@@ -134,8 +134,9 @@ await sdk.Groups.LeaveAsync(groupId).Task();";
     Visibility = ""public"",
     JoinPolicy = ""open"",
     MaxMembers = 50,
-    CreateChat = true,         // asks for a chat channel up front
-    AutoJoinMembers = true     // ...and puts everyone who joins the group into it
+    CreateChat = true,               // asks for a chat channel up front
+    ChatTemplateKey = ""clan-chat"", // ...made from this chat template (required with CreateChat)
+    AutoJoinMembers = true           // ...and puts everyone who joins the group into it
 });
 await created.Task();
 
@@ -143,7 +144,14 @@ await sdk.Groups.UpdateAsync(groupId, new UpdateGroupDto { Description = ""Now w
 await sdk.Groups.DeleteAsync(groupId).Task();
 
 // A chat can also be added to an existing group:
-var chat = sdk.Groups.CreateChatAsync(groupId);";
+var chat = sdk.Groups.CreateChatAsync(groupId, ""clan-chat"");
+
+// A member whose role has CanManageChat adjusts the chat's message rules,
+// if the chat template allows it (null = as in the template):
+await sdk.Groups.UpdateChatMessagePermissionsAsync(groupId, new UpdateChatMessagePermissionsDto
+{
+    DeleteOthers = true
+}).Task();";
 
         private const int PageSize = 20;
 
@@ -718,6 +726,8 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                         .WithPlaceholder("open joins outright · request needs approval · invite is closed"),
                     FormField.Int("maxMembers", "Max members", 50),
                     FormField.Bool("chat", "Create a chat channel too", true),
+                    FormField.Text("chatTemplate", "Chat template key")
+                        .WithPlaceholder("Required with a chat: the console's chat template it is made from"),
                     FormField.Bool("chatAutoJoin", "Put new members into that chat", true)
                         .WithPlaceholder("Off means a player joins the group but not its chat, "
                             + "and cannot post there until they join the channel by hand"),
@@ -735,6 +745,7 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
                 JoinPolicy = values.Choice("joinPolicy"),
                 MaxMembers = Math.Max(1, values.Int("maxMembers")),
                 CreateChat = values.Bool("chat"),
+                ChatTemplateKey = values.Bool("chat") ? values.Text("chatTemplate") : null,
                 // Group membership and chat membership are separate records on the server: without
                 // this flag everyone who joins the group later stays outside its chat.
                 AutoJoinMembers = values.Bool("chatAutoJoin"),
@@ -1015,15 +1026,63 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
             return row;
         }
 
-        private async void CreateChat(string groupId)
+        private void OpenCreateChatDialog(string groupId)
         {
-            var outcome = await AwaitData(Sdk.Groups.CreateChatAsync(groupId), "Groups · create chat");
+            FormDialog.Open(Popup, "Add a chat channel",
+                new[]
+                {
+                    FormField.Text("chatTemplate", "Chat template key", null, true)
+                        .WithPlaceholder("The console's chat template the channel is made from"),
+                },
+                "Create", values => CreateChat(groupId, values.Text("chatTemplate")));
+        }
+
+        private async void CreateChat(string groupId, string chatTemplateKey)
+        {
+            var outcome = await AwaitData(Sdk.Groups.CreateChatAsync(groupId, chatTemplateKey), "Groups · create chat");
             Report(outcome, "Chat channel created", "Create chat");
             if (outcome.Ok && !_closed && groupId == _groupId)
             {
                 LoadGroup();
             }
         }
+
+        private static readonly string[] PermissionChoices = { "template", "allow", "deny" };
+
+        private void OpenChatPermissionsDialog(string groupId)
+        {
+            FormDialog.Open(Popup, "Chat message rules",
+                new[]
+                {
+                    FormField.Choice("editOwn", "Edit own messages", PermissionChoices, "template"),
+                    FormField.Choice("deleteOwn", "Delete own messages", PermissionChoices, "template"),
+                    FormField.Choice("editOthers", "Edit others' messages", PermissionChoices, "template"),
+                    FormField.Choice("deleteOthers", "Delete others' messages", PermissionChoices, "template")
+                        .WithPlaceholder("template keeps the chat template's setting; the server refuses "
+                            + "unless your role can manage the chat and the template lets admins change it"),
+                },
+                "Save", values => UpdateChatPermissions(groupId, values));
+        }
+
+        private async void UpdateChatPermissions(string groupId, FormValues values)
+        {
+            var op = Sdk.Groups.UpdateChatMessagePermissionsAsync(groupId, new UpdateChatMessagePermissionsDto
+            {
+                EditOwn = ToOverride(values.Choice("editOwn")),
+                DeleteOwn = ToOverride(values.Choice("deleteOwn")),
+                EditOthers = ToOverride(values.Choice("editOthers")),
+                DeleteOthers = ToOverride(values.Choice("deleteOthers")),
+            });
+            var outcome = await AwaitData(op, "Groups · chat message rules");
+            Report(outcome, "Chat message rules saved", "Chat message rules");
+        }
+
+        private static bool? ToOverride(string choice) => choice switch
+        {
+            "allow" => true,
+            "deny" => false,
+            _ => null,
+        };
 
         // ----- what the player may do with this group -------------------------------------------
 
@@ -1097,7 +1156,12 @@ var chat = sdk.Groups.CreateChatAsync(groupId);";
             if (group.ChatConfig == null || string.IsNullOrEmpty(group.ChatConfig.ChannelId))
             {
                 row.Add(GlyphButton("Add a chat channel", LucideIcon.MessageCircle,
-                    () => CreateChat(group.GroupId)));
+                    () => OpenCreateChatDialog(group.GroupId)));
+            }
+            else
+            {
+                row.Add(GlyphButton("Chat message rules", LucideIcon.SlidersHorizontal,
+                    () => OpenChatPermissionsDialog(group.GroupId)));
             }
 
             if (owner)

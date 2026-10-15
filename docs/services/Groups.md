@@ -10,7 +10,10 @@
 - `DeleteAsync(groupId)`
 - `SearchAsync(query, visibility, page, pageSize)` → `PaginatedResult<GroupListItemDto>`
 - `JoinAsync(groupId)` — вступить в открытую группу
-- `CreateChatAsync(groupId)` → `ChatConfigDto` — создать чат группы
+- `CreateChatAsync(groupId, chatTemplateKey)` → `GroupDto` — создать чат группы из шаблона чата
+  (в `CreateGroupDto` при `CreateChat = true` поле `ChatTemplateKey` тоже обязательно)
+- `UpdateChatMessagePermissionsAsync(groupId, dto)` → `ChatChannelDto` — поменять права на сообщения в чате группы
+  (`null` = как в шаблоне); нужно право роли `CanManageChat` и разрешение в шаблоне чата
 
 ## Участники
 
