@@ -99,7 +99,11 @@ if (op.Result.IsSuccess)
 }";
 
         private const string EditSnippet =
-@"// Editing and deleting are realtime commands too, and only work on your own messages.
+@"// Editing and deleting are realtime commands too. What a player may edit or delete
+// (own / others' messages) comes from the chat template, adjusted by the group admin:
+ChatMessagePermissionsDto rules = channel.MessagePermissions;
+bool canEdit = rules.CanEdit(message.SenderId == myProfileId);
+
 var edit = sdk.Chats.EditMessageAsync(channelId, messageId, ""fixed typo"");
 await edit.Task();
 
@@ -861,9 +865,13 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             }
             column.Add(bubble);
 
-            if (mine && !deleted)
+            if (!deleted)
             {
-                column.Add(OwnActions(message));
+                var actions = MessageActions(message, mine);
+                if (actions != null)
+                {
+                    column.Add(actions);
+                }
             }
             row.Add(column);
 
@@ -875,19 +883,37 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             return row;
         }
 
-        private VisualElement OwnActions(ChatMessageDto message)
+        /// <summary>
+        /// Edit and Delete as the channel's message rules allow them for this message — own or
+        /// someone else's. A channel loaded before the rules existed falls back to own messages only.
+        /// </summary>
+        private VisualElement MessageActions(ChatMessageDto message, bool mine)
         {
+            var rules = _channel?.MessagePermissions;
+            bool canEdit = rules != null ? rules.CanEdit(mine) : mine;
+            bool canDelete = rules != null ? rules.CanDelete(mine) : mine;
+            if (!canEdit && !canDelete)
+            {
+                return null;
+            }
+
             var actions = new VisualElement();
             actions.AddToClassList("sc-msg__actions");
 
-            var edit = new Button(() => OpenEditDialog(message)) { text = "Edit" };
-            edit.AddToClassList("sc-msg__action");
-            actions.Add(edit);
+            if (canEdit)
+            {
+                var edit = new Button(() => OpenEditDialog(message)) { text = "Edit" };
+                edit.AddToClassList("sc-msg__action");
+                actions.Add(edit);
+            }
 
-            var remove = new Button(() => ConfirmDelete(message)) { text = "Delete" };
-            remove.AddToClassList("sc-msg__action");
-            remove.AddToClassList("sc-msg__action--danger");
-            actions.Add(remove);
+            if (canDelete)
+            {
+                var remove = new Button(() => ConfirmDelete(message)) { text = "Delete" };
+                remove.AddToClassList("sc-msg__action");
+                remove.AddToClassList("sc-msg__action--danger");
+                actions.Add(remove);
+            }
             return actions;
         }
 
@@ -1026,6 +1052,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             Sdk.Chats.OnMemberRemoved += HandleMemberRemoved;
             Sdk.Chats.OnMemberBanned += HandleMemberBanned;
             Sdk.Chats.OnChannelDeleted += HandleChannelDeleted;
+            Sdk.Chats.OnMessagePermissionsChanged += HandleMessagePermissionsChanged;
             Sdk.Chats.OnError += HandleError;
         }
 
@@ -1046,6 +1073,7 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
             Sdk.Chats.OnMemberRemoved -= HandleMemberRemoved;
             Sdk.Chats.OnMemberBanned -= HandleMemberBanned;
             Sdk.Chats.OnChannelDeleted -= HandleChannelDeleted;
+            Sdk.Chats.OnMessagePermissionsChanged -= HandleMessagePermissionsChanged;
             Sdk.Chats.OnError -= HandleError;
         }
 
@@ -1167,6 +1195,20 @@ await sdk.Chats.LeaveAsync(channelId).Task();";
                 _channel = null;
                 _messages.Clear();
                 RenderNoChannel();
+            });
+        }
+
+        private void HandleMessagePermissionsChanged(ChatMessagePermissionsChangedEvent evt)
+        {
+            OnMain(() =>
+            {
+                LogEvent("message rules changed · " + Fmt.Id(evt.ChannelId, 10));
+                if (evt.ChannelId != _channelId || _channel == null)
+                {
+                    return;
+                }
+                _channel.MessagePermissions = evt.MessagePermissions;
+                RenderMessages(false);
             });
         }
 

@@ -12,5 +12,8 @@ namespace MirraCloud.Core.Groups.Dto.Response
         [JsonNameCamel] public bool CanUpdateGroupData;
         [JsonNameCamel] public bool CanDeleteGroup;
         [JsonNameCamel] public bool CanAddRoleToOthers;
+
+        /// <summary>Changes the group chat's message permissions, when its chat template allows it.</summary>
+        [JsonNameCamel] public bool CanManageChat;
     }
 }
