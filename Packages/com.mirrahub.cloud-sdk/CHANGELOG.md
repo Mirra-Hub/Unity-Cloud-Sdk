@@ -25,8 +25,8 @@ Localization by collection key, and anonymous reads of public collections. Needs
 - Error codes `GameLocalizationCollectionKeyInvalid`, `GameLocalizationCollectionKeyTaken`,
   `GameLocalizationKeyNameTaken`, `GameLocalizationCollectionNotPublic`, `GameLocalizationAutoTranslateDisabled`,
   `GameLocalizationImportFileInvalid`.
-- **Showcase translates itself** from the `showcase_ui` collection of the SDK Showcase package (English text is the
-  key; a language switch sits in the bottom-left corner). Without the package the sample stays in English. The
+- **Showcase translates itself** from the `showcase_ui` collection of the SDK Showcase package (a text is matched
+  by its English value; a language switch sits in the bottom-left corner). Without the package the sample stays in English. The
   Localization screen opens that collection by key.
 
 ### Changed

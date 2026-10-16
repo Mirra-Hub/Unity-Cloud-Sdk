@@ -17,10 +17,11 @@ namespace MirraCloud.Example.Showcase
     /// Translates the whole sample through the Localization service, from the <c>showcase_ui</c> collection
     /// the SDK Showcase package installs.
     /// <para>
-    /// The sample is written in English, and the English text <i>is</i> the key: a key named
-    /// <c>Leaderboards</c> holds <c>Лидерборды</c> in Russian. So no screen calls a translation function —
+    /// The sample is written in English, and a text is matched by its English value rather than by its key:
+    /// the key <c>common_leaderboard</c> holds <c>Leaderboard</c> in English and <c>Лидерборд</c> in Russian, so
+    /// every <c>Leaderboard</c> on screen becomes <c>Лидерборд</c>. No screen calls a translation function —
     /// a light pass over the visual tree swaps every text that has a translation, and swaps it back when the
-    /// language changes. Keys may carry <c>{0}</c>-style holes for text built at runtime
+    /// language changes. English values may carry <c>{0}</c>-style holes for text built at runtime
     /// (<c>{0} keys</c> → <c>ключей: {0}</c>).
     /// </para>
     /// <para>
@@ -188,26 +189,46 @@ namespace MirraCloud.Example.Showcase
 
             foreach (var entry in _collection.Keys)
             {
-                if (entry == null || string.IsNullOrEmpty(entry.KeyName))
+                string source = EnglishOf(entry);
+                if (string.IsNullOrEmpty(source))
                 {
                     continue;
                 }
 
                 string value = _collection.Get(entry.KeyName, Language);
-                if (string.IsNullOrEmpty(value) || value == entry.KeyName)
+                if (string.IsNullOrEmpty(value) || value == source)
                 {
                     continue;
                 }
 
-                if (entry.KeyName.Contains("{0}"))
+                if (source.Contains("{0}"))
                 {
-                    _templates.Add(new Template(entry.KeyName, value));
+                    _templates.Add(new Template(source, value));
                 }
                 else
                 {
-                    _exact[entry.KeyName] = value;
+                    _exact[source] = value;
                 }
             }
+        }
+
+        // The English value exactly — not the default-language fallback, which would match on another language.
+        private static string EnglishOf(LocalizationResponseDto entry)
+        {
+            if (entry?.Values == null)
+            {
+                return null;
+            }
+
+            foreach (var value in entry.Values)
+            {
+                if (value != null && value.LanguageCode == LanguageCode.En)
+                {
+                    return value.Value;
+                }
+            }
+
+            return null;
         }
 
         private string Translate(string source)

@@ -121,8 +121,9 @@ values), so each view only writes the happy-path render.
 ## Notes
 
 - **Translated by the Localization service.** The sample is written in English and translates itself at runtime
-  from the `showcase_ui` collection of the SDK Showcase package: the English text is the key (`Leaderboards` →
-  `Лидерборды`), and `ShowcaseLocalizer` swaps every text in the visual tree that has a translation — the
+  from the `showcase_ui` collection of the SDK Showcase package. A text is matched by its English value (the key
+  `common_leaderboard` holds `Leaderboard` / `Лидерборд`), and `ShowcaseLocalizer` swaps every text in the visual
+  tree that has a translation — the
   screens call no translation function. The collection is public, so it loads before sign-in. The language
   follows the system one when the collection has it; the button in the bottom-left corner switches it. Without
   the package or the network the sample simply stays in English. Code snippets stay in English on purpose.
