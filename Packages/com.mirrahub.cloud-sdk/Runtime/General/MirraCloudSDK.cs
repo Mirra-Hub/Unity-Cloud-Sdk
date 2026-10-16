@@ -136,7 +136,7 @@ namespace MirraCloud.Core
             Entities = RegisterService(new EntitiesService(configuration, logger, restApiClient));
             CloudSave = RegisterService(new CloudSaveService(configuration, logger, jsonService, restApiClient));
             Leaderboard = RegisterService(new LeaderboardService(configuration, logger, jsonService, restApiClient));
-            Localization = RegisterService(new LocalizationService(configuration, logger, restApiClient));
+            Localization = RegisterService(new LocalizationService(configuration, logger, restApiClient, Authentication));
             Tournaments = RegisterService(new TournamentsService(configuration, restApiClient, PlayerAccount));
             AssetsStorage = RegisterService(new AssetsStorageService(configuration, restApiClient, logger, _blobStorage, Authentication));
             Analytics = RegisterService(new AnalyticsService(configuration, logger, restApiClient));

@@ -11,14 +11,10 @@ namespace MirraCloud.Example.Showcase
     /// Localization screen: one collection's keys, the text they carry in the language picked in the
     /// toolbar, and how much of the collection that language actually covers.
     /// <para>
-    /// The service is lookup-driven — there is no endpoint that lists collections — so the id is typed
-    /// (or pasted from the console) and everything else follows from the single
-    /// <c>GetAllLocalizationsAsync</c> response. That response holds every language of every key, which
-    /// is what makes the coverage figures and the per-key dialog possible without further requests.
-    /// </para>
-    /// <para>
-    /// The language set is therefore only known once data has arrived: the toolbar filter starts empty
-    /// and is refilled from the response (see <see cref="SyncLanguageFilter"/>).
+    /// A collection is addressed by its key — the one set in the console, the same in every branch and
+    /// in every project the SDK Showcase package is installed into. It opens on <c>showcase_ui</c>, the
+    /// collection this very sample is translated from. Everything else follows from the single
+    /// <c>GetCollectionAsync</c> response, which holds every language of every key.
     /// </para>
     /// </summary>
     public sealed class LocalizationView : ServiceView
@@ -28,29 +24,25 @@ namespace MirraCloud.Example.Showcase
         /// <summary>Filler option for the language filter before any collection has been read.</summary>
         private const string NoLanguages = "—";
 
+        /// <summary>The collection the sample itself is translated from (installed by the SDK Showcase package).</summary>
+        private const string DefaultCollectionKey = "showcase_ui";
+
         private const string AllSnippet =
 @"// A collection is the unit of loading: one call brings every key with every translation.
-var op = sdk.Localization.GetAllLocalizationsAsync(collectionId);
+// Auto reads as the player once signed in, and anonymously before — a public collection
+// can translate the sign-in screen itself.
+var op = sdk.Localization.GetCollectionAsync(""showcase_ui"", LocalizationAccess.Auto);
 await op.Task();
 if (!op.Result.IsSuccess) { return; }
 
-foreach (LocalizationResponseDto row in op.Result.Data)
-{
-    // row.KeyName, row.StableId, row.GroupId, row.CreatedDate, row.UpdatedDate
-    foreach (LocalizationValueDto value in row.Values)
-    {
-        // value.LanguageCode (the LanguageCode enum), value.Value
-        Debug.Log(row.KeyName + "" ["" + value.LanguageCode + ""] = "" + value.Value);
-    }
-}
-
-// There is no ""list my collections"" endpoint — keep the id as a constant in the game, or
-// read it from the Mirra Hub console.";
+LocalizationCollectionDto collection = op.Result.Data;
+// collection.Languages, collection.DefaultLanguage, collection.Keys
+string play = collection.Get(""btn_play"", LanguageCode.Ru);   // falls back to the default language";
 
         private const string KeySnippet =
 @"// What a game calls in play: one key, instead of the whole collection.
-var all = sdk.Localization.GetValuesAsync(collectionId, key);       // every language of one key
-var one = sdk.Localization.GetValueAsync(collectionId, key, LanguageCode.En);
+var all = sdk.Localization.GetKeyAsync(""showcase_ui"", key);       // every language of one key
+var one = sdk.Localization.GetValueAsync(""showcase_ui"", key, LanguageCode.En);
 await one.Task();
 
 // An untranslated key answers with a failure rather than an empty string, so the caller keeps
@@ -60,7 +52,7 @@ string text = one.Result.IsSuccess ? one.Result.Data.Value : key;";
         private readonly List<LanguageCode> _languages = new List<LanguageCode>();
 
         private List<LocalizationResponseDto> _rows = new List<LocalizationResponseDto>();
-        private string _collectionId;
+        private string _collectionKey = DefaultCollectionKey;
         private string _query = string.Empty;
         private LanguageCode? _language;
         private Toolbar _bar;
@@ -94,24 +86,24 @@ string text = one.Result.IsSuccess ? one.Result.Data.Value : key;";
 
             Content.Add(BuildPicker());
 
-            if (string.IsNullOrEmpty(_collectionId))
+            if (string.IsNullOrEmpty(_collectionKey))
             {
                 SetStatus("No collection", ChipTone.Neutral);
                 Content.Add(ZeroState.Panel(LucideIcon.Languages, "No collection loaded",
                     "Localization is organised into collections: a collection holds keys, and every key "
-                    + "holds one string per language. Both are authored in the Mirra Hub console, and the "
-                    + "SDK has no call that lists collections — so paste an id above to read one.",
+                    + "holds one string per language. Both are authored in the Mirra Hub console — type a "
+                    + "collection key above to read one.",
                     null, null,
-                    "Console → your project → Localization → open a collection and copy its id."));
+                    "Console → your project → Localization → open a collection and copy its key."));
                 return;
             }
 
             var slot = AddSlot(0f);
             ViewBind.Load(
-                () => Sdk.Localization.GetAllLocalizationsAsync(_collectionId),
+                () => Sdk.Localization.GetCollectionAsync(_collectionKey),
                 slot,
-                BuildStrings,
-                data => data == null || data.Count == 0,
+                data => BuildStrings(data?.Keys),
+                data => data?.Keys == null || data.Keys.Count == 0,
                 new BindOptions
                 {
                     Label = "Localization collection",
@@ -134,7 +126,7 @@ string text = one.Result.IsSuccess ? one.Result.Data.Value : key;";
             var picker = new VisualElement();
             picker.AddToClassList("sc-chat-lookup");
 
-            var field = new TextField { label = "Collection id", value = _collectionId ?? string.Empty };
+            var field = new TextField { label = "Collection key", value = _collectionKey ?? string.Empty };
             field.AddToClassList("sc-field");
             field.RegisterCallback<KeyDownEvent>(e =>
             {
@@ -151,34 +143,35 @@ string text = one.Result.IsSuccess ? one.Result.Data.Value : key;";
             picker.Add(load);
             box.Add(picker);
 
-            var hint = new Label("The id is the collection's identifier in the console. A game normally "
-                + "keeps it as a constant, since there is no call that discovers it.");
+            var hint = new Label("The key is set when the collection is created in the console and never "
+                + "changes, so a game keeps it as a constant. showcase_ui is the collection this sample is "
+                + "translated from.");
             hint.AddToClassList("sc-fs-hint");
             box.Add(hint);
             return box;
         }
 
-        private void Open(string collectionId)
+        private void Open(string collectionKey)
         {
-            string id = collectionId == null ? null : collectionId.Trim();
+            string id = collectionKey == null ? null : collectionKey.Trim();
             if (string.IsNullOrEmpty(id))
             {
                 if (Toasts != null)
                 {
-                    Toasts.Info("Type a collection id first");
+                    Toasts.Info("Type a collection key first");
                 }
                 return;
             }
 
-            if (id != _collectionId)
+            if (id != _collectionKey)
             {
-                // The language set belongs to the collection, not to the screen: a new id starts from
+                // The language set belongs to the collection, not to the screen: a new key starts from
                 // "nothing known" so the filter cannot keep offering a language that is not there.
                 _languages.Clear();
                 _language = null;
                 _rows = new List<LocalizationResponseDto>();
             }
-            _collectionId = id;
+            _collectionKey = id;
             Refresh();
         }
 
