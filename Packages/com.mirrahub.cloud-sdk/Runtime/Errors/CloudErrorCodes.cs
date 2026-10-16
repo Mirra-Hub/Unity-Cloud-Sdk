@@ -514,6 +514,12 @@ namespace MirraCloud.Core.Errors
         public const string GameLocalizationSettingsNotFound = "game_localization.settings_not_found";
         public const string GameLocalizationTranslationEmptyTargets = "game_localization.translation_empty_targets";
         public const string GameLocalizationTranslationFailed = "game_localization.translation_failed";
+        public const string GameLocalizationCollectionKeyInvalid = "game_localization.collection_key_invalid";
+        public const string GameLocalizationCollectionKeyTaken = "game_localization.collection_key_taken";
+        public const string GameLocalizationKeyNameTaken = "game_localization.key_name_taken";
+        public const string GameLocalizationCollectionNotPublic = "game_localization.collection_not_public";
+        public const string GameLocalizationAutoTranslateDisabled = "game_localization.auto_translate_disabled";
+        public const string GameLocalizationImportFileInvalid = "game_localization.import_file_invalid";
 
         // === groups ===
         public const string GroupsAlreadyMember = "groups.already_member";

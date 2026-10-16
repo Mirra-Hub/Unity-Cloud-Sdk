@@ -26,6 +26,7 @@ namespace MirraCloud.Example.Showcase
         private Popup _popup;
         private Toasts _toasts;
         private ShowcaseContext _ctx;
+        private ShowcaseLocalizer _localizer;
 
         // True once we've navigated to the services screen. Guards against re-navigating when
         // Authentication.OnLogin fires again (a successful account link reuses the same
@@ -89,6 +90,11 @@ namespace MirraCloud.Example.Showcase
             // instance, so dialogs and toasts share one overlay.
             _ctx = new ShowcaseContext(_sdk, _images, _toasts, _popup, _nav);
 
+            // Before the first screen: the collection is public, so even the sign-in screen gets translated.
+            _localizer = new ShowcaseLocalizer(_sdk, screen);
+            _localizer.Attach(screen);
+            _localizer.Load();
+
             _sdk.Authentication.OnLogin += _ => OnLoggedIn();
             _sdk.Authentication.OnSessionExpired += ShowAuth;
 
@@ -148,6 +154,10 @@ namespace MirraCloud.Example.Showcase
 
             _authed = true;
             _popup?.Close();
+            if (!_localizer.IsLoaded)
+            {
+                _localizer.Load();
+            }
             ShowServices();
             MaybeShowLinkPrompt();
         }
