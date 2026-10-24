@@ -55,11 +55,13 @@ namespace MirraCloud.Core.Errors
         public const string AssetsStorageFileNameForbiddenCharacters = "assets_storage.file_name_forbidden_characters";
         public const string AssetsStorageFileNameForbiddenSequence = "assets_storage.file_name_forbidden_sequence";
         public const string AssetsStorageFileNameTooLong = "assets_storage.file_name_too_long";
+        public const string AssetsStorageFolderMoveIntoDescendant = "assets_storage.folder_move_into_descendant";
         public const string AssetsStorageFolderNameConflict = "assets_storage.folder_name_conflict";
         public const string AssetsStorageFolderNotFound = "assets_storage.folder_not_found";
         public const string AssetsStorageFolderProjectOrBranchMismatch = "assets_storage.folder_project_or_branch_mismatch";
         public const string AssetsStorageInsufficientStorage = "assets_storage.insufficient_storage";
         public const string AssetsStorageInvalidFolderId = "assets_storage.invalid_folder_id";
+        public const string AssetsStoragePublicItemRenameForbidden = "assets_storage.public_item_rename_forbidden";
         public const string AssetsStorageQuotaLookupFailed = "assets_storage.quota_lookup_failed";
         public const string AssetsStorageTargetFolderProjectMismatch = "assets_storage.target_folder_project_mismatch";
 

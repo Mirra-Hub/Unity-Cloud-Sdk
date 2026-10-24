@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 The SDK is `0.x`: the public API can change between minor versions. Breaking changes are marked
 **Breaking**.
 
+## [0.15.1] — 2026-10-24
+
+### Added
+
+- Error codes `AssetsStoragePublicItemRenameForbidden` and `AssetsStorageFolderMoveIntoDescendant`, mirrored from the
+  backend (renaming a public asset or folder, moving a folder into its own subfolder). The SDK itself does not call
+  these endpoints.
+
 ## [0.15.0] — 2026-10-15
 
 Localization by collection key, and anonymous reads of public collections. Needs the matching backend release
